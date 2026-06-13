@@ -1,0 +1,1964 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nota de Venta - Abastible | Sistema Corporativo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="libs/exceljs.min.js"></script>
+    <style>
+        /* ============================================================
+           ABSTIBLE CORPORATE IDENTITY 2025
+           ============================================================ */
+        
+        @font-face {
+            font-family: 'Ubuntu';
+            src: url('fonts/Ubuntu-Regular.ttf') format('truetype');
+            font-weight: 400;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Ubuntu';
+            src: url('fonts/Ubuntu-Medium.ttf') format('truetype');
+            font-weight: 500;
+            font-style: normal;
+        }
+        @font-face {
+            font-family: 'Ubuntu';
+            src: url('fonts/Ubuntu-Bold.ttf') format('truetype');
+            font-weight: 700;
+            font-style: normal;
+        }
+        
+        * { font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; }
+        body { background: #F0F2F5; margin: 0; padding: 0; }
+        
+        :root {
+            --aba-orange: #FE5100;
+            --aba-orange-dark: #E04E00;
+            --aba-orange-light: #FEF2E8;
+            --aba-blue: #001489;
+            --aba-blue-dark: #00106E;
+            --aba-blue-light: #EBEEF9;
+            --aba-gray: #54585A;
+            --aba-silver: #F8F8F8;
+            --aba-white: #FFFFFF;
+            --aba-border: #E5E7EB;
+        }
+        
+        .btn-primary { 
+            background: var(--aba-orange); 
+            color: white; 
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-primary:hover { background: var(--aba-orange-dark); }
+        
+        .btn-secondary { 
+            background: var(--aba-blue); 
+            color: white; 
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-secondary:hover { background: var(--aba-blue-dark); }
+        .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .cat-btn {
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+            cursor: pointer;
+        }
+        .cat-btn.active {
+            background: var(--aba-orange);
+            color: white;
+            border-color: var(--aba-orange);
+        }
+        .cat-btn:not(.active) { 
+            background: white; 
+            color: var(--aba-blue); 
+            border-color: var(--aba-border); 
+        }
+        .cat-btn:not(.active):hover { 
+            background: var(--aba-orange-light); 
+            border-color: var(--aba-orange); 
+        }
+        
+        .prod-row { transition: all 0.12s ease; cursor: pointer; border-left: 2px solid transparent; }
+        .prod-row:hover { background: var(--aba-orange-light); border-left-color: var(--aba-orange); }
+        
+        .input-cant, .input-ctta {
+            border: 1px solid var(--aba-border);
+            border-radius: 6px;
+            padding: 6px 8px;
+            background: white;
+        }
+        .input-cant { width: 70px; text-align: center; }
+        .input-ctta { width: 110px; text-align: right; font-family: monospace; }
+        .input-cant:focus, .input-ctta:focus {
+            outline: none;
+            border-color: var(--aba-orange);
+            box-shadow: 0 0 0 2px rgba(254, 81, 0, 0.1);
+        }
+        
+        .ctta-fixed {
+            display: inline-block;
+            background: var(--aba-silver);
+            color: var(--aba-gray);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid var(--aba-border);
+        }
+        
+        .badge-sin-cotizar {
+            display: inline-block;
+            background: #FEF3C7;
+            color: #D97706;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .sticky-header { position: sticky; top: 0; z-index: 40; background: white; border-bottom: 1px solid var(--aba-border); }
+        
+        .nota-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .nota-table th, .nota-table td {
+            border: 1px solid var(--aba-border);
+            padding: 10px 8px;
+            vertical-align: top;
+        }
+        .nota-table th {
+            background: var(--aba-orange);
+            font-weight: 700;
+            text-align: center;
+            color: white;
+            font-size: 11px;
+            text-transform: uppercase;
+        }
+        .nota-table tbody tr:hover td { background: var(--aba-orange-light); }
+        .nota-table tbody tr:nth-child(even) td { background-color: var(--aba-silver); }
+        .nota-table tbody tr:nth-child(even):hover td { background: var(--aba-orange-light); }
+        
+        .resumen-final { background: var(--aba-silver); border: 2px solid var(--aba-blue); border-radius: 12px; margin-top: 20px; }
+        
+        .step-transition { animation: fadeSlideIn 0.3s ease-out; }
+        @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s ease;
+        }
+        .modal-overlay.active { opacity: 1; visibility: visible; }
+        .modal-container {
+            background: white;
+            border-radius: 16px;
+            width: 90%;
+            max-width: 420px;
+            transform: scale(0.95);
+            transition: transform 0.2s ease;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+            overflow: hidden;
+        }
+        .modal-overlay.active .modal-container { transform: scale(1); }
+        .modal-header { padding: 20px 24px 12px 24px; border-bottom: 1px solid var(--aba-border); }
+        .modal-body { padding: 20px 24px; }
+        .modal-footer { padding: 16px 24px 24px 24px; display: flex; gap: 12px; justify-content: flex-end; background: var(--aba-silver); }
+        
+        .loader-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+        }
+        .loader-overlay.active { opacity: 1; visibility: visible; }
+        .loader-card {
+            background: white;
+            border-radius: 20px;
+            padding: 32px 40px;
+            text-align: center;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.15);
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 3px solid var(--aba-orange-light);
+            border-top: 3px solid var(--aba-orange);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 16px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        
+        .toast-premium {
+            background: white;
+            border-radius: 12px;
+            padding: 14px 18px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            min-width: 280px;
+            max-width: 380px;
+            position: relative;
+            overflow: hidden;
+            border-left: 4px solid;
+        }
+        .toast-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 3px;
+            width: 100%;
+            animation: progress 3.2s linear forwards;
+        }
+        @keyframes progress { from { width: 100%; } to { width: 0%; } }
+        
+        .input-error { border-color: #DC2626 !important; background-color: #FEF2F2 !important; }
+        
+        .warning-compact {
+            background: var(--aba-orange-light);
+            border-left: 4px solid var(--aba-orange);
+            border-radius: 8px;
+            padding: 10px 16px;
+            margin: 12px 20px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #C2410C;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .estado-badge {
+            background: #E8F5E9;
+            color: #2E7D32;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        @media print {
+            body { background: white; margin: 0; padding: 0; }
+            .no-print { display: none; }
+            .nota-table { border: 1px solid #000; }
+            .nota-table th, .nota-table td { border: 1px solid #000; }
+            .resumen-final { border: 1px solid #000; }
+            #printArea { margin: 0; padding: 20px; }
+            .nota-table { page-break-inside: avoid; }
+            .nota-table tr { page-break-inside: avoid; page-break-after: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="warningBaseExcel" class="warning-compact">
+    <span>⚠️</span>
+    <span>Debe cargar la Base Excel para habilitar centros, categorías y productos</span>
+</div>
+
+<!-- Botones superiores -->
+<div style="padding:15px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
+    <div class="flex flex-wrap gap-3 items-center">
+        <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
+        <button onclick="document.getElementById('excelFile').click()" id="btnCargarExcel" class="btn-secondary" style="padding:12px 18px; border-radius:12px; font-weight:bold; font-size:14px;">
+            📂 Cargar Base Excel
+        </button>
+        
+        <div id="estadoBaseExcel" class="hidden flex items-center gap-3">
+            <span id="estadoBadge" class="estado-badge">
+                ✅ Base cargada
+            </span>
+            <span id="resumenProductos" class="text-xs" style="color: var(--aba-gray);"></span>
+        </div>
+        
+        <div id="accionesProyecto" style="display:flex; gap:10px;">
+            <button onclick="guardarProyecto()" class="btn-secondary" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
+                💾 Guardar Proyecto
+            </button>
+            <label class="btn-primary" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
+                📂 Cargar Proyecto
+                <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
+            </label>
+        </div>
+    </div>
+</div>
+
+<!-- HEADER -->
+<div class="sticky-header shadow-sm no-print">
+    <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
+        <div class="flex items-center gap-4">
+            <img src="logos/logo-abastible.png" alt="Abastible" class="h-14 w-auto object-contain" onerror="this.style.display='none'">
+            <div>
+                <div class="text-3xl font-bold" style="color: var(--aba-orange);">
+                    Nota de Venta · Instalaciones de Gas
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="badgeItems" class="hidden bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">0</span>
+            <button onclick="verHistorial()" class="px-4 py-2 border rounded-xl transition font-medium text-sm" style="border-color: var(--aba-blue); color: var(--aba-blue);">📋 Historial</button>
+            <button onclick="nuevaNota()" class="btn-primary px-4 py-2 rounded-xl font-semibold text-sm">+ Nueva Nota</button>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-screen-2xl mx-auto px-5 py-5" id="appContainer">
+
+    <!-- PASO 1 -->
+    <div id="paso1">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
+            <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
+                <h2 class="font-bold text-gray-800 text-lg">📋 Datos del Proyecto</h2>
+                <span class="text-xs px-2 py-1 rounded-full" style="color: var(--aba-gray); background: var(--aba-silver);">Paso 1 de 3</span>
+            </div>
+            <div class="p-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Proyecto <span class="text-red-500">*</span></label>
+                        <input type="text" id="nombreProyecto" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Cliente <span class="text-red-500">*</span></label>
+                        <input type="text" id="nombreCliente" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">RUT / ID</label>
+                        <input type="text" id="rutCliente" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Centro <span class="text-red-500">*</span></label>
+                        <select id="centro" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);"><option value="">-- Seleccione centro --</option></select></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Dirección</label>
+                        <input type="text" id="direccion" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Ciudad</label>
+                        <input type="text" id="ciudad" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Teléfono</label>
+                        <input type="text" id="telefono" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Fecha</label>
+                        <input type="date" id="fecha" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Vencimiento</label>
+                        <input type="date" id="vencimiento" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                </div>
+                <div class="flex justify-end mt-6">
+                    <button id="btnContinuar" onclick="irPaso2()" class="btn-secondary px-6 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" disabled style="opacity:0.5;">Continuar → Agregar Productos</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASO 2 -->
+    <div id="paso2" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border mb-4 px-5 py-3 flex flex-wrap gap-4 items-center justify-between" style="border-color: var(--aba-border);">
+            <div class="flex gap-6 flex-wrap text-sm">
+                <div><span class="text-xs" style="color: var(--aba-gray);">PROYECTO</span><br><strong id="resumenProyecto">-</strong></div>
+                <div><span class="text-xs" style="color: var(--aba-gray);">CLIENTE</span><br><strong id="resumenCliente">-</strong></div>
+                <div><span class="text-xs" style="color: var(--aba-gray);">CENTRO</span><br><strong id="resumenCentro">-</strong></div>
+                <div><span class="text-xs" style="color: var(--aba-gray);">CIUDAD</span><br><strong id="resumenCiudad">-</strong></div>
+            </div>
+            <div class="flex items-center gap-3">
+                <span id="resumenConteo" class="text-xs" style="color: var(--aba-gray);">0 ítems agregados</span>
+                <button onclick="volverPaso1()" class="text-sm" style="color: var(--aba-blue);">← Modificar datos</button>
+                <button onclick="irPaso3()" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">Ver Nota de Venta →</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4">
+            <div class="lg:col-span-1 space-y-4">
+                <div class="bg-white rounded-xl shadow-sm border p-4" style="border-color: var(--aba-border);">
+                    <div class="text-xs font-bold uppercase tracking-wide mb-3" style="color: var(--aba-gray);">Categorías</div>
+                    <div id="categoriasContainer" class="flex flex-col gap-1.5"></div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border p-4" style="border-color: var(--aba-border);">
+                    <div class="text-xs font-bold uppercase tracking-wide mb-2" style="color: var(--aba-gray);">Buscar</div>
+                    <input type="text" id="buscarProducto" placeholder="Código o descripción..." class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);">
+                    
+                    <div class="mt-5 border-t pt-4" style="border-color: var(--aba-border);">
+                        <div class="text-xs font-bold uppercase tracking-wide mb-3" style="color: var(--aba-gray);">➕ Ítem personalizado</div>
+                        <div class="space-y-3">
+                            <select id="customCategoria" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);" onchange="onCustomCategoriaChange()"></select>
+                            
+                            <!-- Formulario estándar -->
+                            <div id="formCustomNormal" class="space-y-3">
+                                <input type="text" id="customDesc" placeholder="Descripción del ítem" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="number" id="customCant" value="1" placeholder="Cant." class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                    <input type="text" id="customPrecioContratista" placeholder="Precio Contratista" class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                </div>
+                                <button onclick="agregarCustomItem()" class="btn-primary w-full rounded-xl text-sm font-semibold py-2">+ Agregar ítem</button>
+                                <div class="text-xs mt-1" style="color: var(--aba-gray);">* El precio que ingresa es el PRECIO CONTRATISTA</div>
+                            </div>
+                            
+                            <!-- Formulario Equipos / Servicio Compra Directa -->
+                            <div id="formCompraDirecta" class="space-y-3 hidden">
+                                <input type="text" id="cdNombre" placeholder="Nombre del equipo" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                <input type="text" id="cdProveedor" placeholder="Proveedor" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="number" id="cdCant" value="1" min="1" placeholder="Cant." class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);" oninput="calcularTotalCD()">
+                                    <input type="text" id="cdValorUnitario" placeholder="Valor Unitario" class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);" oninput="calcularTotalCD()">
+                                </div>
+                                <div class="flex items-center justify-between px-3 py-2 rounded-xl text-sm font-semibold" style="background: var(--aba-blue-light); color: var(--aba-blue);">
+                                    <span>Total:</span>
+                                    <span id="cdTotalCalc">$0</span>
+                                </div>
+                                <button onclick="agregarCompraDirecta()" class="btn-primary w-full rounded-xl text-sm font-semibold py-2">+ Agregar ítem</button>
+                                <div class="text-xs mt-1" style="color: var(--aba-gray);">* Total = Cantidad × Valor Unitario</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-xl border p-4 text-xs space-y-1" style="background: var(--aba-orange-light); border-color: #FED7AA; color: #C2410C;">
+                    <div class="font-semibold mb-1">💡 Tips</div>
+                    <div>• Clic en producto para agregarlo</div>
+                    <div>• Precio contratista se puede editar en la tabla</div>
+                    <div>• CAÑERÍAS AP/MP/BP utilizan PRECIO BASE</div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-3 space-y-4">
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
+                    <div class="px-4 py-3 border-b flex items-center justify-between" style="background: var(--aba-silver); border-color: var(--aba-border);">
+                        <span class="text-sm font-bold text-gray-700" id="categoriaActual">CONEXIONES</span>
+                        <span class="text-xs" style="color: var(--aba-gray);" id="countProductos"></span>
+                    </div>
+                    <div id="listaProductos" class="divide-y" style="max-height:320px;overflow-y:auto;"></div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
+                    <div class="px-4 py-3 border-b flex items-center justify-between" style="background: var(--aba-silver); border-color: var(--aba-border);">
+                        <span class="text-sm font-bold text-gray-700">📦 Items agregados</span>
+                        <span class="text-xs" style="color: var(--aba-gray);">Puede eliminarlos antes de continuar</span>
+                    </div>
+                    <div id="itemsAgregadosPaso2" class="divide-y" style="max-height:250px;overflow-y:auto;">
+                        <div class="text-center py-8 text-sm flex flex-col items-center gap-2" style="color: var(--aba-gray);">
+                            <span class="text-3xl">📭</span>
+                            <span>No hay items agregados</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PASO 3 -->
+    <div id="paso3" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
+            <div class="px-6 py-4 flex items-center justify-between" style="background: var(--aba-blue);">
+                <h2 class="text-white font-bold text-lg">📄 Nota de Venta</h2>
+                <div class="flex items-center gap-3">
+                    <span class="text-white/70 text-xs bg-white/10 px-3 py-1 rounded-full">Paso 3 de 3</span>
+                    <button onclick="volverPaso2()" class="text-white/80 text-sm hover:text-white">← Volver</button>
+                </div>
+            </div>
+
+            <div id="printArea">
+                <div class="px-6 py-4 border-b" style="background: var(--aba-silver); border-color: var(--aba-border);">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Proyecto</span><strong id="notaProyecto">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Cliente</span><strong id="notaCliente">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">RUT</span><strong id="notaRut">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Fecha</span><strong id="notaFecha">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Dirección</span><strong id="notaDireccion">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Ciudad</span><strong id="notaCiudad">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Teléfono</span><strong id="notaTelefono">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Centro</span><strong id="notaCentro">-</strong></div>
+                        <div><span class="text-xs block" style="color: var(--aba-gray);">Vencimiento</span><strong id="notaVencimiento">-</strong></div>
+                    </div>
+                </div>
+
+                <div class="p-4 overflow-x-auto">
+                    <div id="tablaNotaContainer" class="border rounded-lg overflow-hidden" style="border-color: var(--aba-border);"></div>
+                    <div id="resumenFinalContainer" class="resumen-final p-4 mt-4"></div>
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t flex justify-between no-print" style="border-color: var(--aba-border);">
+                <button onclick="volverPaso2()" class="px-5 py-2.5 rounded-lg text-sm font-semibold" style="background: var(--aba-silver); color: var(--aba-gray);">← Volver a productos</button>
+                <div class="flex gap-3">
+                    <button onclick="exportarAExcel()" class="btn-secondary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">📊 Exportar a Excel</button>
+                    <button onclick="guardarNota()" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">💾 Guardar Nota</button>
+                    <button onclick="imprimirNota()" class="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style="background: var(--aba-blue); color: white;">🖨️ Imprimir</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div id="panelHistorial" class="hidden">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
+            <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
+                <h2 class="font-bold text-gray-800 text-lg">📋 Historial de Notas</h2>
+                <div class="flex gap-2">
+                    <button onclick="nuevaNota()" class="btn-secondary px-4 py-2 text-sm rounded-lg">+ Nueva Nota</button>
+                    <button onclick="volverAlUltimoPaso()" class="px-4 py-2 rounded-lg text-sm" style="background: var(--aba-silver); color: var(--aba-gray);">← Volver</button>
+                </div>
+            </div>
+            <div id="historialList" class="p-6 space-y-3 max-h-[70vh] overflow-y-auto"></div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+// ============================================================
+// UTILS - Funciones de utilidad
+// ============================================================
+
+function $(id) { return document.getElementById(id); }
+
+function parsePrecio(valor) {
+    if (valor === null || valor === undefined || valor === '') return null;
+    
+    let str = String(valor).trim();
+    if (str === '') return null;
+    
+    str = str.replace(/[$]/g, '');
+    
+    let number;
+    
+    if (str.includes('.') && str.includes(',')) {
+        let sinPuntos = str.replace(/\./g, '');
+        let conPuntoDecimal = sinPuntos.replace(/,/g, '.');
+        number = parseFloat(conPuntoDecimal);
+    } 
+    else if (str.includes(',') && !str.includes('.')) {
+        let conPunto = str.replace(/,/g, '.');
+        number = parseFloat(conPunto);
+    }
+    else if (str.includes('.') && !str.includes(',')) {
+        const puntos = (str.match(/\./g) || []).length;
+        if (puntos > 1) {
+            let sinPuntos = str.replace(/\./g, '');
+            number = parseInt(sinPuntos, 10);
+        } else {
+            number = parseFloat(str);
+        }
+    }
+    else {
+        number = parseFloat(str);
+    }
+    
+    return isNaN(number) ? null : number;
+}
+
+function fmt(n) { 
+    if (isNaN(n) || n === null || n === 0) return "0";
+    return Math.round(n).toLocaleString("es-CL"); 
+}
+
+function escapeHTML(str) {
+    return String(str || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function generarUUID() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return 'ID-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+}
+
+// Categorías sin precio contratista (CAÑERÍAS - el precio contratista = precio base)
+const CATS_SIN_CTTA = ["CAÑERÍAS AP", "CAÑERÍAS MP", "CAÑERÍAS BP"];
+function tieneCTTA(categoria) { return !CATS_SIN_CTTA.includes(categoria); }
+
+// Categorías especiales de compra directa (no vienen del Excel)
+const CATS_COMPRA_DIRECTA = ["EQUIPOS COMPRA DIRECTA", "SERVICIO COMPRA DIRECTA"];
+
+function mostrarToast(msg, tipo = 'ok') {
+    const icons = { ok: '✅', error: '❌', warn: '⚠️', info: 'ℹ️' };
+    const colors = { ok: '#16a34a', error: '#dc2626', warn: '#ea580c', info: '#001489' };
+    
+    let cont = document.getElementById('toastContainerPremium');
+    if (!cont) {
+        cont = document.createElement('div');
+        cont.id = 'toastContainerPremium';
+        cont.style.position = 'fixed';
+        cont.style.bottom = '20px';
+        cont.style.right = '20px';
+        cont.style.zIndex = '999999';
+        cont.style.display = 'flex';
+        cont.style.flexDirection = 'column';
+        cont.style.gap = '12px';
+        document.body.appendChild(cont);
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-premium';
+    toast.style.borderLeftColor = colors[tipo];
+    toast.innerHTML = `
+        <span style="font-size:20px">${icons[tipo]}</span>
+        <span style="flex:1; font-weight:500; font-size:13px; color:#1f2937">${msg}</span>
+        <div class="toast-progress" style="background:${colors[tipo]}"></div>
+    `;
+    cont.appendChild(toast);
+    setTimeout(() => { toast.remove(); }, 3200);
+}
+
+function showConfirmModal(message, title = "Confirmar") {
+    return new Promise((resolve) => {
+        let overlay = document.getElementById('premiumModal');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'premiumModal';
+            overlay.className = 'modal-overlay';
+            overlay.innerHTML = `
+                <div class="modal-container">
+                    <div class="modal-header">
+                        <h3 style="font-size:18px; font-weight:700; color:#001489; margin:0">${title}</h3>
+                    </div>
+                    <div class="modal-body">
+                        <p style="margin:0; color:#374151; font-size:14px" id="modalMessage">${message}</p>
+                    </div>
+                    <div class="modal-footer">
+                        <button id="modalCancelBtn" style="background:#F8F8F8; border:1px solid #E5E7EB; padding:10px 20px; border-radius:40px; font-weight:600; cursor:pointer;">Cancelar</button>
+                        <button id="modalConfirmBtn" style="background:#DC2626; border:none; padding:10px 20px; border-radius:40px; font-weight:600; cursor:pointer; color:white">Eliminar</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+        const msgEl = document.getElementById('modalMessage');
+        if (msgEl) msgEl.textContent = message;
+        overlay.classList.add('active');
+        
+        const cancelBtn = document.getElementById('modalCancelBtn');
+        const confirmBtn = document.getElementById('modalConfirmBtn');
+        
+        const cleanup = () => {
+            overlay.classList.remove('active');
+            cancelBtn?.removeEventListener('click', handleCancel);
+            confirmBtn?.removeEventListener('click', handleConfirm);
+        };
+        const handleCancel = () => { cleanup(); resolve(false); };
+        const handleConfirm = () => { cleanup(); resolve(true); };
+        
+        cancelBtn?.addEventListener('click', handleCancel);
+        confirmBtn?.addEventListener('click', handleConfirm);
+    });
+}
+
+function showLoader(message = "Procesando...") {
+    let loader = document.getElementById('premiumLoader');
+    if (!loader) {
+        loader = document.createElement('div');
+        loader.id = 'premiumLoader';
+        loader.className = 'loader-overlay';
+        loader.innerHTML = `
+            <div class="loader-card">
+                <div class="spinner"></div>
+                <div style="font-weight:600; color:#1f2937; margin-top:8px" id="loaderMessage">${message}</div>
+            </div>
+        `;
+        document.body.appendChild(loader);
+    }
+    const msgSpan = document.querySelector('#premiumLoader #loaderMessage');
+    if (msgSpan) msgSpan.textContent = message;
+    loader.classList.add('active');
+}
+function hideLoader() {
+    const loader = document.getElementById('premiumLoader');
+    if (loader) loader.classList.remove('active');
+}
+
+function mostrarSolo(id) {
+    const steps = ["paso1","paso2","paso3","panelHistorial"];
+    steps.forEach(p => {
+        const el = $(p);
+        if (el) {
+            if (p === id) {
+                el.classList.remove("hidden");
+                el.classList.add("step-transition");
+                setTimeout(() => el.classList.remove("step-transition"), 300);
+            } else {
+                el.classList.add("hidden");
+                el.classList.remove("step-transition");
+            }
+        }
+    });
+}
+
+// ============================================================
+// GLOBALES
+// ============================================================
+let centros = [];
+let categoriasList = [];
+let dbProductos = {};
+let centroActivo = "";
+let categoriaActiva = "";
+let itemsNota = [];
+let notasGuardadas = [];
+
+// ============================================================
+// FUNCIÓN PARA RESETEAR ESTADO DE BASE DE DATOS
+// ============================================================
+function resetearEstadoBase() {
+    const btnCargarExcel = document.getElementById('btnCargarExcel');
+    if(btnCargarExcel) {
+        btnCargarExcel.classList.remove('btn-primary');
+        btnCargarExcel.classList.add('btn-secondary');
+        btnCargarExcel.style.background = '';
+    }
+    
+    const estadoBaseExcel = document.getElementById('estadoBaseExcel');
+    if(estadoBaseExcel) {
+        estadoBaseExcel.classList.add('hidden');
+    }
+    
+    const warning = document.getElementById('warningBaseExcel');
+    if(warning) warning.style.display = 'block';
+    
+    const btnContinuar = document.getElementById('btnContinuar');
+    if(btnContinuar){ 
+        btnContinuar.disabled = true; 
+        btnContinuar.style.opacity = '0.5'; 
+    }
+}
+
+// ============================================================
+// FUNCIÓN PARA ACTUALIZAR ESTADO DE BASE CARGADA
+// ============================================================
+function actualizarEstadoBaseCargada() {
+    const warning = document.getElementById('warningBaseExcel');
+    if(warning) warning.style.display = 'none';
+    
+    const btnCargarExcel = document.getElementById('btnCargarExcel');
+    if(btnCargarExcel) {
+        btnCargarExcel.classList.remove('btn-secondary');
+        btnCargarExcel.classList.add('btn-primary');
+        btnCargarExcel.style.background = 'var(--aba-orange)';
+    }
+    
+    const estadoBaseExcel = document.getElementById('estadoBaseExcel');
+    const resumenProductos = document.getElementById('resumenProductos');
+    if(estadoBaseExcel && resumenProductos) {
+        estadoBaseExcel.classList.remove('hidden');
+        const totalProductos = Object.values(dbProductos).reduce((sum, cats) => sum + cats.length, 0);
+        resumenProductos.textContent = `📊 ${totalProductos} productos • ${centros.length} centros • ${categoriasList.length} categorías`;
+    }
+    
+    const btnContinuar = document.getElementById('btnContinuar');
+    if(btnContinuar){ 
+        btnContinuar.disabled = false; 
+        btnContinuar.style.opacity = '1'; 
+    }
+}
+
+// ============================================================
+// VALIDACIÓN
+// ============================================================
+function validateRequiredFields() {
+    const proyecto = $("nombreProyecto");
+    const cliente = $("nombreCliente");
+    const centro = $("centro");
+    let isValid = true;
+    
+    [proyecto, cliente].forEach(field => {
+        if (!field.value.trim()) {
+            field.classList.add("input-error");
+            setTimeout(() => field.classList.remove("input-error"), 500);
+            isValid = false;
+        }
+    });
+    if (!centro.value) {
+        centro.classList.add("input-error");
+        setTimeout(() => centro.classList.remove("input-error"), 500);
+        isValid = false;
+    }
+    return isValid;
+}
+
+function obtenerPrecioBase(producto, centroSeleccionado) {
+    if (!centroSeleccionado) return producto.precios.default || 0;
+    return producto.precios[centroSeleccionado] !== undefined ? producto.precios[centroSeleccionado] : (producto.precios.default || 0);
+}
+
+// ============================================================
+// CENTROS Y CATEGORÍAS
+// ============================================================
+function inicializarCentros() {
+    const selectCentro = $("centro");
+    if(!selectCentro) return;
+    selectCentro.innerHTML = '<option value="">-- Seleccione centro --</option>';
+    if(centros && centros.length > 0) {
+        centros.forEach(c => {
+            const option = document.createElement("option");
+            option.value = c;
+            option.textContent = c;
+            selectCentro.appendChild(option);
+        });
+    }
+    if(centroActivo && centroActivo !== "") selectCentro.value = centroActivo;
+}
+
+function inicializarCategorias() {
+    const container = $("categoriasContainer");
+    const customCat = $("customCategoria");
+    container.innerHTML = "";
+    if(customCat) customCat.innerHTML = '<option value="">-- Seleccione categoría --</option>';
+    
+    // Asegurar que las categorías de compra directa estén en categoriasList
+    CATS_COMPRA_DIRECTA.forEach(cd => {
+        if (!categoriasList.includes(cd)) categoriasList.push(cd);
+    });
+    
+    categoriasList.forEach(cat => {
+        if (cat === "NO CONSIDERADO") return;
+        // No mostrar compra directa como botones de navegación (no tienen productos en la base)
+        if (!CATS_COMPRA_DIRECTA.includes(cat)) {
+            const btn = document.createElement("button");
+            btn.textContent = cat;
+            btn.className = `cat-btn w-full text-left px-3 py-2 rounded-lg text-sm font-medium ${categoriaActiva === cat ? "active" : ""}`;
+            btn.onclick = () => {
+                categoriaActiva = cat;
+                inicializarCategorias();
+                cargarProductos();
+                $("buscarProducto").value = "";
+            };
+            container.appendChild(btn);
+        }
+        if(customCat) {
+            const option = document.createElement("option");
+            option.value = cat;
+            option.textContent = cat;
+            if (CATS_COMPRA_DIRECTA.includes(cat)) {
+                option.style.fontWeight = '700';
+                option.style.color = '#FE5100';
+            }
+            customCat.appendChild(option);
+        }
+    });
+    $("categoriaActual").textContent = categoriaActiva;
+}
+
+// ============================================================
+// PRODUCTOS
+// ============================================================
+function cargarProductos() {
+    const lista = $("listaProductos");
+    if (!centroActivo || centros.length === 0) {
+        lista.innerHTML = '<div class="text-center py-12 text-sm flex flex-col items-center gap-2" style="color: var(--aba-gray);"><span class="text-3xl">⚠️</span><span>Seleccione un centro primero</span></div>';
+        return;
+    }
+    const busq = $("buscarProducto").value.toLowerCase().trim();
+    const prods = (dbProductos[categoriaActiva] || []).filter(p => {
+        const matchDesc = p.desc.toLowerCase().includes(busq);
+        const matchCod = p.cod.toLowerCase().includes(busq);
+        const coincideCentro = !p.centro || p.centro === centroActivo;
+        return (matchDesc || matchCod) && coincideCentro;
+    });
+    $("countProductos").textContent = `${prods.length} productos`;
+    if (prods.length === 0) {
+        lista.innerHTML = '<div class="text-center py-12 text-sm flex flex-col items-center gap-2" style="color: var(--aba-gray);"><span class="text-3xl">🔍</span><span>Sin resultados</span></div>';
+        return;
+    }
+    lista.innerHTML = prods.map(p => {
+        const precio = obtenerPrecioBase(p, centroActivo);
+        const enNota = itemsNota.find(it => it.codigo === p.cod && it.categoria === categoriaActiva && it.centro === centroActivo);
+        return `
+        <div class="prod-row px-4 py-3 flex items-center justify-between gap-3 ${enNota ? 'item-agregado' : ''}" onclick='agregarItem(${JSON.stringify(p.cod)})'>
+            <div class="flex-1 min-w-0">
+                <div class="font-medium text-gray-800 text-sm truncate">${escapeHTML(p.desc)}</div>
+                <div class="text-xs mt-0.5" style="color: var(--aba-gray);">${escapeHTML(p.cod)} · ${escapeHTML(p.um)}</div>
+            </div>
+            <div class="text-right shrink-0">
+                <div class="font-bold text-sm" style="color: var(--aba-blue);">$${fmt(precio)}</div>
+                ${enNota ? `<div class="text-xs text-green-600 font-semibold">✓ x${enNota.cantidad}</div>` : '<div class="text-xs" style="color: var(--aba-gray);">c/u</div>'}
+            </div>
+            <button class="shrink-0 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${enNota ? 'bg-green-100 text-orange-600 hover:bg-green-200' : 'btn-primary'}">
+                ${enNota ? '✓ Agregar más' : '+ Agregar'}
+            </button>
+        </div>`;
+    }).join("");
+}
+
+function agregarItem(codigo) {
+    const cat = categoriaActiva;
+    const prod = (dbProductos[cat] || []).find(p => p.cod === codigo && (!p.centro || p.centro === centroActivo));
+    if (!prod) return;
+    const precio = obtenerPrecioBase(prod, centroActivo);
+    const existente = itemsNota.find(i => i.codigo === codigo && i.categoria === cat && i.centro === centroActivo);
+    if (existente) existente.cantidad++;
+    else itemsNota.push({ 
+        id: generarUUID(), 
+        codigo, 
+        descripcion: prod.desc, 
+        categoria: cat, 
+        unidad: prod.um, 
+        cantidad: 1, 
+        precioBase: precio, 
+        precioCTTA: null,
+        centro: centroActivo,
+        tieneCotizacion: false
+    });
+    actualizarItemsAgregadosPaso2();
+    cargarProductos();
+    actualizarBadge();
+}
+
+function eliminarItemPaso2(index) { itemsNota.splice(index, 1); actualizarItemsAgregadosPaso2(); cargarProductos(); actualizarBadge(); }
+
+function actualizarItemsAgregadosPaso2() {
+    const container = $("itemsAgregadosPaso2");
+    if (itemsNota.length === 0) {
+        container.innerHTML = '<div class="text-center py-8 text-sm flex flex-col items-center gap-2" style="color: var(--aba-gray);"><span class="text-3xl">📭</span><span>No hay items agregados</span></div>';
+        return;
+    }
+    container.innerHTML = itemsNota.map((item, idx) => {
+        const provInfo = item.proveedor ? ` · 🏢 ${escapeHTML(item.proveedor)}` : '';
+        const precioLabel = item.precioBase > 0 ? `$${fmt(item.precioBase)} c/u` : `$${fmt(item.precioCTTA || 0)} c/u`;
+        return `
+        <div class="px-4 py-2 flex items-center justify-between">
+            <div class="flex-1"><div class="text-sm font-medium text-gray-800">${escapeHTML(item.descripcion)}</div><div class="text-xs" style="color: var(--aba-gray);">${escapeHTML(item.categoria)} · ${escapeHTML(item.unidad)} · x${item.cantidad} · ${precioLabel}${provInfo}</div></div>
+            <button onclick="eliminarItemPaso2(${idx})" class="text-red-500 hover:text-red-700 text-sm px-2 py-1 rounded hover:bg-red-50">✕ Eliminar</button>
+        </div>`;
+    }).join("");
+}
+
+function agregarCustomItem() {
+    const categoria = $("customCategoria").value;
+    if (CATS_COMPRA_DIRECTA.includes(categoria)) { agregarCompraDirecta(); return; }
+    const desc = $("customDesc").value.trim();
+    const cant = parseInt($("customCant").value);
+    const precioContratista = parsePrecio($("customPrecioContratista").value);
+    if (!categoria || !desc || isNaN(cant) || precioContratista === null) { mostrarToast("Complete todos los campos", "warn"); return; }
+    itemsNota.push({ 
+        id: generarUUID(), 
+        codigo: 'CUSTOM-' + generarUUID(), 
+        descripcion: desc, 
+        categoria: categoria, 
+        unidad: "ST", 
+        cantidad: cant, 
+        precioBase: 0, 
+        precioCTTA: precioContratista,
+        centro: centroActivo,
+        tieneCotizacion: true,
+        proveedor: null
+    });
+    $("customDesc").value = ""; $("customCant").value = 1; $("customPrecioContratista").value = "";
+    actualizarItemsAgregadosPaso2(); actualizarBadge(); cargarProductos();
+    mostrarToast("Ítem agregado con precio contratista: $" + fmt(precioContratista), "ok");
+}
+
+// ============================================================
+// COMPRA DIRECTA (Equipos / Servicios)
+// ============================================================
+function onCustomCategoriaChange() {
+    const cat = $("customCategoria").value;
+    const esCD = CATS_COMPRA_DIRECTA.includes(cat);
+    $("formCustomNormal").classList.toggle("hidden", esCD);
+    $("formCompraDirecta").classList.toggle("hidden", !esCD);
+    if (esCD) {
+        const esEquipo = cat === "EQUIPOS COMPRA DIRECTA";
+        $("cdNombre").placeholder = esEquipo ? "Nombre del equipo" : "Nombre del servicio";
+        $("cdNombre").value = "";
+        $("cdProveedor").value = "";
+        $("cdCant").value = 1;
+        $("cdValorUnitario").value = "";
+        $("cdTotalCalc").textContent = "$0";
+    }
+}
+
+function calcularTotalCD() {
+    const cant = parseInt($("cdCant").value) || 0;
+    const valor = parsePrecio($("cdValorUnitario").value) || 0;
+    $("cdTotalCalc").textContent = "$" + fmt(cant * valor);
+}
+
+function agregarCompraDirecta() {
+    const categoria = $("customCategoria").value;
+    const nombre = $("cdNombre").value.trim();
+    const proveedor = $("cdProveedor").value.trim();
+    const cant = parseInt($("cdCant").value);
+    const valorUnitario = parsePrecio($("cdValorUnitario").value);
+    
+    if (!nombre) { mostrarToast("Ingrese el nombre del " + (categoria === "EQUIPOS COMPRA DIRECTA" ? "equipo" : "servicio"), "warn"); return; }
+    if (!proveedor) { mostrarToast("Ingrese el proveedor", "warn"); return; }
+    if (isNaN(cant) || cant < 1) { mostrarToast("Ingrese una cantidad válida", "warn"); return; }
+    if (valorUnitario === null || valorUnitario <= 0) { mostrarToast("Ingrese el valor unitario", "warn"); return; }
+    
+    const prefijo = categoria === "EQUIPOS COMPRA DIRECTA" ? "ECD" : "SCD";
+    
+    itemsNota.push({ 
+        id: generarUUID(), 
+        codigo: prefijo + '-' + generarUUID(), 
+        descripcion: nombre, 
+        categoria: categoria, 
+        unidad: "ST", 
+        cantidad: cant, 
+        precioBase: 0, 
+        precioCTTA: valorUnitario,
+        centro: centroActivo,
+        tieneCotizacion: true,
+        proveedor: proveedor
+    });
+    
+    const total = cant * valorUnitario;
+    $("cdNombre").value = ""; $("cdProveedor").value = ""; $("cdCant").value = 1; $("cdValorUnitario").value = ""; $("cdTotalCalc").textContent = "$0";
+    actualizarItemsAgregadosPaso2(); actualizarBadge(); cargarProductos();
+    mostrarToast(`${nombre} agregado · Proveedor: ${proveedor} · Total: $${fmt(total)}`, "ok");
+}
+
+function actualizarBadge() {
+    const total = itemsNota.reduce((s, i) => s + i.cantidad, 0);
+    const badge = $("badgeItems");
+    const cont = $("resumenConteo");
+    if(badge) { badge.textContent = total; badge.classList.toggle("hidden", total === 0); }
+    if (cont) cont.textContent = `${itemsNota.length} ítem(s) — ${total} unidades`;
+}
+
+// ============================================================
+// RENDER NOTA (con lógica simplificada)
+// ============================================================
+let renderTimeout = null;
+function renderizarNotaFinal() {
+    if (renderTimeout) clearTimeout(renderTimeout);
+    renderTimeout = setTimeout(() => {
+        $("notaProyecto").textContent = $("nombreProyecto").value;
+        $("notaCliente").textContent = $("nombreCliente").value;
+        $("notaRut").textContent = $("rutCliente").value || "-";
+        $("notaFecha").textContent = $("fecha").value || new Date().toISOString().split("T")[0];
+        $("notaDireccion").textContent = $("direccion").value || "-";
+        $("notaCiudad").textContent = $("ciudad").value || "-";
+        $("notaTelefono").textContent = $("telefono").value || "-";
+        $("notaCentro").textContent = centroActivo || "-";
+        $("notaVencimiento").textContent = $("vencimiento").value || "-";
+
+        const grupos = {};
+        categoriasList.forEach(c => { grupos[c] = []; });
+        itemsNota.forEach((item, idx) => { if (grupos[item.categoria]) grupos[item.categoria].push({ ...item, globalIdx: idx }); });
+
+        let html = '<table class="nota-table"><thead><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>';
+        let totalGeneralBase = 0;
+        let totalGeneralMOI = 0;
+        let totalGeneralContratista = 0;
+
+        for (const cat of categoriasList) {
+            const items = grupos[cat];
+            if (!items || items.length === 0) continue;
+            let subtotalBase = 0;
+            let subtotalContratista = 0;
+            
+            for (const item of items) {
+                const totalBase = item.precioBase * item.cantidad;
+                subtotalBase += totalBase;
+                
+                // LÓGICA MODIFICADA PARA CAÑERÍAS
+                const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+                const esCategoriaSinEditable = categoriasSinCttaEditable.includes(item.categoria);
+                
+                let totalContratista = totalBase;
+                let precioCTTA = null;
+                let tieneCotizacion = false;
+                
+                if (esCategoriaSinEditable) {
+                    // USA EL PRECIO BASE AUTOMÁTICAMENTE
+                    precioCTTA = item.precioBase;
+                    totalContratista = totalBase;
+                    tieneCotizacion = true;
+                }
+                else if (item.precioCTTA !== null && item.precioCTTA > 0) {
+                    precioCTTA = item.precioCTTA;
+                    totalContratista = item.precioCTTA * item.cantidad;
+                    tieneCotizacion = true;
+                }
+                else {
+                    precioCTTA = null;
+                    totalContratista = 0;
+                    tieneCotizacion = false;
+                }
+                
+                subtotalContratista += totalContratista;
+                const diferencia = totalContratista - totalBase;
+                
+                html += `<tr class="item-row">`;
+                html += `<td>${escapeHTML(item.categoria)}</td>`;
+                const provTag = item.proveedor ? `<div class="text-xs mt-1" style="color: var(--aba-blue);">🏢 ${escapeHTML(item.proveedor)}</div>` : '';
+                html += `<td>${escapeHTML(item.descripcion)}${provTag}</td>`;
+                html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="1" class="input-cant" style="width:60px" onchange="cambiarCantidad(${item.globalIdx}, this.value)"></td>`;
+                html += `<td class="text-right">${item.precioBase > 0 ? '$' + fmt(item.precioBase) : '-'}</td>`;
+                html += `<td class="text-right">$${fmt(totalBase)}</td>`;
+                
+                if (esCategoriaSinEditable) {
+                    html += `<td class="text-right"><span class="ctta-fixed">PRECIO BASE</span></td>`;
+                    html += `<td class="text-right">$${fmt(totalBase)}</td>`;
+                    html += `<td class="text-right"><span class="ctta-fixed">0</span></td>`;
+                } else if (tieneCotizacion) {
+                    html += `<td class="text-right"><input type="text" value="${fmt(precioCTTA)}" class="input-ctta" onchange="cambiarPrecioCTTA(${item.globalIdx}, this.value)"></td>`;
+                    html += `<td class="text-right">$${fmt(totalContratista)}</td>`;
+                    const diffClass = diferencia > 0 ? 'text-green-600' : (diferencia < 0 ? 'text-red-600' : 'text-gray-500');
+                    html += `<td class="text-right ${diffClass}">${diferencia !== 0 ? (diferencia > 0 ? '+' : '') + '$' + fmt(Math.abs(diferencia)) : '$0'}</td>`;
+                } else {
+                    html += `<td class="text-right"><input type="text" value="" placeholder="Ingrese valor" class="input-ctta" onchange="cambiarPrecioCTTA(${item.globalIdx}, this.value)"></td>`;
+                    html += `<td class="text-right"><span class="badge-sin-cotizar">SIN COTIZAR</span></td>`;
+                    html += `<td class="text-right"><span class="badge-sin-cotizar">PENDIENTE</span></td>`;
+                }
+                html += `<td class="text-center"><button onclick="eliminarItem(${item.globalIdx})" class="text-red-500 hover:text-red-700 text-lg leading-none" style="font-size:18px">✕</button></td>`;
+                html += `</tr>`;
+            }
+            
+            const moi = subtotalContratista - subtotalBase;
+            const totalCat = subtotalBase + moi;
+            
+            html += `<tr class="subtotal-row"><td colspan="4" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td class="text-right"><strong>$${fmt(subtotalBase)}</strong></td><td class="text-right"></td><td class="text-right"><strong>$${fmt(subtotalContratista)}</strong></td><td class="text-right"><strong>${moi !== 0 ? (moi > 0 ? '+' : '') + '$' + fmt(moi) : '$0'}</strong></td><td></tr>`;
+            
+            if (moi !== 0) {
+                html += `<tr class="moi-row"><td colspan="4" class="text-right"><strong>🛠️ MANO DE OBRA INDUSTRIAL</strong></td><td class="text-right"></td><td class="text-right"></td><td class="text-right"></td><td class="text-right"><strong>+ $${fmt(moi)}</strong></td><td></tr>`;
+            }
+            
+            html += `<tr class="total-cat-row"><td colspan="4" class="text-right"><strong>TOTAL ${escapeHTML(cat)}</strong></td><td class="text-right"><strong>$${fmt(subtotalBase)}</strong></td><td class="text-right"></td><td class="text-right"><strong>$${fmt(totalCat)}</strong></td><td class="text-right"></td><td></tr>`;
+            html += `<tr style="height:8px"><td colspan="9" style="border:none"></tr></tr>`;
+            
+            totalGeneralBase += subtotalBase;
+            totalGeneralMOI += moi;
+            totalGeneralContratista += totalCat;
+        }
+        html += `</tbody></table>`;
+        $("tablaNotaContainer").innerHTML = html;
+        
+        const verificacionOK = Math.abs((totalGeneralBase + totalGeneralMOI) - totalGeneralContratista) < 5;
+        
+        $("resumenFinalContainer").innerHTML = `<div class="bg-white rounded-lg border-2 overflow-hidden" style="border-color: var(--aba-blue);">
+            <div class="text-white px-4 py-2 font-bold text-sm" style="background: var(--aba-blue);">📊 RESUMEN DE LA NOTA DE VENTA</div>
+            <div class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center p-3 rounded-lg" style="background: #EBEEF9;">
+                        <div class="text-xs font-semibold uppercase" style="color: var(--aba-blue);">Total Base Renova</div>
+                        <div class="text-2xl font-bold mt-1" style="color: var(--aba-blue);">$${fmt(totalGeneralBase)}</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg" style="background: #FEF2E8;">
+                        <div class="text-xs font-semibold uppercase" style="color: var(--aba-orange);">Total Mano de Obra Industrial</div>
+                        <div class="text-2xl font-bold mt-1" style="color: var(--aba-orange);">$${fmt(totalGeneralMOI)}</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg" style="background: #E8F5E9;">
+                        <div class="text-xs font-semibold uppercase" style="color: #2E7D32;">Total Contratista</div>
+                        <div class="text-2xl font-bold mt-1" style="color: #2E7D32;">$${fmt(totalGeneralContratista)}</div>
+                    </div>
+                </div>
+                <div class="mt-4 p-3 text-center rounded-lg ${verificacionOK ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}">
+                    <div class="font-bold text-sm ${verificacionOK ? 'text-green-700' : 'text-red-700'}">
+                        ${verificacionOK ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO'}
+                    </div>
+                    <div class="text-xs mt-1 font-mono">
+                        $${fmt(totalGeneralBase)} + $${fmt(totalGeneralMOI)} = $${fmt(totalGeneralBase + totalGeneralMOI)} 
+                        ${!verificacionOK ? `<br>≠ $${fmt(totalGeneralContratista)}` : ''}
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    }, 10);
+}
+
+function cambiarCantidad(idx, val) { 
+    const n = parseInt(val); 
+    if (isNaN(n) || n < 1) return; 
+    itemsNota[idx].cantidad = n; 
+    renderizarNotaFinal(); 
+}
+
+function cambiarPrecioCTTA(idx, val) {
+    const item = itemsNota[idx];
+    const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+    
+    // Si es una categoría no editable, NO hacer nada y mantener el precio base
+    if (categoriasSinCttaEditable.includes(item.categoria)) {
+        // Asegurar que el precioCTTA sea el base
+        item.precioCTTA = item.precioBase;
+        item.tieneCotizacion = true;
+        renderizarNotaFinal();
+        return;
+    }
+    
+    // Lógica original para otras categorías
+    if (!tieneCTTA(item.categoria)) { 
+        item.precioCTTA = null; 
+        renderizarNotaFinal();
+        return; 
+    }
+    let n = parsePrecio(val);
+    if (n !== null && n > 0) {
+        item.precioCTTA = n;
+        item.tieneCotizacion = true;
+    } else {
+        item.precioCTTA = null;
+        item.tieneCotizacion = false;
+    }
+    renderizarNotaFinal();
+}
+
+async function eliminarItem(idx) { 
+    itemsNota.splice(idx, 1); 
+    if (itemsNota.length === 0) { 
+        mostrarSolo("paso2"); 
+        actualizarItemsAgregadosPaso2(); 
+        inicializarCategorias(); 
+        cargarProductos(); 
+    } else { 
+        renderizarNotaFinal(); 
+    } 
+    actualizarBadge(); 
+}
+
+// ============================================================
+// EXCEL - Formato profesional con colores corporativos (MEJORADO)
+// ============================================================
+async function exportarAExcel() {
+    if (itemsNota.length === 0 && !$("nombreProyecto").value) { 
+        mostrarToast('No hay datos para exportar', 'warn'); 
+        return; 
+    }
+    if(typeof ExcelJS === 'undefined') { 
+        mostrarToast("Librería ExcelJS no cargada", "error"); 
+        return; 
+    }
+    
+    showLoader("Generando Excel...");
+    
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('NOTA DE VENTA');
+        
+        sheet.columns = [
+            { width: 18 },  // CATEGORIA
+            { width: 11.3 }, // CODIGO RENOVA
+            { width: 25 },   // DESCRIPCION (se ajustará dinámicamente)
+            { width: 14 },   // PRECIO RENOVA
+            { width: 10 },   // CANTIDAD
+            { width: 14 },   // PRECIO CONTRATISTA
+            { width: 16 },   // TOTAL RENOVA
+            { width: 16 },   // TOTAL CONTRATISTA
+            { width: 14 }    // DIFERENCIA
+        ];
+        
+        const formatMoney = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+        
+        const colors = {
+            orange: 'FFFE5100',
+            orangeLight: 'FFFFF7ED',
+            blue: 'FF001489',
+            blueLight: 'FFEBEEF9',
+            silver: 'FFF8F8F8',
+            grayText: 'FF54585A',
+            white: 'FFFFFFFF',
+            green: 'FF16A34A',
+            red: 'FFDC2626'
+        };
+        
+        function money(value) { 
+            if (value === null || value === undefined || value === '') return 0;
+            const num = Number(value);
+            return isNaN(num) ? 0 : num; 
+        }
+        
+        // Título
+        sheet.mergeCells('A1:I1');
+        const title = sheet.getCell('A1');
+        title.value = 'NOTA DE VENTA - COMPARATIVA PRESUPUESTO CONTRATISTA';
+        title.font = { bold: true, size: 14, color: { argb: colors.blue }, name: 'Ubuntu' };
+        title.alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.addRow([]);
+        
+        // Datos del proyecto
+        const datos = [
+            ['NOMBRE PROYECTO', $("nombreProyecto").value || ''],
+            ['NOMBRE CLIENTE', $("nombreCliente").value || ''],
+            ['RUT', $("rutCliente").value || '-'],
+            ['DIRECCION', $("direccion").value || '-'],
+            ['CIUDAD', $("ciudad").value || '-'],
+            ['TELEFONO', $("telefono").value || '-'],
+            ['CENTRO', centroActivo || '-'],
+            ['FECHA', $("fecha").value || '-'],
+            ['VENCIMIENTO', $("vencimiento").value || '-']
+        ];
+        datos.forEach(d => { 
+            const row = sheet.addRow(d);
+            row.eachCell(cell => {
+                cell.font = { size: 10, name: 'Ubuntu', color: { argb: colors.grayText } };
+                cell.border = { top: { style: 'hair' }, bottom: { style: 'hair' }, left: { style: 'hair' }, right: { style: 'hair' } };
+            });
+        });
+        sheet.addRow([]);
+        sheet.addRow([]);
+        
+        // Header principal de la tabla
+        const header = sheet.addRow(['CATEGORIA', 'CODIGO RENOVA', 'DESCRIPCION', 'PRECIO RENOVA', 'CANTIDAD', 'PRECIO CONTRATISTA', 'TOTAL RENOVA', 'TOTAL CONTRATISTA', 'DIFERENCIA']);
+        header.height = 28;
+        header.eachCell(c => {
+            c.font = { bold: true, color: { argb: colors.white }, size: 10, name: 'Ubuntu' };
+            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.orange } };
+            c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+            c.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        });
+        
+        // Agrupar por categoría
+        const grupos = {};
+        categoriasList.forEach(c => grupos[c] = []);
+        itemsNota.forEach(i => { 
+            if (grupos[i.categoria]) grupos[i.categoria].push(i); 
+        });
+        
+        let totalRenovaGeneral = 0;
+        let totalMOIGeneral = 0;
+        let totalContratistaGeneral = 0;
+        
+        for (const cat of categoriasList) {
+            const items = grupos[cat];
+            if (!items || items.length === 0) continue;
+            
+            let subtotalRenova = 0;
+            let subtotalContratista = 0;
+            
+            // Filas de productos
+            items.forEach(item => {
+                const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
+                const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
+                subtotalRenova += totalRenova;
+                
+                // LÓGICA MODIFICADA PARA CAÑERÍAS
+                const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+                const esCategoriaSinEditable = categoriasSinCttaEditable.includes(item.categoria);
+                
+                let totalContratistaItem = totalRenova;
+                let precioCTTA = null;
+                let tieneCotizacion = false;
+                
+                if (esCategoriaSinEditable) {
+                    tieneCotizacion = true;
+                    precioCTTA = item.precioBase;
+                    totalContratistaItem = totalRenova;
+                }
+                else if (item.precioCTTA !== null && item.precioCTTA > 0) {
+                    tieneCotizacion = true;
+                    precioCTTA = item.precioCTTA;
+                    totalContratistaItem = item.precioCTTA * item.cantidad;
+                }
+                else {
+                    tieneCotizacion = false;
+                    precioCTTA = null;
+                    totalContratistaItem = 0;
+                }
+                
+                subtotalContratista += totalContratistaItem;
+                const diferencia = totalContratistaItem - totalRenova;
+                
+                const row = sheet.addRow([
+                    cat,
+                    codigoLimpio,
+                    item.proveedor ? `${item.descripcion} (Proveedor: ${item.proveedor})` : item.descripcion,
+                    money(item.precioBase),
+                    item.cantidad,
+                    tieneCotizacion ? money(precioCTTA) : (esCategoriaSinEditable ? 'PRECIO BASE' : 'SIN COTIZAR'),
+                    money(totalRenova),
+                    tieneCotizacion ? money(totalContratistaItem) : (esCategoriaSinEditable ? money(totalRenova) : 'SIN COTIZAR'),
+                    tieneCotizacion ? money(diferencia) : (esCategoriaSinEditable ? '0' : 'PENDIENTE')
+                ]);
+                
+                row.eachCell(cell => {
+                    cell.border = { top: { style: 'hair' }, bottom: { style: 'hair' }, left: { style: 'hair' }, right: { style: 'hair' } };
+                    if (cell.col >= 4 && cell.col <= 9 && typeof cell.value === 'number') {
+                        cell.numFmt = formatMoney;
+                        cell.alignment = { horizontal: 'right' };
+                    }
+                    if (cell.col === 5) cell.alignment = { horizontal: 'center' };
+                });
+            });
+            
+            const moi = subtotalContratista - subtotalRenova;
+            const totalCat = subtotalRenova + moi;
+            
+            if (moi !== 0) {
+                const moiRow = sheet.addRow(['', '', 'MANO DE OBRA INDUSTRIAL', '', '', '', '', money(moi), '']);
+                moiRow.height = 22;
+                moiRow.eachCell(cell => {
+                    cell.font = { bold: true, color: { argb: colors.orange }, size: 10, name: 'Ubuntu' };
+                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.orangeLight } };
+                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                    cell.border = { top: { style: 'thin' }, bottom: { style: 'hair' }, left: { style: 'thin' }, right: { style: 'thin' } };
+                });
+                const moiCell = moiRow.getCell(8);
+                moiCell.numFmt = formatMoney;
+                moiCell.alignment = { horizontal: 'right' };
+            }
+            
+            const subtotalRow = sheet.addRow(['', '', 'SUBTOTAL ' + cat, '', '', '', money(subtotalRenova), money(subtotalContratista), '']);
+            subtotalRow.height = 20;
+            subtotalRow.eachCell(cell => {
+                cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.blueLight } };
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+            });
+            const subtotalRenovaCell = subtotalRow.getCell(7);
+            subtotalRenovaCell.numFmt = formatMoney;
+            subtotalRenovaCell.alignment = { horizontal: 'right' };
+            const subtotalCttaCell = subtotalRow.getCell(8);
+            subtotalCttaCell.numFmt = formatMoney;
+            subtotalCttaCell.alignment = { horizontal: 'right' };
+            
+            const totalCatRow = sheet.addRow(['', '', 'TOTAL ' + cat, '', '', '', money(subtotalRenova), money(totalCat), '']);
+            totalCatRow.height = 20;
+            totalCatRow.eachCell(cell => {
+                cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
+                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.silver } };
+                cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+            });
+            const totalRenovaCell = totalCatRow.getCell(7);
+            totalRenovaCell.numFmt = formatMoney;
+            totalRenovaCell.alignment = { horizontal: 'right' };
+            const totalCatCell = totalCatRow.getCell(8);
+            totalCatCell.numFmt = formatMoney;
+            totalCatCell.alignment = { horizontal: 'right' };
+            
+            sheet.addRow([]);
+            
+            totalRenovaGeneral += subtotalRenova;
+            totalMOIGeneral += moi;
+            totalContratistaGeneral += totalCat;
+        }
+        
+        const descColumn = sheet.getColumn(3);
+        let maxDescLength = 25;
+        itemsNota.forEach(item => {
+            if (item.descripcion) {
+                maxDescLength = Math.max(maxDescLength, item.descripcion.length);
+            }
+        });
+        descColumn.width = Math.min(maxDescLength + 4, 60);
+        descColumn.alignment = { wrapText: true, vertical: 'top' };
+        
+        const totalDetalle = totalRenovaGeneral + totalMOIGeneral;
+        const finalVerification = Math.abs(totalDetalle - totalContratistaGeneral) < 5;
+        
+        const totalRow = sheet.addRow(['', '', 'TOTAL DETALLE COMERCIAL', '', '', '', money(totalDetalle), money(totalContratistaGeneral), '']);
+        totalRow.height = 26;
+        totalRow.eachCell(cell => {
+            cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.blueLight } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        });
+        const totalDetalleCell = totalRow.getCell(7);
+        totalDetalleCell.numFmt = formatMoney;
+        totalDetalleCell.alignment = { horizontal: 'right' };
+        const totalCttaCell = totalRow.getCell(8);
+        totalCttaCell.numFmt = formatMoney;
+        totalCttaCell.alignment = { horizontal: 'right' };
+        
+        const verifyRow = sheet.addRow(['', '', finalVerification ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO', '', '', '', '', '', '']);
+        verifyRow.height = 22;
+        verifyRow.eachCell(cell => {
+            cell.font = { bold: true, size: 10, name: 'Ubuntu', color: { argb: finalVerification ? colors.green : colors.red } };
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: finalVerification ? 'FFE8F5E9' : 'FFFEF2F2' } };
+            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        });
+        
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const proyecto = $("nombreProyecto").value || 'SIN_PROYECTO';
+        link.href = URL.createObjectURL(blob);
+        link.download = `NOTA_VENTA_${proyecto.replace(/\s/g, '_')}.xlsx`;
+        link.click();
+        mostrarToast("Excel exportado correctamente", "ok");
+    } catch (error) {
+        console.error('Error exportando Excel:', error);
+        mostrarToast("Error exportando Excel", "error");
+    } finally {
+        hideLoader();
+    }
+}
+
+// ============================================================
+// IMPRESIÓN
+// ============================================================
+function imprimirNota() {
+    const printWindow = window.open('', '_blank');
+    if(!printWindow) { mostrarToast('Permita ventanas emergentes para imprimir', 'warn'); return; }
+    
+    const printContent = document.getElementById('printArea').cloneNode(true);
+    const proyecto = $("nombreProyecto").value || 'SIN PROYECTO';
+    
+    const style = document.createElement('style');
+    style.textContent = `
+        * { font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; margin: 0; padding: 0; box-sizing: border-box; }
+        body { padding: 20px; background: white; font-size: 12px; }
+        .header { margin-bottom: 20px; border-bottom: 2px solid #001489; padding-bottom: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .logo h1 { font-size: 24px; color: #001489; margin: 0; }
+        .logo p { font-size: 11px; color: #FE5100; margin: 5px 0 0 0; }
+        .title { text-align: center; margin: 20px 0; }
+        .title h2 { font-size: 18px; color: #001489; }
+        .datos { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 25px; background: #F8F8F8; padding: 15px; border-radius: 8px; font-size: 10px; }
+        .datos-item { line-height: 1.4; }
+        .datos-label { font-weight: 600; color: #54585A; text-transform: uppercase; font-size: 9px; }
+        .datos-value { font-weight: 500; color: #1f2937; }
+        table { width: 100%; border-collapse: collapse; font-size: 10px; margin: 15px 0; }
+        th, td { border: 1px solid #D1D5DB; padding: 8px 6px; text-align: left; vertical-align: top; }
+        th { background: #FE5100; color: white; font-weight: 700; text-align: center; }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .subtotal-row td { background-color: #F3F4F6; font-weight: 600; }
+        .moi-row td { background-color: #FEF3C7; }
+        .total-cat-row td { background-color: #DBEAFE; font-weight: 700; }
+        .resumen-final { margin-top: 25px; background: #F8F8F8; border: 2px solid #001489; border-radius: 12px; padding: 15px; }
+        .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #E5E7EB; text-align: center; font-size: 9px; color: #6B7280; }
+        @media print { body { padding: 0; margin: 0; } .no-print { display: none; } table { page-break-inside: avoid; } tr { page-break-inside: avoid; } }
+    `;
+    
+    printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nota de Venta - ' + proyecto + '</title></head><body>');
+    printWindow.document.head.appendChild(style);
+    
+    printWindow.document.write(`
+        <div class="header">
+            <div class="logo">
+                <h1>abastible</h1>
+                <p>Nota de Venta · Instalaciones de Gas</p>
+            </div>
+            <div style="text-align: right;">
+                <div style="font-weight: bold; color: #001489;">Corporativo Abastible</div>
+                <div style="font-size: 9px; color: #54585A;">Documento Oficial</div>
+            </div>
+        </div>
+        
+        <div class="title">
+            <h2>NOTA DE VENTA</h2>
+        </div>
+        
+        <div class="datos">
+            <div class="datos-item"><div class="datos-label">Proyecto</div><div class="datos-value">${escapeHTML($("nombreProyecto").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Cliente</div><div class="datos-value">${escapeHTML($("nombreCliente").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">RUT</div><div class="datos-value">${escapeHTML($("rutCliente").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Fecha</div><div class="datos-value">${escapeHTML($("fecha").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Dirección</div><div class="datos-value">${escapeHTML($("direccion").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Ciudad</div><div class="datos-value">${escapeHTML($("ciudad").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Teléfono</div><div class="datos-value">${escapeHTML($("telefono").value || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Centro</div><div class="datos-value">${escapeHTML(centroActivo || '-')}</div></div>
+            <div class="datos-item"><div class="datos-label">Vencimiento</div><div class="datos-value">${escapeHTML($("vencimiento").value || '-')}</div></div>
+        </div>
+    `);
+    
+    printWindow.document.body.appendChild(printContent);
+    
+    printWindow.document.write(`
+        <div class="footer">
+            <div>Abastible S.A. - Todos los derechos reservados</div>
+            <div>Este documento es una cotización oficial y no representa una factura de venta</div>
+        </div>
+        <script>
+            window.onload = function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 500);
+            };
+        <\/script>
+    `);
+    printWindow.document.close();
+}
+
+// ============================================================
+// HISTORIAL Y PROYECTOS
+// ============================================================
+function guardarNota() {
+    const proyecto = $("nombreProyecto").value.trim();
+    const cliente = $("nombreCliente").value.trim();
+    if (!proyecto || !cliente || !centroActivo) { mostrarToast("Complete todos los datos", "warn"); return; }
+    const nota = { 
+        id: generarUUID(), 
+        proyecto, 
+        cliente, 
+        rut: $("rutCliente").value, 
+        direccion: $("direccion").value, 
+        ciudad: $("ciudad").value, 
+        telefono: $("telefono").value, 
+        centro: centroActivo, 
+        fecha: $("fecha").value || new Date().toISOString().split("T")[0], 
+        vencimiento: $("vencimiento").value, 
+        items: JSON.parse(JSON.stringify(itemsNota)) 
+    };
+    const saved = localStorage.getItem("notasGas"); 
+    notasGuardadas = saved ? JSON.parse(saved) : [];
+    notasGuardadas.unshift(nota); 
+    if(notasGuardadas.length > 100) notasGuardadas = notasGuardadas.slice(0, 100);
+    localStorage.setItem("notasGas", JSON.stringify(notasGuardadas)); 
+    mostrarToast('Nota guardada correctamente', 'ok'); 
+    verHistorial();
+}
+
+function verHistorial() {
+    const saved = localStorage.getItem("notasGas"); 
+    notasGuardadas = saved ? JSON.parse(saved) : []; 
+    const container = $("historialList");
+    if (notasGuardadas.length === 0) {
+        container.innerHTML = '<div class="text-center py-12 flex flex-col items-center gap-2" style="color: var(--aba-gray);"><span class="text-4xl">📭</span><span>Sin notas guardadas</span></div>';
+    } else {
+        container.innerHTML = notasGuardadas.map(n => { 
+            const totalBase = n.items.reduce((s, i) => s + (i.precioBase || 0) * i.cantidad, 0); 
+            return `<div class="border rounded-xl p-4 hover:shadow-md transition-all" style="border-color: var(--aba-border);">
+                <div class="flex justify-between items-start gap-4 flex-wrap">
+                    <div>
+                        <div class="font-bold text-gray-800 text-lg">${escapeHTML(n.proyecto)}</div>
+                        <div class="text-sm mt-1" style="color: var(--aba-gray);">Cliente: ${escapeHTML(n.cliente)} · Centro: ${escapeHTML(n.centro)}</div>
+                        <div class="text-xs mt-1" style="color: var(--aba-gray);">📅 ${n.fecha} · ${n.items.length} ítem(s)</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-bold text-2xl" style="color: var(--aba-blue);">$${fmt(totalBase)}</div>
+                        <div class="flex gap-2 mt-3">
+                            <button onclick="cargarNota('${n.id}')" class="btn-primary px-3 py-1.5 text-white text-xs rounded-lg">Cargar</button>
+                            <button onclick="eliminarNota('${n.id}')" class="px-3 py-1.5 bg-red-100 text-red-600 text-xs rounded-lg hover:bg-red-200">Eliminar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`; 
+        }).join("");
+    }
+    mostrarSolo("panelHistorial");
+}
+
+async function eliminarNota(id) {
+    const confirmado = await showConfirmModal("¿Estás seguro de eliminar esta nota? Esta acción no se puede deshacer.", "Eliminar Nota");
+    if (!confirmado) return;
+    notasGuardadas = notasGuardadas.filter(n => n.id !== id);
+    localStorage.setItem("notasGas", JSON.stringify(notasGuardadas));
+    mostrarToast("Nota eliminada", "ok");
+    verHistorial();
+}
+
+function cargarNota(id) {
+    const nota = notasGuardadas.find(n => n.id === id); 
+    if (!nota) return;
+    $("nombreProyecto").value = nota.proyecto; 
+    $("nombreCliente").value = nota.cliente; 
+    $("rutCliente").value = nota.rut || ""; 
+    $("direccion").value = nota.direccion || ""; 
+    $("ciudad").value = nota.ciudad || ""; 
+    $("telefono").value = nota.telefono || ""; 
+    $("centro").value = nota.centro; 
+    $("fecha").value = nota.fecha; 
+    $("vencimiento").value = nota.vencimiento || ""; 
+    centroActivo = nota.centro; 
+    itemsNota = JSON.parse(JSON.stringify(nota.items)); 
+    inicializarCategorias();
+    cargarProductos();
+    renderizarNotaFinal(); 
+    mostrarSolo("paso3"); 
+    mostrarToast("Nota cargada", "ok");
+}
+
+function nuevaNota() { 
+    ["nombreProyecto","nombreCliente","rutCliente","direccion","ciudad","telefono","vencimiento"].forEach(id => $(id).value = ""); 
+    $("centro").value = ""; 
+    $("fecha").value = new Date().toISOString().split("T")[0]; 
+    centroActivo = ""; 
+    categoriaActiva = categoriasList && categoriasList.length > 0 ? categoriasList[0] : ""; 
+    itemsNota = []; 
+    actualizarBadge(); 
+    mostrarSolo("paso1"); 
+}
+
+function guardarProyecto() {
+    if(!$("nombreProyecto").value.trim()) { mostrarToast("Ingrese un nombre de proyecto", "warn"); return; }
+    const data = { 
+        proyecto: $("nombreProyecto").value, 
+        cliente: $("nombreCliente").value, 
+        rut: $("rutCliente").value, 
+        direccion: $("direccion").value, 
+        ciudad: $("ciudad").value, 
+        telefono: $("telefono").value, 
+        fecha: $("fecha").value, 
+        vencimiento: $("vencimiento").value, 
+        centroActivo: centroActivo, 
+        itemsNota: itemsNota, 
+        fechaGuardado: new Date().toISOString(), 
+        version: "1.0" 
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); 
+    const link = document.createElement("a"); 
+    link.href = URL.createObjectURL(blob); 
+    const nombre = data.proyecto ? data.proyecto.replace(/\s/g, "_") : "PROYECTO"; 
+    link.download = `NV_${nombre}.json`; 
+    link.click(); 
+    mostrarToast('Proyecto guardado correctamente', 'ok');
+}
+
+function cargarProyecto(event) {
+    const file = event.target.files[0]; 
+    if(!file) return; 
+    const reader = new FileReader();
+    reader.onload = function(e) { 
+        try { 
+            const data = JSON.parse(e.target.result); 
+            $("nombreProyecto").value = data.proyecto || ""; 
+            $("nombreCliente").value = data.cliente || ""; 
+            $("rutCliente").value = data.rut || ""; 
+            $("direccion").value = data.direccion || ""; 
+            $("ciudad").value = data.ciudad || ""; 
+            $("telefono").value = data.telefono || ""; 
+            $("fecha").value = data.fecha || ""; 
+            $("vencimiento").value = data.vencimiento || ""; 
+            centroActivo = data.centroActivo || ""; 
+            itemsNota = data.itemsNota || []; 
+            if(centroActivo && centros.length > 0) { 
+                inicializarCentros(); 
+                inicializarCategorias(); 
+                cargarProductos(); 
+                renderizarNotaFinal(); 
+            } else { 
+                mostrarToast("Cargue primero la Base Excel para visualizar el proyecto", "warn"); 
+                mostrarSolo("paso1"); 
+            } 
+            const aviso = document.getElementById('warningBaseExcel'); 
+            if(aviso && centros.length > 0) aviso.style.display = 'none'; 
+            mostrarToast('Proyecto cargado correctamente', 'ok'); 
+        } catch(error) { 
+            console.error(error); 
+            mostrarToast("Error cargando proyecto", "error"); 
+        } 
+    }; 
+    reader.readAsText(file);
+}
+
+// ============================================================
+// EXCEL - CARGA
+// ============================================================
+function cargarExcel(e) {
+    resetearEstadoBase();
+    const file = e.target.files[0];
+    if(!file) return;
+    if(typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
+    showLoader("Procesando Base Excel...");
+    
+    const reader = new FileReader();
+    reader.onload = function(evt) {
+        try {
+            const data = new Uint8Array(evt.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            
+            const hojasVisibles = [];
+            const sheetNames = workbook.SheetNames;
+            
+            for (let i = 0; i < sheetNames.length; i++) {
+                const sheetName = sheetNames[i];
+                let isHidden = false;
+                try {
+                    if (workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[i]) {
+                        const hiddenState = workbook.Workbook.Sheets[i].Hidden;
+                        if (hiddenState === 1 || hiddenState === 2) {
+                            isHidden = true;
+                        }
+                    }
+                } catch (err) {
+                    isHidden = false;
+                }
+                
+                if (!isHidden) {
+                    hojasVisibles.push(sheetName);
+                }
+            }
+            
+            if (hojasVisibles.length === 0) {
+                mostrarToast("No se encontraron hojas visibles en el Excel", "error");
+                hideLoader();
+                return;
+            }
+            
+            const datosTotales = [];
+            let filasValidas = 0;
+            let filasIgnoradas = 0;
+            
+            hojasVisibles.forEach(nombreHoja => { 
+                const hoja = workbook.Sheets[nombreHoja]; 
+                const datosHoja = XLSX.utils.sheet_to_json(hoja);
+                
+                datosHoja.forEach(item => {
+                    const categoriaVisual = nombreHoja;
+                    const codigo = String(item['código'] || item['codigo'] || '').trim();
+                    const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                    const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                    
+                    if (!categoriaVisual || categoriaVisual === '') {
+                        filasIgnoradas++;
+                        return;
+                    }
+                    if (!codigo || codigo === '') {
+                        filasIgnoradas++;
+                        return;
+                    }
+                    if (!descripcion || descripcion === '') {
+                        filasIgnoradas++;
+                        return;
+                    }
+                    if (precio === null || isNaN(precio) || precio <= 0) {
+                        filasIgnoradas++;
+                        return;
+                    }
+                    
+                    item.categoria = categoriaVisual;
+                    item.precio = precio;
+                    datosTotales.push(item);
+                    filasValidas++;
+                }); 
+            });
+            
+            if (filasValidas === 0) {
+                mostrarToast(`No se encontraron datos válidos en el Excel. ${filasIgnoradas} filas ignoradas.`, "warn");
+                hideLoader();
+                return;
+            }
+            
+            transformarBase(datosTotales, hojasVisibles);
+            const totalProductos = Object.values(dbProductos).reduce((sum, cats) => sum + cats.length, 0);
+            mostrarToast(`✅ Base cargada: ${totalProductos} productos en ${categoriasList.length} categorías`, "ok");
+            
+        } catch(error) { 
+            console.error(error); 
+            mostrarToast('Error leyendo Excel', 'error');
+            hideLoader();
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function transformarBase(datos, ordenCategoriasExplicit = null) {
+    dbProductos = {};
+    const centrosSet = new Set();
+    const categoriasSet = new Set();
+    
+    for (let cat in dbProductos) {
+        delete dbProductos[cat];
+    }
+    
+    datos.forEach(item => {
+        const categoriaVisual = String(item['categoria'] || item.categoria || '').trim();
+        if(!categoriaVisual) return;
+        categoriasSet.add(categoriaVisual);
+        const centro = String(item['centro'] || '').trim();
+        if(centro) centrosSet.add(centro);
+    });
+    
+    if (ordenCategoriasExplicit && ordenCategoriasExplicit.length > 0) {
+        categoriasList = ordenCategoriasExplicit.filter(cat => categoriasSet.has(cat));
+    } else {
+        categoriasList = Array.from(categoriasSet);
+    }
+    
+    if(!categoriasList.includes(categoriaActiva)) categoriaActiva = categoriasList[0] || "";
+    
+    datos.forEach(item => {
+        const categoriaVisual = String(item['categoria'] || item.categoria || '').trim();
+        if(!categoriaVisual) return;
+        
+        if(!dbProductos[categoriaVisual]) dbProductos[categoriaVisual] = [];
+        
+        const centro = String(item['centro'] || '').trim();
+        const codigo = String(item['código'] || item['codigo'] || '').replace(/^0+/, '').trim();
+        
+        let descLimpia = String(item['descripción'] || item['descripcion'] || '');
+        descLimpia = descLimpia.replace(/Ø/g, '⌀').replace(/∅/g, '⌀');
+        descLimpia = descLimpia.replace(/\u00A0/g, ' ').replace(/\t/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        const existe = dbProductos[categoriaVisual].find(p => 
+            p.cod === codigo && p.centro === centro
+        );
+        
+        if (!existe) {
+            dbProductos[categoriaVisual].push({
+                cod: codigo,
+                desc: descLimpia,
+                um: item['unidad_medida'] || 'ST',
+                centro: centro,
+                precios: { default: Number(item['precio'] || 0) }
+            });
+        }
+        
+        if(centro) centrosSet.add(centro);
+    });
+    
+    centros = Array.from(centrosSet).sort();
+    
+    // Actualizar UI para mostrar que la base está cargada
+    actualizarEstadoBaseCargada();
+    
+    inicializarCentros();
+    inicializarCategorias();
+    cargarProductos();
+    hideLoader();
+}
+
+// ============================================================
+// NAVEGACIÓN
+// ============================================================
+function irPaso2() {
+    if (!validateRequiredFields()) {
+        mostrarToast("Complete: Proyecto, Cliente y Centro", "warn");
+        return;
+    }
+    const proyecto = $("nombreProyecto").value.trim();
+    const cliente = $("nombreCliente").value.trim();
+    const centro = $("centro").value;
+    const ciudad = $("ciudad").value.trim();
+    centroActivo = centro;
+    $("resumenProyecto").textContent = proyecto;
+    $("resumenCliente").textContent = cliente;
+    $("resumenCentro").textContent = centro;
+    $("resumenCiudad").textContent = ciudad || "-";
+    mostrarSolo("paso2");
+    inicializarCategorias();
+    cargarProductos();
+    actualizarItemsAgregadosPaso2();
+}
+
+function volverPaso1() { mostrarSolo("paso1"); }
+function irPaso3() {
+    if (itemsNota.length === 0) { mostrarToast("Agregue al menos un producto", "warn"); return; }
+    renderizarNotaFinal();
+    mostrarSolo("paso3");
+}
+function volverPaso2() { mostrarSolo("paso2"); actualizarItemsAgregadosPaso2(); }
+function volverAlUltimoPaso() {
+    if (itemsNota.length > 0) irPaso3();
+    else if ($("nombreProyecto").value) { mostrarSolo("paso2"); inicializarCategorias(); cargarProductos(); actualizarItemsAgregadosPaso2(); }
+    else mostrarSolo("paso1");
+}
+
+// ============================================================
+// INICIALIZACIÓN
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => { 
+    $("fecha").value = new Date().toISOString().split("T")[0]; 
+    if($("buscarProducto")) $("buscarProducto").addEventListener("input", cargarProductos); 
+    const excelInput = document.getElementById('excelFile'); 
+    if(excelInput) excelInput.addEventListener('change', cargarExcel); 
+    categoriaActiva = "";
+});
+</script>
+
+</body>
+</html>

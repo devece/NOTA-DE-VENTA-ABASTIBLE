@@ -1,0 +1,111 @@
+{
+  "proyecto": "Restaurant Star Wars",
+  "cliente": "Dark Vader",
+  "rut": "12.345.678-9",
+  "direccion": "Estrella de la Muerte 345",
+  "ciudad": "Maipu",
+  "telefono": "+56 9 8765 4321",
+  "fecha": "2026-05-13",
+  "vencimiento": "2026-07-13",
+  "centroActivo": "Planta Maipú",
+  "itemsNota": [
+    {
+      "id": "c1bdc874-44f5-455c-b44f-0d9b6b45c1fa",
+      "codigo": "1002527",
+      "descripcion": "INST CAÑERIA CU PROTEGIDA TIPO L 1",
+      "categoria": "CAÑERIAS AP",
+      "unidad": "ml",
+      "cantidad": 1,
+      "precioBase": 9175,
+      "precioCTTA": null,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": false
+    },
+    {
+      "id": "20c21175-02db-42bb-9e70-d562cb80201d",
+      "codigo": "1002520",
+      "descripcion": "INSTA CAÑERIA CU ROLLO 18m TIPO L 3/4",
+      "categoria": "CAÑERIAS MP",
+      "unidad": "ml",
+      "cantidad": 1,
+      "precioBase": 8502,
+      "precioCTTA": null,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": false
+    },
+    {
+      "id": "ab769538-028b-42b4-94ac-de4e9261d4ac",
+      "codigo": "1002476",
+      "descripcion": "Instalación Cañería Cu Media/Baja Presión 1 1/2",
+      "categoria": "CAÑERIAS BP",
+      "unidad": "ml",
+      "cantidad": 1,
+      "precioBase": 9916,
+      "precioCTTA": null,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": false
+    },
+    {
+      "id": "28ca5573-fc97-4c7d-8948-6c791b2ddb63",
+      "codigo": "1001239",
+      "descripcion": "PINTURA MT CAÑERIA HASTA 3/4\"",
+      "categoria": "SERVICIO CAÑERIAS",
+      "unidad": "M",
+      "cantidad": 1,
+      "precioBase": 120,
+      "precioCTTA": 200,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": true
+    },
+    {
+      "id": "423a7d8f-8d93-4b1a-b713-bf1d5bdc1b98",
+      "codigo": "1001210",
+      "descripcion": "CONEXION BAÑO MARIA 1/2\"",
+      "categoria": "CONEXIONES",
+      "unidad": "ST",
+      "cantidad": 1,
+      "precioBase": 17117,
+      "precioCTTA": 25000,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": true
+    },
+    {
+      "id": "ec6c9479-9b02-47a0-b0cc-1c806d14df80",
+      "codigo": "1000013",
+      "descripcion": "BASES ESTANQUE SUPER BALON 190 KG.",
+      "categoria": "OBRAS CIVILES",
+      "unidad": "ST",
+      "cantidad": 1,
+      "precioBase": 12271,
+      "precioCTTA": 16000,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": true
+    },
+    {
+      "id": "edfc5819-19cb-48f5-913b-08d079466f5a",
+      "codigo": "1000818",
+      "descripcion": "CERTIFICACION INTEGRAL HABITACIONAL",
+      "categoria": "NORMALIZACIONES",
+      "unidad": "ST",
+      "cantidad": 1,
+      "precioBase": 91695,
+      "precioCTTA": 102000,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": true
+    },
+    {
+      "id": "5f34dcc6-cfff-487d-9bf4-64a22fada8d2",
+      "codigo": "1000850",
+      "descripcion": "DECLARACION SEC DEPTO - CASA",
+      "categoria": "NORMALIZACIONES",
+      "unidad": "ST",
+      "cantidad": 1,
+      "precioBase": 4026,
+      "precioCTTA": 9800,
+      "centro": "Planta Maipú",
+      "tieneCotizacion": true
+    }
+  ],
+  "fechaGuardado": "2026-05-14T00:08:10.034Z",
+  "version": "1.0"
+}
