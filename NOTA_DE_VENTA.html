@@ -285,9 +285,9 @@
 </head>
 <body>
 
-<div id="warningBaseExcel" class="warning-compact">
+<div id="warningBaseExcel" class="warning-compact" style="display:none;">
     <span>⚠️</span>
-    <span>Debe cargar la Base Excel para habilitar centros, categorías y productos</span>
+    <span>No se encontró la base de datos. Use el botón "Cargar otra Base Excel" para seleccionarla manualmente</span>
 </div>
 
 <!-- Botones superiores -->
@@ -295,7 +295,7 @@
     <div class="flex flex-wrap gap-3 items-center">
         <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
         <button onclick="document.getElementById('excelFile').click()" id="btnCargarExcel" class="btn-secondary" style="padding:12px 18px; border-radius:12px; font-weight:bold; font-size:14px;">
-            📂 Cargar Base Excel
+            📂 Cargar otra Base Excel
         </button>
         
         <div id="estadoBaseExcel" class="hidden flex items-center gap-3">
@@ -1748,6 +1748,87 @@ function cargarProyecto(event) {
 // ============================================================
 // EXCEL - CARGA
 // ============================================================
+
+// Procesa los datos de un archivo Excel (usado por ambos métodos de carga)
+function procesarExcelData(arrayBuffer) {
+    try {
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        
+        const hojasVisibles = [];
+        const sheetNames = workbook.SheetNames;
+        
+        for (let i = 0; i < sheetNames.length; i++) {
+            const sheetName = sheetNames[i];
+            let isHidden = false;
+            try {
+                if (workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[i]) {
+                    const hiddenState = workbook.Workbook.Sheets[i].Hidden;
+                    if (hiddenState === 1 || hiddenState === 2) {
+                        isHidden = true;
+                    }
+                }
+            } catch (err) {
+                isHidden = false;
+            }
+            
+            if (!isHidden) {
+                hojasVisibles.push(sheetName);
+            }
+        }
+        
+        if (hojasVisibles.length === 0) {
+            mostrarToast("No se encontraron hojas visibles en el Excel", "error");
+            hideLoader();
+            return false;
+        }
+        
+        const datosTotales = [];
+        let filasValidas = 0;
+        let filasIgnoradas = 0;
+        
+        hojasVisibles.forEach(nombreHoja => { 
+            const hoja = workbook.Sheets[nombreHoja]; 
+            const datosHoja = XLSX.utils.sheet_to_json(hoja);
+            
+            datosHoja.forEach(item => {
+                const categoriaVisual = nombreHoja;
+                const codigo = String(item['código'] || item['codigo'] || '').trim();
+                const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                
+                if (!categoriaVisual || categoriaVisual === '') { filasIgnoradas++; return; }
+                if (!codigo || codigo === '') { filasIgnoradas++; return; }
+                if (!descripcion || descripcion === '') { filasIgnoradas++; return; }
+                if (precio === null || isNaN(precio) || precio <= 0) { filasIgnoradas++; return; }
+                
+                item.categoria = categoriaVisual;
+                item.precio = precio;
+                datosTotales.push(item);
+                filasValidas++;
+            }); 
+        });
+        
+        if (filasValidas === 0) {
+            mostrarToast(`No se encontraron datos válidos en el Excel. ${filasIgnoradas} filas ignoradas.`, "warn");
+            hideLoader();
+            return false;
+        }
+        
+        transformarBase(datosTotales, hojasVisibles);
+        const totalProductos = Object.values(dbProductos).reduce((sum, cats) => sum + cats.length, 0);
+        mostrarToast(`✅ Base cargada: ${totalProductos} productos en ${categoriasList.length} categorías`, "ok");
+        return true;
+        
+    } catch(error) { 
+        console.error(error); 
+        mostrarToast('Error leyendo Excel', 'error');
+        hideLoader();
+        return false;
+    }
+}
+
+// Carga desde archivo local (botón file picker)
 function cargarExcel(e) {
     resetearEstadoBase();
     const file = e.target.files[0];
@@ -1757,93 +1838,35 @@ function cargarExcel(e) {
     
     const reader = new FileReader();
     reader.onload = function(evt) {
-        try {
-            const data = new Uint8Array(evt.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
-            
-            const hojasVisibles = [];
-            const sheetNames = workbook.SheetNames;
-            
-            for (let i = 0; i < sheetNames.length; i++) {
-                const sheetName = sheetNames[i];
-                let isHidden = false;
-                try {
-                    if (workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[i]) {
-                        const hiddenState = workbook.Workbook.Sheets[i].Hidden;
-                        if (hiddenState === 1 || hiddenState === 2) {
-                            isHidden = true;
-                        }
-                    }
-                } catch (err) {
-                    isHidden = false;
-                }
-                
-                if (!isHidden) {
-                    hojasVisibles.push(sheetName);
-                }
-            }
-            
-            if (hojasVisibles.length === 0) {
-                mostrarToast("No se encontraron hojas visibles en el Excel", "error");
-                hideLoader();
-                return;
-            }
-            
-            const datosTotales = [];
-            let filasValidas = 0;
-            let filasIgnoradas = 0;
-            
-            hojasVisibles.forEach(nombreHoja => { 
-                const hoja = workbook.Sheets[nombreHoja]; 
-                const datosHoja = XLSX.utils.sheet_to_json(hoja);
-                
-                datosHoja.forEach(item => {
-                    const categoriaVisual = nombreHoja;
-                    const codigo = String(item['código'] || item['codigo'] || '').trim();
-                    const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
-                    const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
-                    
-                    if (!categoriaVisual || categoriaVisual === '') {
-                        filasIgnoradas++;
-                        return;
-                    }
-                    if (!codigo || codigo === '') {
-                        filasIgnoradas++;
-                        return;
-                    }
-                    if (!descripcion || descripcion === '') {
-                        filasIgnoradas++;
-                        return;
-                    }
-                    if (precio === null || isNaN(precio) || precio <= 0) {
-                        filasIgnoradas++;
-                        return;
-                    }
-                    
-                    item.categoria = categoriaVisual;
-                    item.precio = precio;
-                    datosTotales.push(item);
-                    filasValidas++;
-                }); 
-            });
-            
-            if (filasValidas === 0) {
-                mostrarToast(`No se encontraron datos válidos en el Excel. ${filasIgnoradas} filas ignoradas.`, "warn");
-                hideLoader();
-                return;
-            }
-            
-            transformarBase(datosTotales, hojasVisibles);
-            const totalProductos = Object.values(dbProductos).reduce((sum, cats) => sum + cats.length, 0);
-            mostrarToast(`✅ Base cargada: ${totalProductos} productos en ${categoriasList.length} categorías`, "ok");
-            
-        } catch(error) { 
-            console.error(error); 
-            mostrarToast('Error leyendo Excel', 'error');
-            hideLoader();
-        }
+        procesarExcelData(evt.target.result);
     };
     reader.readAsArrayBuffer(file);
+}
+
+// Carga automática desde la misma carpeta (URL relativa)
+function cargarBaseDesdeURL() {
+    if(typeof XLSX === 'undefined') {
+        // Esperar a que cargue SheetJS e intentar de nuevo
+        setTimeout(cargarBaseDesdeURL, 500);
+        return;
+    }
+    showLoader("Cargando Base de Datos...");
+    
+    fetch('./base_datos.xlsx')
+        .then(response => {
+            if (!response.ok) throw new Error('No se encontró base_datos.xlsx');
+            return response.arrayBuffer();
+        })
+        .then(buffer => {
+            procesarExcelData(buffer);
+        })
+        .catch(error => {
+            console.log('Auto-carga no disponible:', error.message);
+            hideLoader();
+            // Mostrar warning para que cargue manualmente
+            const warning = document.getElementById('warningBaseExcel');
+            if(warning) warning.style.display = 'block';
+        });
 }
 
 function transformarBase(datos, ordenCategoriasExplicit = null) {
@@ -1957,6 +1980,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const excelInput = document.getElementById('excelFile'); 
     if(excelInput) excelInput.addEventListener('change', cargarExcel); 
     categoriaActiva = "";
+    // Intentar cargar la base automáticamente desde la misma carpeta
+    cargarBaseDesdeURL();
 });
 </script>
 
