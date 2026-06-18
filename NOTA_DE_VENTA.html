@@ -1483,248 +1483,426 @@ async function exportarAExcel() {
         const workbook = new ExcelJS.Workbook();
         const sheet = workbook.addWorksheet('NOTA DE VENTA');
         
-        sheet.columns = [
-            { width: 18 },  // CATEGORIA
-            { width: 11.3 }, // CODIGO RENOVA
-            { width: 25 },   // DESCRIPCION (se ajustará dinámicamente)
-            { width: 14 },   // PRECIO RENOVA
-            { width: 10 },   // CANTIDAD
-            { width: 14 },   // PRECIO CONTRATISTA
-            { width: 16 },   // TOTAL RENOVA
-            { width: 16 },   // TOTAL CONTRATISTA
-            { width: 14 }    // DIFERENCIA
-        ];
-        
-        const formatMoney = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
-        
-        const colors = {
-            orange: 'FFFE5100',
-            orangeLight: 'FFFFF7ED',
-            blue: 'FF001489',
-            blueLight: 'FFEBEEF9',
-            silver: 'FFF8F8F8',
-            grayText: 'FF54585A',
-            white: 'FFFFFFFF',
-            green: 'FF16A34A',
-            red: 'FFDC2626'
+        // ── COLORES ──────────────────────────────────
+        const C = {
+            orange:    'FFFE5100',
+            orangeL:   'FFFFF3EE',
+            blue:      'FF001489',
+            blueL:     'FFEBEEF9',
+            white:     'FFFFFFFF',
+            silver:    'FFF5F5F5',
+            silverAlt: 'FFF0F0F0',
+            gray:      'FF54585A',
+            gridLine:  'FFD9D9D9',
+            green:     'FF16A34A',
+            greenL:    'FFE8F5E9',
+            red:       'FFDC2626',
         };
-        
-        function money(value) { 
-            if (value === null || value === undefined || value === '') return 0;
-            const num = Number(value);
-            return isNaN(num) ? 0 : num; 
+
+        const MONEY = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+
+        function money(v) {
+            if (v === null || v === undefined || v === '') return 0;
+            const n = Number(v); return isNaN(n) ? 0 : n;
         }
-        
-        // Título
-        sheet.mergeCells('A1:I1');
-        const title = sheet.getCell('A1');
-        title.value = 'NOTA DE VENTA - COMPARATIVA PRESUPUESTO CONTRATISTA';
-        title.font = { bold: true, size: 14, color: { argb: colors.blue }, name: 'Ubuntu' };
-        title.alignment = { horizontal: 'center', vertical: 'middle' };
-        sheet.addRow([]);
-        
-        // Datos del proyecto
-        const datos = [
-            ['NOMBRE PROYECTO', $("nombreProyecto").value || ''],
-            ['NOMBRE CLIENTE', $("nombreCliente").value || ''],
-            ['RUT', $("rutCliente").value || '-'],
-            ['DIRECCION', $("direccion").value || '-'],
-            ['CIUDAD', $("ciudad").value || '-'],
-            ['TELEFONO', $("telefono").value || '-'],
-            ['CENTRO', centroActivo || '-'],
-            ['FECHA', $("fecha").value || '-'],
-            ['VENCIMIENTO', $("vencimiento").value || '-']
+
+        function gridBorder() {
+            const s = { style: 'thin', color: { argb: C.gridLine } };
+            return { top: s, bottom: s, left: s, right: s };
+        }
+
+        function noBorder() { return {}; }
+
+        function fillSolid(argb) {
+            return { type: 'pattern', pattern: 'solid', fgColor: { argb } };
+        }
+
+        // ── ANCHOS: A,B,C,E = auto (calculado después); D,F,G,H,I = fijo 12
+        sheet.columns = [
+            { width: 14 }, // A CATEGORIA  — auto
+            { width: 10 }, // B COD RENOVA — auto
+            { width: 30 }, // C DESCRIPCION — auto
+            { width: 12 }, // D PRECIO RENOVA — fijo
+            { width:  7 }, // E CANTIDAD — auto
+            { width: 12 }, // F PRECIO CONTRATISTA — fijo
+            { width: 12 }, // G TOTAL RENOVA — fijo
+            { width: 12 }, // H TOTAL CONTRATISTA — fijo
+            { width: 12 }, // I DIFERENCIA — fijo
         ];
-        datos.forEach(d => { 
-            const row = sheet.addRow(d);
-            row.eachCell(cell => {
-                cell.font = { size: 10, name: 'Ubuntu', color: { argb: colors.grayText } };
-                cell.border = { top: { style: 'hair' }, bottom: { style: 'hair' }, left: { style: 'hair' }, right: { style: 'hair' } };
-            });
-        });
-        sheet.addRow([]);
-        sheet.addRow([]);
-        
-        // Header principal de la tabla
-        const header = sheet.addRow(['CATEGORIA', 'CODIGO RENOVA', 'DESCRIPCION', 'PRECIO RENOVA', 'CANTIDAD', 'PRECIO CONTRATISTA', 'TOTAL RENOVA', 'TOTAL CONTRATISTA', 'DIFERENCIA']);
-        header.height = 28;
-        header.eachCell(c => {
-            c.font = { bold: true, color: { argb: colors.white }, size: 10, name: 'Ubuntu' };
-            c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.orange } };
+
+        // ── FILA 1: LOGO + BANNER ─────────────────────
+        sheet.getRow(1).height = 36;
+        // Col A: reservada para logo (fondo blanco)
+        const a1 = sheet.getCell('A1');
+        a1.fill = fillSolid(C.white);
+        a1.border = noBorder();
+
+        // Logo: cargar desde GitHub Pages
+        try {
+            const logoUrl = window.location.href.replace(/\/[^\/]*$/, '/') + 'Logo_original_frase.png';
+            const logoResp = await fetch(logoUrl);
+            if (logoResp.ok) {
+                const logoBuffer = await logoResp.arrayBuffer();
+                const logoB64 = btoa(String.fromCharCode(...new Uint8Array(logoBuffer)));
+                const logoId = workbook.addImage({ base64: logoB64, extension: 'png' });
+                sheet.addImage(logoId, {
+                    tl: { col: 0, row: 0 },
+                    ext: { width: 110, height: 34 },
+                    editAs: 'oneCell'
+                });
+            }
+        } catch(e) { /* logo opcional */ }
+
+        // B1:I1 banner naranja
+        sheet.mergeCells('B1:I1');
+        const banner = sheet.getCell('B1');
+        banner.value = 'NOTA DE VENTA  ·  INSTALACIONES DE GAS  ·  ABASTIBLE';
+        banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
+        banner.fill = fillSolid(C.orange);
+        banner.alignment = { horizontal: 'center', vertical: 'middle' };
+        banner.border = noBorder();
+
+        // ── FILAS 2-6: DATOS DEL PROYECTO ─────────────
+        const camposL = [
+            ['NOMBRE PROYECTO', $("nombreProyecto").value || ''],
+            ['NOMBRE CLIENTE',  $("nombreCliente").value  || ''],
+            ['RUT',             $("rutCliente").value      || '-'],
+            ['DIRECCIÓN',       $("direccion").value       || '-'],
+            ['CIUDAD',          $("ciudad").value          || '-'],
+        ];
+        const camposR = [
+            ['TELÉFONO',    $("telefono").value   || '-'],
+            ['CENTRO',      centroActivo          || '-'],
+            ['FECHA',       $("fecha").value       || '-'],
+            ['VENCIMIENTO', $("vencimiento").value || '-'],
+        ];
+
+        for (let i = 0; i < camposL.length; i++) {
+            const r = 2 + i;
+            sheet.getRow(r).height = 16;
+            const [kL, vL] = camposL[i];
+            const lbl = sheet.getCell(r, 1);
+            lbl.value = kL;
+            lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lbl.fill = fillSolid(C.silver);
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            lbl.border = noBorder();
+
+            sheet.mergeCells(r, 2, r, 4);
+            const val = sheet.getCell(r, 2);
+            val.value = vL;
+            val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            val.fill = fillSolid(C.white);
+            val.alignment = { horizontal: 'left', vertical: 'middle' };
+            val.border = noBorder();
+
+            if (i < camposR.length) {
+                const [kR, vR] = camposR[i];
+                const lblR = sheet.getCell(r, 5);
+                lblR.value = kR;
+                lblR.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+                lblR.fill = fillSolid(C.silver);
+                lblR.alignment = { horizontal: 'right', vertical: 'middle' };
+                lblR.border = noBorder();
+
+                sheet.mergeCells(r, 6, r, 9);
+                const valR = sheet.getCell(r, 6);
+                valR.value = vR;
+                valR.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+                valR.fill = fillSolid(C.white);
+                valR.alignment = { horizontal: 'left', vertical: 'middle' };
+                valR.border = noBorder();
+            }
+        }
+
+        // ── FILA 7: SEPARADOR NARANJA ──────────────────
+        sheet.getRow(7).height = 4;
+        sheet.mergeCells('A7:I7');
+        const sep = sheet.getCell('A7');
+        sep.fill = fillSolid(C.orange);
+        sep.border = noBorder();
+
+        // ── FILA 8: HEADER TABLA ──────────────────────
+        sheet.getRow(8).height = 30;
+        const headerVals = ['CATEGORÍA','CÓD.\nRENOVA','DESCRIPCIÓN',
+            'PRECIO\nRENOVA','CANT.','PRECIO\nCONTRATISTA',
+            'TOTAL\nRENOVA','TOTAL\nCONTRATISTA','DIFERENCIA'];
+        headerVals.forEach((h, i) => {
+            const c = sheet.getCell(8, i + 1);
+            c.value = h;
+            c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.white } };
+            c.fill = fillSolid(C.orange);
             c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-            c.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+            c.border = noBorder();
         });
-        
-        // Agrupar por categoría
+
+        // ── DATOS ──────────────────────────────────────
         const grupos = {};
         categoriasList.forEach(c => grupos[c] = []);
-        itemsNota.forEach(i => { 
-            if (grupos[i.categoria]) grupos[i.categoria].push(i); 
+        CATS_COMPRA_DIRECTA.forEach(c => { if (!grupos[c]) grupos[c] = []; });
+        itemsNota.forEach(item => {
+            if (!grupos[item.categoria]) grupos[item.categoria] = [];
+            grupos[item.categoria].push(item);
         });
-        
+
+        const ordenCats = [
+            ...categoriasList,
+            ...CATS_COMPRA_DIRECTA.filter(c => !categoriasList.includes(c))
+        ];
+
         let totalRenovaGeneral = 0;
-        let totalMOIGeneral = 0;
         let totalContratistaGeneral = 0;
-        
-        for (const cat of categoriasList) {
+        let currentDataRow = 9;
+        let alt = false;
+
+        // Para cálculo de ancho automático cols A,B,C,E
+        const autoMaxLen = { 1: 8, 2: 8, 3: 20, 5: 5 };
+
+        const catsSinCTTA = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+
+        for (const cat of ordenCats) {
             const items = grupos[cat];
             if (!items || items.length === 0) continue;
-            
+            const esCompraDirecta = CATS_COMPRA_DIRECTA.includes(cat);
+
             let subtotalRenova = 0;
             let subtotalContratista = 0;
-            
-            // Filas de productos
-            items.forEach(item => {
+
+            for (const item of items) {
+                if (item.esMaterialImpovar) continue;
+
                 const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
                 const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
                 subtotalRenova += totalRenova;
-                
-                // LÓGICA MODIFICADA PARA CAÑERÍAS
-                const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
-                const esCategoriaSinEditable = categoriasSinCttaEditable.includes(item.categoria);
-                
-                let totalContratistaItem = totalRenova;
-                let precioCTTA = null;
-                let tieneCotizacion = false;
-                
-                if (esCategoriaSinEditable) {
-                    tieneCotizacion = true;
-                    precioCTTA = item.precioBase;
-                    totalContratistaItem = totalRenova;
+
+                const esSinCTTA = catsSinCTTA.includes(item.categoria);
+                let precioCTTA = null, totalCTTA = 0, tieneCot = false;
+
+                if (esSinCTTA) {
+                    tieneCot = true; precioCTTA = item.precioBase; totalCTTA = totalRenova;
+                } else if (esCompraDirecta) {
+                    tieneCot = true; precioCTTA = item.precioCTTA || item.precioBase; totalCTTA = precioCTTA * item.cantidad;
+                } else if (item.precioCTTA !== null && item.precioCTTA > 0) {
+                    tieneCot = true; precioCTTA = item.precioCTTA; totalCTTA = precioCTTA * item.cantidad;
                 }
-                else if (item.precioCTTA !== null && item.precioCTTA > 0) {
-                    tieneCotizacion = true;
-                    precioCTTA = item.precioCTTA;
-                    totalContratistaItem = item.precioCTTA * item.cantidad;
-                }
-                else {
-                    tieneCotizacion = false;
-                    precioCTTA = null;
-                    totalContratistaItem = 0;
-                }
-                
-                subtotalContratista += totalContratistaItem;
-                const diferencia = totalContratistaItem - totalRenova;
-                
-                const row = sheet.addRow([
-                    cat,
+                subtotalContratista += totalCTTA;
+
+                const diff = tieneCot ? (totalCTTA - totalRenova) : null;
+                const bg = alt ? C.silverAlt : C.white;
+                alt = !alt;
+
+                const row = sheet.getRow(currentDataRow);
+                row.height = 15;
+
+                const vals = [
+                    item.categoria,
                     codigoLimpio,
                     item.descripcion,
                     money(item.precioBase),
                     item.cantidad,
-                    tieneCotizacion ? money(precioCTTA) : (esCategoriaSinEditable ? 'PRECIO BASE' : 'SIN COTIZAR'),
+                    tieneCot ? money(precioCTTA) : (esSinCTTA ? 'PRECIO BASE' : 'SIN COTIZAR'),
                     money(totalRenova),
-                    tieneCotizacion ? money(totalContratistaItem) : (esCategoriaSinEditable ? money(totalRenova) : 'SIN COTIZAR'),
-                    tieneCotizacion ? money(diferencia) : (esCategoriaSinEditable ? '0' : 'PENDIENTE')
-                ]);
-                
-                row.eachCell(cell => {
-                    cell.border = { top: { style: 'hair' }, bottom: { style: 'hair' }, left: { style: 'hair' }, right: { style: 'hair' } };
-                    if (cell.col >= 4 && cell.col <= 9 && typeof cell.value === 'number') {
-                        cell.numFmt = formatMoney;
-                        cell.alignment = { horizontal: 'right' };
+                    tieneCot ? money(totalCTTA) : (esSinCTTA ? money(totalRenova) : 'SIN COTIZAR'),
+                    diff !== null ? money(diff) : 'PENDIENTE'
+                ];
+
+                vals.forEach((v, i) => {
+                    const col = i + 1;
+                    const cell = sheet.getCell(currentDataRow, col);
+                    cell.value = v;
+                    cell.fill = fillSolid(bg);
+                    cell.border = gridBorder();
+                    cell.font = { name: 'Arial', size: 9, color: { argb: '1F2937' } };
+
+                    if (col === 4 || col === 7) {
+                        cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                    } else if ((col === 6 || col === 8) && typeof v === 'number') {
+                        cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                    } else if (col === 9 && typeof v === 'number') {
+                        cell.numFmt = MONEY;
+                        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        cell.font = { name: 'Arial', size: 9,
+                            color: { argb: v > 0 ? C.green : (v < 0 ? C.red : '1F2937') } };
+                    } else if (col === 5) {
+                        const cantFmt = typeof v === 'number' && v !== Math.round(v) ? '#,##0.#' : '#,##0';
+                        cell.numFmt = cantFmt;
+                        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    } else {
+                        cell.alignment = { horizontal: 'left', vertical: 'middle' };
                     }
-                    if (cell.col === 5) cell.alignment = { horizontal: 'center' };
+
+                    // tracking ancho auto
+                    if ([1,2,3,5].includes(col) && v) {
+                        autoMaxLen[col] = Math.max(autoMaxLen[col] || 0, String(v).length);
+                    }
                 });
-            });
-            
-            const moi = subtotalContratista - subtotalRenova;
-            const totalCat = subtotalRenova + moi;
-            
-            if (moi !== 0) {
-                const moiRow = sheet.addRow(['', '', 'MANO DE OBRA INDUSTRIAL', '', '', '', '', money(moi), '']);
-                moiRow.height = 22;
-                moiRow.eachCell(cell => {
-                    cell.font = { bold: true, color: { argb: colors.orange }, size: 10, name: 'Ubuntu' };
-                    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.orangeLight } };
-                    cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                    cell.border = { top: { style: 'thin' }, bottom: { style: 'hair' }, left: { style: 'thin' }, right: { style: 'thin' } };
-                });
-                const moiCell = moiRow.getCell(8);
-                moiCell.numFmt = formatMoney;
-                moiCell.alignment = { horizontal: 'right' };
+
+                // Subfila material Impovar
+                const matImpovar = items.find(i2 => i2.esMaterialImpovar && i2.idInstalacion === item.id);
+                if (matImpovar) {
+                    const totalMat = (matImpovar.precioBase || 0) * (matImpovar.cantidad || 0);
+                    subtotalRenova += totalMat;
+                    subtotalContratista += totalMat;
+                    currentDataRow++;
+                    const matRow = sheet.getRow(currentDataRow);
+                    matRow.height = 14;
+                    const matBg = 'FFFFFBF0';
+                    const matVals = [
+                        '↳ Material',
+                        matImpovar.codigo || '',
+                        '🏭 ' + matImpovar.descripcion,
+                        money(matImpovar.precioBase),
+                        matImpovar.cantidad,
+                        'IMPOVAR',
+                        money(totalMat),
+                        money(totalMat),
+                        '-'
+                    ];
+                    matVals.forEach((v, i) => {
+                        const col = i + 1;
+                        const cell = sheet.getCell(currentDataRow, col);
+                        cell.value = v;
+                        cell.fill = fillSolid(matBg);
+                        cell.border = gridBorder();
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        if ((col === 4 || col === 7 || col === 8) && typeof v === 'number') {
+                            cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        } else if (col === 5) {
+                            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        } else {
+                            cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                        }
+                    });
+                }
+
+                currentDataRow++;
             }
-            
-            const subtotalRow = sheet.addRow(['', '', 'SUBTOTAL ' + cat, '', '', '', money(subtotalRenova), money(subtotalContratista), '']);
-            subtotalRow.height = 20;
-            subtotalRow.eachCell(cell => {
-                cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.blueLight } };
-                cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+
+            const moi = esCompraDirecta ? 0 : (subtotalContratista - subtotalRenova);
+
+            // MOI row
+            if (moi !== 0) {
+                const moiRow = sheet.getRow(currentDataRow);
+                moiRow.height = 16;
+                sheet.mergeCells(currentDataRow, 1, currentDataRow, 3);
+                const moiVals = ['MANO DE OBRA INDUSTRIAL', null, null, null, null, null,
+                    null, money(moi), null];
+                moiVals.forEach((v, i) => {
+                    const cell = sheet.getCell(currentDataRow, i + 1);
+                    if (i === 0) cell.value = v;
+                    else if (i === 7) cell.value = v;
+                    cell.fill = fillSolid(C.orangeL);
+                    cell.border = gridBorder();
+                    cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'C2410C' } };
+                    cell.alignment = { horizontal: i === 0 ? 'right' : 'right', vertical: 'middle' };
+                    if (i === 7 && typeof v === 'number') cell.numFmt = MONEY;
+                });
+                currentDataRow++;
+            }
+
+            // SUBTOTAL row
+            const subRow = sheet.getRow(currentDataRow);
+            subRow.height = 16;
+            sheet.mergeCells(currentDataRow, 1, currentDataRow, 3);
+            [1,2,3,4,5,6,7,8,9].forEach(col => {
+                const cell = sheet.getCell(currentDataRow, col);
+                if (col === 1) cell.value = 'SUBTOTAL ' + cat;
+                else if (col === 7) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
+                else if (col === 8) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
+                cell.fill = fillSolid(C.silver);
+                cell.border = gridBorder();
+                cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.gray } };
+                cell.alignment = { horizontal: col >= 7 ? 'right' : 'right', vertical: 'middle' };
             });
-            const subtotalRenovaCell = subtotalRow.getCell(7);
-            subtotalRenovaCell.numFmt = formatMoney;
-            subtotalRenovaCell.alignment = { horizontal: 'right' };
-            const subtotalCttaCell = subtotalRow.getCell(8);
-            subtotalCttaCell.numFmt = formatMoney;
-            subtotalCttaCell.alignment = { horizontal: 'right' };
-            
-            const totalCatRow = sheet.addRow(['', '', 'TOTAL ' + cat, '', '', '', money(subtotalRenova), money(totalCat), '']);
-            totalCatRow.height = 20;
-            totalCatRow.eachCell(cell => {
-                cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
-                cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.silver } };
-                cell.alignment = { horizontal: 'left', vertical: 'middle' };
-                cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+            currentDataRow++;
+
+            // TOTAL cat row
+            const totalCatRow = sheet.getRow(currentDataRow);
+            totalCatRow.height = 17;
+            sheet.mergeCells(currentDataRow, 1, currentDataRow, 3);
+            const totalCat = subtotalRenova + moi;
+            [1,2,3,4,5,6,7,8,9].forEach(col => {
+                const cell = sheet.getCell(currentDataRow, col);
+                if (col === 1) cell.value = 'TOTAL ' + cat;
+                else if (col === 7) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
+                else if (col === 8) { cell.value = money(totalCat); cell.numFmt = MONEY; }
+                cell.fill = fillSolid(C.blueL);
+                cell.border = gridBorder();
+                cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+                cell.alignment = { horizontal: col >= 7 ? 'right' : 'right', vertical: 'middle' };
             });
-            const totalRenovaCell = totalCatRow.getCell(7);
-            totalRenovaCell.numFmt = formatMoney;
-            totalRenovaCell.alignment = { horizontal: 'right' };
-            const totalCatCell = totalCatRow.getCell(8);
-            totalCatCell.numFmt = formatMoney;
-            totalCatCell.alignment = { horizontal: 'right' };
-            
-            sheet.addRow([]);
-            
+            currentDataRow++;
+
             totalRenovaGeneral += subtotalRenova;
-            totalMOIGeneral += moi;
             totalContratistaGeneral += totalCat;
         }
-        
-        const descColumn = sheet.getColumn(3);
-        let maxDescLength = 25;
-        itemsNota.forEach(item => {
-            if (item.descripcion) {
-                maxDescLength = Math.max(maxDescLength, item.descripcion.length);
-            }
+
+        // ── TOTAL GENERAL ──────────────────────────────
+        const totalRow = sheet.getRow(currentDataRow);
+        totalRow.height = 18;
+        sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
+        [1,2,3,4,5,6,7,8,9].forEach(col => {
+            const cell = sheet.getCell(currentDataRow, col);
+            if (col === 1) cell.value = 'TOTAL DETALLE COMERCIAL';
+            else if (col === 7) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
+            else if (col === 8) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
+            cell.fill = fillSolid(C.blueL);
+            cell.border = gridBorder();
+            cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
+            cell.alignment = { horizontal: col === 1 ? 'center' : 'right', vertical: 'middle' };
         });
-        descColumn.width = Math.min(maxDescLength + 4, 60);
-        descColumn.alignment = { wrapText: true, vertical: 'top' };
-        
-        const totalDetalle = totalRenovaGeneral + totalMOIGeneral;
-        const finalVerification = Math.abs(totalDetalle - totalContratistaGeneral) < 5;
-        
-        const totalRow = sheet.addRow(['', '', 'TOTAL DETALLE COMERCIAL', '', '', '', money(totalDetalle), money(totalContratistaGeneral), '']);
-        totalRow.height = 26;
-        totalRow.eachCell(cell => {
-            cell.font = { bold: true, color: { argb: colors.blue }, size: 10, name: 'Ubuntu' };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: colors.blueLight } };
-            cell.alignment = { horizontal: 'center', vertical: 'middle' };
-            cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
+        currentDataRow++;
+
+        // CUADRE
+        const cuadreOk = Math.abs(totalRenovaGeneral - totalContratistaGeneral) < 5;
+        const cuadreRow = sheet.getRow(currentDataRow);
+        cuadreRow.height = 17;
+        sheet.mergeCells(currentDataRow, 1, currentDataRow, 9);
+        const cuadreCell = sheet.getCell(currentDataRow, 1);
+        cuadreCell.value = cuadreOk ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO';
+        cuadreCell.font = { name: 'Arial', bold: true, size: 10,
+            color: { argb: cuadreOk ? C.green : C.red } };
+        cuadreCell.fill = fillSolid(cuadreOk ? C.greenL : 'FFFEF2F2');
+        cuadreCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cuadreCell.border = noBorder();
+        currentDataRow++;
+
+        // ── FRANJA NARANJA FINAL ───────────────────────
+        sheet.getRow(currentDataRow).height = 4;
+        sheet.mergeCells(`A${currentDataRow}:I${currentDataRow}`);
+        sheet.getCell(`A${currentDataRow}`).fill = fillSolid(C.orange);
+        sheet.getCell(`A${currentDataRow}`).border = noBorder();
+
+        // ── ANCHOS AUTOMÁTICOS A,B,C,E ────────────────
+        const autoHeaders = { 1: 'CATEGORÍA'.length, 2: 'CÓD.RENOVA'.length,
+                              3: 'DESCRIPCIÓN'.length, 5: 'CANT.'.length };
+        [1,2,3,5].forEach(col => {
+            const maxLen = Math.max(autoMaxLen[col] || 0, autoHeaders[col] || 0);
+            sheet.getColumn(col).width = Math.min(maxLen * 1.2 + 1.5, 50);
         });
-        const totalDetalleCell = totalRow.getCell(7);
-        totalDetalleCell.numFmt = formatMoney;
-        totalDetalleCell.alignment = { horizontal: 'right' };
-        const totalCttaCell = totalRow.getCell(8);
-        totalCttaCell.numFmt = formatMoney;
-        totalCttaCell.alignment = { horizontal: 'right' };
-        
-        const verifyRow = sheet.addRow(['', '', finalVerification ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO', '', '', '', '', '', '']);
-        verifyRow.height = 22;
-        verifyRow.eachCell(cell => {
-            cell.font = { bold: true, size: 10, name: 'Ubuntu', color: { argb: finalVerification ? colors.green : colors.red } };
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: finalVerification ? 'FFE8F5E9' : 'FFFEF2F2' } };
-            cell.alignment = { horizontal: 'left', vertical: 'middle' };
-            cell.border = { top: { style: 'thin' }, bottom: { style: 'thin' }, left: { style: 'thin' }, right: { style: 'thin' } };
-        });
-        
+        // Fijos D,F,G,H,I = 12
+        [4,6,7,8,9].forEach(col => { sheet.getColumn(col).width = 12; });
+
+        // ── PÁGINA VERTICAL ───────────────────────────
+        sheet.pageSetup.orientation = 'portrait';
+        sheet.pageSetup.fitToPage = true;
+        sheet.pageSetup.fitToWidth = 1;
+        sheet.pageSetup.fitToHeight = 0;
+        sheet.pageSetup.margins = {
+            left: 0.4, right: 0.4, top: 0.4, bottom: 0.4,
+            header: 0.1, footer: 0.1
+        };
+        sheet.pageSetup.printArea = `A1:I${currentDataRow}`;
+        sheet.views = [{ state: 'frozen', ySplit: 8 }];
+        sheet.showGridLines = false;
+
+        // ── EXPORTAR ──────────────────────────────────
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
         const link = document.createElement('a');
         const proyecto = $("nombreProyecto").value || 'SIN_PROYECTO';
         link.href = URL.createObjectURL(blob);
-        link.download = `NOTA_VENTA_${proyecto.replace(/\s/g, '_')}.xlsx`;
+        link.download = `NOTA_VENTA_${proyecto.replace(/\s+/g, '_')}.xlsx`;
         link.click();
         mostrarToast("Excel exportado correctamente", "ok");
     } catch (error) {
