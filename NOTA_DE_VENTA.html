@@ -2606,6 +2606,9 @@ function confirmarDC() {
     cerrarModalDC();
     actualizarBadge();
 
+    // Agregar materiales Impovar para ítems de cañería del DC
+    itemsNota = migrarItemsLegacy(itemsNota);
+
     // Ir directo al paso 3 — no necesita seleccionar centro
     renderizarNotaFinal();
     mostrarSolo('paso3');
