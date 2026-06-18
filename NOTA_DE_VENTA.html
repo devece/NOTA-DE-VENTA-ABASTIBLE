@@ -2440,6 +2440,52 @@ document.addEventListener('DOMContentLoaded', () => {
     const excelInput = document.getElementById('excelFile'); 
     if(excelInput) excelInput.addEventListener('change', cargarExcel); 
     categoriaActiva = "";
+
+    // Auto-fetch de base_datos.xlsx cuando se abre desde https:// (versión online)
+    if (window.location.protocol === 'https:') {
+        const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/') + 'base_datos.xlsx';
+        showLoader("Cargando base de datos...");
+        fetch(baseUrl)
+            .then(r => {
+                if (!r.ok) throw new Error('No se encontró base_datos.xlsx');
+                return r.arrayBuffer();
+            })
+            .then(buffer => {
+                if (typeof XLSX === 'undefined') throw new Error('Librería no cargada');
+                const data = new Uint8Array(buffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const hojasVisibles = workbook.SheetNames.filter((name, i) => {
+                    try {
+                        const h = workbook.Workbook?.Sheets?.[i]?.Hidden;
+                        return h !== 1 && h !== 2;
+                    } catch { return true; }
+                });
+                const datosTotales = [];
+                hojasVisibles.forEach(nombreHoja => {
+                    const hoja = workbook.Sheets[nombreHoja];
+                    const datosHoja = XLSX.utils.sheet_to_json(hoja);
+                    datosHoja.forEach(item => {
+                        const codigo = String(item['código'] || item['codigo'] || '').trim();
+                        const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                        const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                        if (!codigo || !descripcion || precio === null || precio <= 0) return;
+                        item.categoria = nombreHoja;
+                        item.precio = precio;
+                        datosTotales.push(item);
+                    });
+                });
+                if (datosTotales.length > 0) {
+                    transformarBase(datosTotales, hojasVisibles);
+                    const total = Object.values(dbProductos).reduce((s, c) => s + c.length, 0);
+                    mostrarToast(`✅ Base cargada automáticamente: ${total} productos`, 'ok');
+                }
+            })
+            .catch(err => {
+                console.warn('Auto-fetch base_datos:', err.message);
+                hideLoader();
+                // Sin error visible — el usuario puede cargar manualmente
+            });
+    }
 });
 </script>
 
