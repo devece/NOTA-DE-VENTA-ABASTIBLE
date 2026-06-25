@@ -1817,7 +1817,55 @@ document.addEventListener('DOMContentLoaded', () => {
     const excelInput = document.getElementById('excelFile'); 
     if(excelInput) excelInput.addEventListener('change', cargarExcel); 
     categoriaActiva = "";
+    autoCargarBase();
 });
+
+async function autoCargarBase() {
+    const URL_BASE = 'https://devece.github.io/NOTA-DE-VENTA-ABASTIBLE/base_datos.xlsx';
+    if (!window.location.href.startsWith('https://')) return; // solo en HTTPS
+    try {
+        showLoader("Cargando base de datos...");
+        const response = await fetch(URL_BASE);
+        if (!response.ok) throw new Error('No se pudo descargar la base');
+        const arrayBuffer = await response.arrayBuffer();
+        const data = new Uint8Array(arrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const hojasVisibles = [];
+        for (let i = 0; i < workbook.SheetNames.length; i++) {
+            const sheetName = workbook.SheetNames[i];
+            let isHidden = false;
+            try {
+                if (workbook.Workbook && workbook.Workbook.Sheets && workbook.Workbook.Sheets[i]) {
+                    const hiddenState = workbook.Workbook.Sheets[i].Hidden;
+                    if (hiddenState === 1 || hiddenState === 2) isHidden = true;
+                }
+            } catch(e) { isHidden = false; }
+            if (!isHidden) hojasVisibles.push(sheetName);
+        }
+        const datosTotales = [];
+        hojasVisibles.forEach(nombreHoja => {
+            const hoja = workbook.Sheets[nombreHoja];
+            const datosHoja = XLSX.utils.sheet_to_json(hoja);
+            datosHoja.forEach(item => {
+                const codigo = String(item['código'] || item['codigo'] || '').trim();
+                const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                if (!codigo || !descripcion || precio === null || isNaN(precio) || precio <= 0) return;
+                item.categoria = nombreHoja;
+                item.precio = precio;
+                datosTotales.push(item);
+            });
+        });
+        if (datosTotales.length === 0) { hideLoader(); return; }
+        transformarBase(datosTotales, hojasVisibles);
+        const total = Object.values(dbProductos).reduce((s, c) => s + c.length, 0);
+        mostrarToast(`✅ Base cargada automáticamente: ${total} productos`, "ok");
+    } catch(e) {
+        hideLoader();
+        // Si falla, el usuario puede cargarla manualmente con el botón
+        console.warn('Auto-carga fallida, usar botón manual:', e.message);
+    }
+}
 </script>
 
 </body>
