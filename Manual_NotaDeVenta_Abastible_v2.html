@@ -1,0 +1,1496 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manual de Usuario — Nota de Venta Abastible</title>
+<style>
+/* ─── VARIABLES MARCA ABASTIBLE 2025 ─── */
+:root {
+  --aba-orange: #FE5100;
+  --aba-orange-light: #FEF2E8;
+  --aba-orange-mid: #FF8040;
+  --aba-blue: #001489;
+  --aba-blue-light: #EBEEF9;
+  --aba-blue-mid: #0A2070;
+  --aba-silver: #F8F8F8;
+  --aba-gray: #54585A;
+  --aba-white: #FFFFFF;
+  --aba-border: #E5E7EB;
+  --aba-green: #16A34A;
+  --aba-purple: #7C3AED;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif;
+  background: #F0F2F5;
+  color: var(--aba-gray);
+  line-height: 1.6;
+}
+
+/* ─── HEADER ─── */
+.header {
+  background: var(--aba-orange);
+  color: white;
+  padding: 0;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.logo-area { display: flex; align-items: center; gap: 16px; }
+.logo-circle {
+  width: 44px; height: 44px;
+  background: white;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 900; color: var(--aba-orange);
+}
+.header h1 { font-size: 20px; font-weight: 700; line-height: 1.2; }
+.header p { font-size: 12px; opacity: 0.85; }
+.header-badge {
+  background: rgba(255,255,255,0.2);
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* ─── LAYOUT ─── */
+.layout { max-width: 1100px; margin: 0 auto; padding: 32px; display: grid; grid-template-columns: 260px 1fr; gap: 32px; }
+
+/* ─── SIDEBAR ─── */
+.sidebar { position: sticky; top: 90px; height: fit-content; }
+.sidebar-card {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+.sidebar-card h3 {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--aba-gray);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--aba-orange);
+}
+.nav-section { margin-bottom: 16px; }
+.nav-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--aba-orange);
+  margin-bottom: 6px;
+  margin-top: 12px;
+}
+.nav-link {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--aba-gray);
+  text-decoration: none;
+  transition: all 0.15s;
+  margin-bottom: 2px;
+}
+.nav-link:hover { background: var(--aba-orange-light); color: var(--aba-orange); }
+.nav-link.active { background: var(--aba-orange); color: white; }
+
+.audience-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 10px;
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+.badge-col { background: var(--aba-blue-light); color: var(--aba-blue); }
+.badge-aba { background: var(--aba-orange-light); color: var(--aba-orange); }
+
+/* ─── CONTENT ─── */
+.content { min-width: 0; }
+
+.section {
+  background: white;
+  border-radius: 16px;
+  padding: 36px;
+  margin-bottom: 28px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--aba-border);
+}
+.section-icon {
+  width: 52px; height: 52px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+.icon-orange { background: var(--aba-orange-light); }
+.icon-blue { background: var(--aba-blue-light); }
+.icon-purple { background: #F3F0FF; }
+.icon-green { background: #E8F5E9; }
+
+.section-header h2 { font-size: 22px; font-weight: 700; color: var(--aba-blue); line-height: 1.2; }
+.section-header p { font-size: 14px; color: var(--aba-gray); margin-top: 4px; }
+
+/* ─── STEPS ─── */
+.step {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+  align-items: start;
+}
+.step-num {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  background: var(--aba-orange);
+  color: white;
+  font-size: 16px;
+  font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.step-body h3 { font-size: 16px; font-weight: 700; color: var(--aba-blue); margin-bottom: 6px; }
+.step-body p { font-size: 14px; color: var(--aba-gray); margin-bottom: 12px; }
+
+/* ─── MOCK UI ─── */
+.mock-ui {
+  border: 1.5px solid var(--aba-border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin: 12px 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+}
+.mock-toolbar {
+  background: white;
+  border-bottom: 1px solid var(--aba-border);
+  padding: 10px 16px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.mock-btn {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+.mock-btn-blue { background: var(--aba-blue); color: white; }
+.mock-btn-orange { background: var(--aba-orange); color: white; }
+.mock-btn-purple { background: var(--aba-purple); color: white; }
+.mock-btn-outline { background: white; color: var(--aba-blue); border: 1px solid var(--aba-blue); }
+
+.mock-header {
+  background: var(--aba-blue);
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mock-header-title { font-size: 20px; font-weight: 700; color: var(--aba-orange); }
+
+.mock-body { background: #F0F2F5; padding: 16px; }
+
+.mock-card {
+  background: white;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  border: 1px solid var(--aba-border);
+}
+.mock-card h4 { font-size: 13px; font-weight: 700; color: #374151; margin-bottom: 10px; }
+
+.mock-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.mock-grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.mock-field label { display: block; font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--aba-gray); margin-bottom: 4px; }
+.mock-input {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--aba-border);
+  border-radius: 6px;
+  font-size: 12px;
+  background: white;
+  color: #374151;
+}
+.mock-input-filled { background: #F9FAFB; color: #111827; border-color: #9CA3AF; }
+.mock-input-required { border-color: var(--aba-orange); background: #FFFBF0; }
+
+.mock-select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--aba-border);
+  border-radius: 6px;
+  font-size: 12px;
+  background: white;
+  color: var(--aba-gray);
+}
+
+.mock-paso-badge {
+  font-size: 11px;
+  background: rgba(255,255,255,0.15);
+  padding: 3px 10px;
+  border-radius: 12px;
+  color: white;
+}
+
+/* ─── PASO 2 LAYOUT ─── */
+.mock-paso2 { display: grid; grid-template-columns: 180px 1fr; gap: 0; }
+.mock-sidebar-cats { background: white; border-right: 1px solid var(--aba-border); padding: 10px; }
+.mock-cat-btn {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+  border: 1px solid transparent;
+  cursor: default;
+}
+.mock-cat-active { background: var(--aba-orange); color: white; }
+.mock-cat-inactive { background: white; color: var(--aba-blue); border-color: var(--aba-border); }
+
+.mock-products { padding: 10px; background: #F0F2F5; }
+.mock-prod-row {
+  background: white;
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 3px solid transparent;
+  font-size: 12px;
+}
+.mock-prod-row:hover { border-left-color: var(--aba-orange); }
+.mock-prod-active { border-left-color: var(--aba-green); background: #F0FDF4; }
+.mock-prod-name { font-weight: 600; color: #1F2937; }
+.mock-prod-code { font-size: 10px; color: var(--aba-gray); }
+.mock-prod-price { font-weight: 700; color: var(--aba-blue); font-size: 13px; }
+.mock-prod-qty { font-size: 11px; color: var(--aba-green); font-weight: 700; }
+.mock-add-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--aba-orange);
+  color: white;
+}
+.mock-add-done { background: #D1FAE5; color: var(--aba-green); }
+
+/* ─── PASO 3 TABLA ─── */
+.mock-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.mock-table th {
+  background: var(--aba-orange);
+  color: white;
+  padding: 7px 8px;
+  text-align: left;
+  font-size: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.mock-table td { padding: 7px 8px; border-bottom: 1px solid var(--aba-border); vertical-align: middle; }
+.mock-table tr:nth-child(even) td { background: var(--aba-silver); }
+.mock-table .money { font-variant-numeric: tabular-nums; text-align: right; }
+.mock-table .center { text-align: center; }
+.badge-pc { background: var(--aba-silver); color: var(--aba-gray); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.badge-sc { background: #FEF3C7; color: #92400E; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.badge-ok { background: #D1FAE5; color: var(--aba-green); padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600; }
+.input-small { border: 1px solid var(--aba-border); border-radius: 4px; padding: 3px 6px; font-size: 11px; width: 80px; text-align: right; }
+
+/* ─── MATERIAL ROW ─── */
+.mock-mat-row td { background: #FFFBF0; font-size: 10px; color: #78350F; border-bottom: 1px solid #FED7AA; }
+.mock-mat-row td:first-child { color: #92400E; font-style: italic; padding-left: 20px; }
+
+/* ─── RESUMEN FINAL ─── */
+.resumen-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.resumen-box { border-radius: 8px; padding: 12px; text-align: center; }
+.res-blue { background: var(--aba-blue-light); }
+.res-orange { background: var(--aba-orange-light); }
+.res-green { background: #E8F5E9; }
+.resumen-box .label { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.res-blue .label { color: var(--aba-blue); }
+.res-orange .label { color: var(--aba-orange); }
+.res-green .label { color: var(--aba-green); }
+.resumen-box .monto { font-size: 18px; font-weight: 800; margin-top: 4px; }
+.res-blue .monto { color: var(--aba-blue); }
+.res-orange .monto { color: var(--aba-orange); }
+.res-green .monto { color: var(--aba-green); }
+
+/* ─── CALLOUTS ─── */
+.callout {
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 14px 0;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+}
+.callout-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.callout-tip { background: var(--aba-orange-light); border-left: 3px solid var(--aba-orange); }
+.callout-tip strong { color: var(--aba-orange); }
+.callout-info { background: var(--aba-blue-light); border-left: 3px solid var(--aba-blue); }
+.callout-info strong { color: var(--aba-blue); }
+.callout-warn { background: #FEF3C7; border-left: 3px solid #D97706; }
+.callout-warn strong { color: #92400E; }
+.callout-ok { background: #E8F5E9; border-left: 3px solid var(--aba-green); }
+.callout-ok strong { color: var(--aba-green); }
+
+/* ─── AUDIENCIA TAGS ─── */
+.audience-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.tag-col { background: var(--aba-blue); color: white; }
+.tag-aba { background: var(--aba-orange); color: white; }
+.tag-both { background: var(--aba-gray); color: white; }
+
+/* ─── DC FLOW ─── */
+.dc-flow { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+.dc-step {
+  background: #F3F0FF;
+  border: 1px solid #DDD6FE;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--aba-purple);
+  text-align: center;
+  min-width: 100px;
+}
+.dc-arrow { color: var(--aba-purple); font-size: 18px; }
+
+/* ─── BOTONES PASO 3 ─── */
+.mock-actions { display: flex; gap: 8px; flex-wrap: wrap; padding: 12px 16px; border-top: 1px solid var(--aba-border); background: var(--aba-silver); justify-content: flex-end; }
+
+/* ─── IMPOVAR ─── */
+.impovar-calc { background: #FFFBF0; border: 1px solid #FED7AA; border-radius: 8px; padding: 14px 18px; font-size: 13px; margin: 12px 0; }
+.impovar-calc .formula { font-family: monospace; background: white; padding: 8px 12px; border-radius: 6px; border: 1px solid #FED7AA; margin-top: 8px; font-size: 13px; }
+
+/* ─── COMPRA DIRECTA FORM ─── */
+.cd-form { background: var(--aba-silver); border-radius: 10px; padding: 14px; border: 1px solid var(--aba-border); margin: 10px 0; }
+.cd-form h5 { font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 10px; }
+.cd-form-blue h5 { color: var(--aba-blue); }
+.cd-form-orange h5 { color: var(--aba-orange); }
+.cd-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; }
+.cd-input { width: 100%; padding: 6px 10px; border: 1px solid var(--aba-border); border-radius: 6px; font-size: 12px; }
+.cd-btn { width: 100%; padding: 8px; border-radius: 6px; font-size: 12px; font-weight: 700; color: white; text-align: center; }
+.cd-btn-blue { background: var(--aba-blue); }
+.cd-btn-orange { background: var(--aba-orange); }
+
+/* ─── GUARD SECTION ─── */
+.guard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.guard-box { border-radius: 8px; padding: 14px; border: 1px solid var(--aba-border); }
+.guard-box h4 { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+.guard-icon { font-size: 24px; margin-bottom: 8px; }
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--aba-blue);
+  color: white;
+  text-align: center;
+  padding: 24px;
+  margin-top: 40px;
+}
+footer a { color: var(--aba-orange); }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 768px) {
+  .layout { grid-template-columns: 1fr; padding: 16px; }
+  .sidebar { position: static; }
+  .mock-grid { grid-template-columns: 1fr 1fr; }
+  .mock-grid-4 { grid-template-columns: 1fr 1fr; }
+  .resumen-grid { grid-template-columns: 1fr; }
+  .guard-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-inner">
+    <div class="logo-area">
+      <img src="Logo_original_frase.png" alt="abastible" style="height:44px;width:auto;filter:brightness(0) invert(1);" onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex';">
+      <div id="logo-fallback" style="display:none;align-items:center;gap:16px;">
+        <div class="logo-circle">a</div>
+        <div><h1>Nota de Venta · Instalaciones de Gas</h1><p>Manual de Usuario — Versión 2.0 · 2025</p></div>
+      </div>
+      <div>
+        <h1>Nota de Venta · Instalaciones de Gas</h1>
+        <p>Manual de Usuario — Versión 2.0 · 2025</p>
+      </div>
+    </div>
+    <div class="header-badge">Manual Oficial</div>
+  </div>
+</div>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-card">
+    <h3>Contenido</h3>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Introducción</div>
+      <a class="nav-link" href="#acceso">1. Acceso a la App</a>
+      <a class="nav-link" href="#pantalla">2. Pantalla Principal</a>
+      <a class="nav-link" href="#crear-nota">3. Formas de Crear una Nota</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Flujo Manual (Paso a Paso)</div>
+      <a class="nav-link" href="#paso1">4. Paso 1 · Datos del Proyecto</a>
+      <a class="nav-link" href="#paso2">5. Paso 2 · Agregar Productos</a>
+      <a class="nav-link" href="#impovar">6. Material Impovar Automático</a>
+      <a class="nav-link" href="#compra-directa">7. Compra Directa</a>
+      <a class="nav-link" href="#cargar-dc">8. Cargar desde DC</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Para Contratistas</div>
+      <a class="nav-link" href="#contratista-nueva">9. Crear Nota Propia</a>
+      <a class="nav-link" href="#contratista-paso3">10. Ingresar Precios</a>
+      <a class="nav-link" href="#contratista-ajuste">11. Ajustar Cantidades</a>
+      <a class="nav-link" href="#contratista-agregar">12. Agregar Ítems Extra</a>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-section-title">Exportar y Guardar</div>
+      <a class="nav-link" href="#exportar">13. Exportar a Excel</a>
+      <a class="nav-link" href="#guardar">14. Guardar y Compartir</a>
+    </div>
+
+    <div style="margin-top:16px; padding-top:12px; border-top:1px solid var(--aba-border);">
+      <div style="font-size:11px; color:var(--aba-gray); margin-bottom:6px; font-weight:700;">Leyenda</div>
+      <span class="audience-badge badge-aba">Para Abastible</span><br><br>
+      <span class="audience-badge badge-col">Para Contratista</span>
+    </div>
+  </div>
+</aside>
+
+<!-- CONTENT -->
+<main class="content">
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 1: ACCESO -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="acceso">
+  <div class="section-header">
+    <div class="section-icon icon-orange">🌐</div>
+    <div>
+      <h2>1. Acceso a la App</h2>
+      <p>Sin instalación. Funciona desde cualquier navegador moderno.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Todos los usuarios</span>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Abre el navegador</h3>
+      <p>Puedes usar Chrome, Edge o Firefox. Funciona desde notebooks de empresa o personales sin necesidad de instalar nada.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Ingresa al link</h3>
+      <p>Escribe o copia esta dirección en la barra del navegador:</p>
+      <div style="background:var(--aba-blue);color:white;padding:12px 18px;border-radius:8px;font-family:monospace;font-size:14px;margin:10px 0;word-break:break-all;">
+        https://devece.github.io/NOTA-DE-VENTA-ABASTIBLE/NOTA_DE_VENTA.html
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>La base de datos se carga automáticamente</h3>
+      <p>Al abrir la app, verás brevemente un indicador de carga y luego un mensaje de confirmación. No necesitas hacer nada.</p>
+      <div class="mock-ui">
+        <div class="mock-toolbar">
+          <span class="mock-btn mock-btn-orange">📂 Cargar Base Excel</span>
+          <div style="display:flex;align-items:center;gap:8px;margin-left:8px;">
+            <span style="background:#E8F5E9;color:var(--aba-green);padding:5px 12px;border-radius:16px;font-size:12px;font-weight:700;">✅ Base cargada automáticamente</span>
+            <span style="font-size:11px;color:var(--aba-gray);">📊 10.941 productos · 21 centros · 7 categorías</span>
+          </div>
+        </div>
+      </div>
+      <div class="callout callout-tip">
+        <span class="callout-icon">💡</span>
+        <div><strong>Tip:</strong> Si el mensaje no aparece, recarga la página (F5). La app requiere conexión a internet para la carga inicial de la base de datos.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 2: PANTALLA PRINCIPAL -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="pantalla">
+  <div class="section-header">
+    <div class="section-icon icon-blue">🖥️</div>
+    <div>
+      <h2>2. Pantalla Principal</h2>
+      <p>Conoce los botones y zonas principales antes de comenzar.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Todos los usuarios</span>
+
+  <div class="mock-ui">
+    <div class="mock-toolbar">
+      <span class="mock-btn mock-btn-orange" style="font-size:11px;">📂 Cargar Base Excel</span>
+      <span class="mock-btn mock-btn-blue" style="font-size:11px;">💾 Guardar Proyecto</span>
+      <span class="mock-btn mock-btn-orange" style="font-size:11px;">📂 Cargar Proyecto</span>
+      <span class="mock-btn mock-btn-purple" style="font-size:11px;">📄 Cargar DC</span>
+    </div>
+    <div class="mock-header">
+      <div>
+        <div class="mock-header-title">Nota de Venta · Instalaciones de Gas</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <span style="background:var(--aba-orange);color:white;width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;">5</span>
+        <button style="background:rgba(255,255,255,0.15);color:white;border:none;padding:5px 12px;border-radius:8px;font-size:12px;">📋 Historial</button>
+        <button style="background:var(--aba-orange);color:white;border:none;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;">+ Nueva Nota</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:16px;">
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="background:var(--aba-silver);">
+        <th style="padding:8px;text-align:left;border:1px solid var(--aba-border);width:160px;">Botón</th>
+        <th style="padding:8px;text-align:left;border:1px solid var(--aba-border);">Función</th>
+        <th style="padding:8px;text-align:left;border:1px solid var(--aba-border);width:120px;">¿Quién lo usa?</th>
+      </tr>
+      <tr>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="mock-btn mock-btn-orange" style="font-size:10px;padding:3px 8px;">📂 Cargar Base Excel</span></td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">Carga manual de la base de datos (solo si la carga automática falla)</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="audience-badge badge-aba">Abastible</span></td>
+      </tr>
+      <tr style="background:var(--aba-silver);">
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="mock-btn mock-btn-blue" style="font-size:10px;padding:3px 8px;">💾 Guardar Proyecto</span></td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">Descarga el proyecto como archivo .json para compartir o continuar después</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="audience-badge badge-aba">Abastible</span></td>
+      </tr>
+      <tr>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="mock-btn mock-btn-orange" style="font-size:10px;padding:3px 8px;">📂 Cargar Proyecto</span></td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">Abre un proyecto guardado anteriormente (.json)</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="audience-badge badge-col">Contratista</span> <span class="audience-badge badge-aba">Abastible</span></td>
+      </tr>
+      <tr style="background:var(--aba-silver);">
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="mock-btn mock-btn-purple" style="font-size:10px;padding:3px 8px;">📄 Cargar DC</span></td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">Convierte automáticamente un PDF de Detalle Comercial en Nota de Venta</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="audience-badge badge-aba">Abastible</span></td>
+      </tr>
+      <tr>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span style="background:rgba(0,20,137,0.1);color:var(--aba-blue);padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;">📋 Historial</span></td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">Lista de notas guardadas en el navegador</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);"><span class="audience-badge badge-col">Contratista</span> <span class="audience-badge badge-aba">Abastible</span></td>
+      </tr>
+    </table>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 3: CREAR NOTA (ABASTIBLE) -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="crear-nota">
+  <div class="section-header">
+    <div class="section-icon icon-orange">📋</div>
+    <div>
+      <h2>3. Formas de Crear una Nota de Venta</h2>
+      <p>Tanto Abastible como Contratistas pueden crear notas. Hay dos puntos de partida.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Todos los usuarios — Abastible y Contratistas</span>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:14px;">
+    <div style="background:#F3F0FF;border:2px solid var(--aba-purple);border-radius:12px;padding:18px;">
+      <div style="font-size:26px;margin-bottom:8px;">📄</div>
+      <div style="font-weight:700;color:var(--aba-purple);font-size:15px;margin-bottom:6px;">Opción A — Cargar desde DC</div>
+      <div style="font-size:13px;color:var(--aba-gray);margin-bottom:10px;">Sube el PDF del Detalle Comercial. Claude AI extrae todos los ítems automáticamente en ~20 segundos.</div>
+      <div style="background:#7C3AED;color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:8px;">Solo Abastible</div>
+      <div style="font-size:12px;color:var(--aba-purple);font-weight:700;">→ Sección 8</div>
+    </div>
+    <div style="background:var(--aba-orange-light);border:2px solid var(--aba-orange);border-radius:12px;padding:18px;">
+      <div style="font-size:26px;margin-bottom:8px;">✍️</div>
+      <div style="font-weight:700;color:var(--aba-orange);font-size:15px;margin-bottom:6px;">Opción B — Crear desde Cero</div>
+      <div style="font-size:13px;color:var(--aba-gray);margin-bottom:10px;">Selecciona ítems de la base de datos e ingresa los precios. Ideal para cotizaciones propias o levantamientos en terreno.</div>
+      <div style="background:var(--aba-orange);color:white;padding:5px 10px;border-radius:6px;font-size:11px;font-weight:700;display:inline-block;margin-bottom:8px;">Abastible y Contratistas</div>
+      <div style="font-size:12px;color:var(--aba-orange);font-weight:700;">→ Secciones 4 a 8 (Abastible) · Sección 9 (Contratistas)</div>
+    </div>
+  </div>
+
+  <div class="callout callout-info" style="margin-top:16px;">
+    <span class="callout-icon">ℹ️</span>
+    <div><strong>Base de datos como catálogo:</strong> Ambos usuarios acceden a la misma base con más de 10.000 ítems en 7 categorías. Solo necesitas crear ítems personalizados para lo que no esté en la base.</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 4: PASO 1 -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="paso1">
+  <div class="section-header">
+    <div class="section-icon icon-blue">📝</div>
+    <div>
+      <h2>4. Paso 1 · Datos del Proyecto</h2>
+      <p>Completa la información del cliente y proyecto antes de agregar productos.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Abastible y Contratistas</span>
+      <p>Los campos marcados con <span style="color:red;font-weight:700;">*</span> son obligatorios. Sin ellos, no podrás avanzar al siguiente paso.</p>
+      <div class="mock-ui">
+        <div class="mock-body">
+          <div class="mock-card">
+            <h4>📋 Datos del Proyecto <span style="font-size:10px;color:var(--aba-gray);">Paso 1 de 3</span></h4>
+            <div class="mock-grid-4" style="gap:10px;">
+              <div class="mock-field">
+                <label>Proyecto <span style="color:red;">*</span></label>
+                <input class="mock-input mock-input-required" value="Walmart SBA 19141594" readonly>
+              </div>
+              <div class="mock-field">
+                <label>Cliente <span style="color:red;">*</span></label>
+                <input class="mock-input mock-input-required" value="Walmart Chile S.A." readonly>
+              </div>
+              <div class="mock-field">
+                <label>RUT / ID</label>
+                <input class="mock-input" placeholder="76.123.456-7" readonly>
+              </div>
+              <div class="mock-field">
+                <label>Centro <span style="color:red;">*</span></label>
+                <select class="mock-select">
+                  <option>Planta Antofagasta</option>
+                </select>
+              </div>
+              <div class="mock-field">
+                <label>Dirección</label>
+                <input class="mock-input mock-input-filled" value="Av. Salvador Allende 505" readonly>
+              </div>
+              <div class="mock-field">
+                <label>Ciudad</label>
+                <input class="mock-input mock-input-filled" value="Antofagasta" readonly>
+              </div>
+              <div class="mock-field">
+                <label>Fecha</label>
+                <input class="mock-input mock-input-filled" value="2026-06-18" readonly>
+              </div>
+              <div class="mock-field">
+                <label>Vencimiento</label>
+                <input class="mock-input" placeholder="2026-07-18" readonly>
+              </div>
+            </div>
+            <div style="text-align:right;margin-top:14px;">
+              <span class="mock-btn mock-btn-blue">Continuar → Agregar Productos</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Selecciona el Centro correctamente</h3>
+      <p>El Centro determina qué precios Renova se aplican. Elige el centro de distribución que corresponde al proyecto.</p>
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠️</span>
+        <div><strong>Importante:</strong> El centro no se puede cambiar una vez que comenzaste a agregar productos. Si te equivocas, usa <strong>"+ Nueva Nota"</strong> y vuelve a empezar.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Haz clic en "Continuar → Agregar Productos"</h3>
+      <p>Si algún campo obligatorio está vacío, el botón mostrará un borde rojo en ese campo. Completa los campos y vuelve a intentarlo.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 5: PASO 2 -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="paso2">
+  <div class="section-header">
+    <div class="section-icon icon-orange">🛒</div>
+    <div>
+      <h2>5. Paso 2 · Agregar Productos</h2>
+      <p>Selecciona los ítems del proyecto desde la base de datos.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Abastible y Contratistas</span>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Selecciona una categoría</h3>
+      <p>En el panel izquierdo encontrarás todas las categorías disponibles. Haz clic para ver los productos de esa categoría.</p>
+      <div class="mock-ui">
+        <div style="display:grid;grid-template-columns:160px 1fr;">
+          <div style="background:white;padding:10px;border-right:1px solid var(--aba-border);">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--aba-gray);margin-bottom:8px;">Categorías</div>
+            <span class="mock-cat-btn mock-cat-active">CAÑERIAS MP</span>
+            <span class="mock-cat-btn mock-cat-inactive">CAÑERIAS BP</span>
+            <span class="mock-cat-btn mock-cat-inactive">CAÑERIAS AP</span>
+            <span class="mock-cat-btn mock-cat-inactive">SERVICIO CAÑERIAS</span>
+            <span class="mock-cat-btn mock-cat-inactive">CONEXIONES</span>
+            <span class="mock-cat-btn mock-cat-inactive">OBRAS CIVILES</span>
+            <span class="mock-cat-btn mock-cat-inactive">NORMALIZACIONES</span>
+          </div>
+          <div style="background:#F0F2F5;padding:10px;">
+            <div style="font-size:11px;font-weight:700;color:#374151;margin-bottom:8px;">CAÑERIAS MP · 55 productos</div>
+            <div class="mock-prod-row">
+              <div><div class="mock-prod-name">Inst. Cañería Cu M/B Presión 1/2"</div><div class="mock-prod-code">1002476 · ml</div></div>
+              <div style="text-align:right;"><div class="mock-prod-price">$9.916</div><div style="font-size:10px;color:var(--aba-gray);">c/u</div></div>
+              <span class="mock-add-btn">+ Agregar</span>
+            </div>
+            <div class="mock-prod-row mock-prod-active">
+              <div><div class="mock-prod-name">Inst. Cañería Cu M/B Presión 1"</div><div class="mock-prod-code">1002478 · ml</div></div>
+              <div style="text-align:right;"><div class="mock-prod-price">$10.125</div><div class="mock-prod-qty">✓ x59.5</div></div>
+              <span class="mock-add-btn mock-add-done">✓ Agregar más</span>
+            </div>
+            <div class="mock-prod-row">
+              <div><div class="mock-prod-name">Inst. Cañería Cu M/B Presión 2"</div><div class="mock-prod-code">1002481 · ml</div></div>
+              <div style="text-align:right;"><div class="mock-prod-price">$10.424</div><div style="font-size:10px;color:var(--aba-gray);">c/u</div></div>
+              <span class="mock-add-btn">+ Agregar</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Haz clic en el producto para agregarlo</h3>
+      <p>Al hacer clic en "+ Agregar", el ítem se añade con cantidad 1. Si ya está en la lista, el botón cambia a "✓ Agregar más" y suma una unidad adicional cada vez que haces clic.</p>
+      <div class="callout callout-tip">
+        <span class="callout-icon">💡</span>
+        <div><strong>Tip:</strong> Usa el buscador del panel izquierdo para encontrar ítems rápidamente por código o descripción. Por ejemplo, escribe "1002478" o "regulador".</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Revisa los ítems agregados</h3>
+      <p>La parte inferior de la pantalla muestra todos los ítems que llevas. Puedes eliminar ítems equivocados antes de continuar.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h3>Haz clic en "Ver Nota de Venta →"</h3>
+      <p>Cuando tengas todos los ítems, haz clic en el botón naranja para avanzar al Paso 3.</p>
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠️</span>
+        <div><strong>Atención:</strong> Necesitas al menos un ítem agregado para poder continuar.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 6: MATERIAL IMPOVAR -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="impovar">
+  <div class="section-header">
+    <div class="section-icon icon-orange">🏭</div>
+    <div>
+      <h2>6. Material de Cañería · Impovar Automático</h2>
+      <p>Al agregar instalaciones de cañería, el material correspondiente se suma automáticamente.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-aba">🟠 Colegas Abastible</span>
+
+  <p style="font-size:14px;margin-bottom:16px;">Cada vez que agregas un ítem de instalación de cañería (categorías <strong>CAÑERIAS AP</strong>, <strong>CAÑERIAS MP</strong> o <strong>CAÑERIAS BP</strong>), el sistema añade automáticamente una subfila con el material de cañería Impovar correspondiente.</p>
+
+  <div class="impovar-calc">
+    <div style="font-weight:700;color:#92400E;margin-bottom:8px;">📐 ¿Cómo se calcula la cantidad de material?</div>
+    <div style="font-size:13px;color:var(--aba-gray);">La cantidad de material incluye un 5% de margen por pérdidas, y se redondea hacia arriba al múltiplo de 6 más cercano (porque cada tira de cañería mide 6 metros).</div>
+    <div class="formula">
+      Metros instalación × 1.05 → redondeo al múltiplo de 6 superior<br><br>
+      <strong>Ejemplo:</strong> 61.5 m × 1.05 = 64.575 m → <strong>66 m (11 tiras)</strong>
+    </div>
+  </div>
+
+  <div style="margin:16px 0;">
+    <div style="font-weight:700;color:var(--aba-blue);margin-bottom:10px;">Mapeo de materiales por categoría:</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="background:var(--aba-orange);color:white;">
+        <th style="padding:8px;text-align:left;">Categoría de Instalación</th>
+        <th style="padding:8px;text-align:left;">Material que se agrega</th>
+        <th style="padding:8px;text-align:left;">Diámetros disponibles</th>
+      </tr>
+      <tr>
+        <td style="padding:8px;border:1px solid var(--aba-border);font-weight:700;">CAÑERIAS AP</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">CAÑERÍA CU ALTA PRESIÓN</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">3/8" · 1/2" · 3/4" · 1" · 1 1/4" · 1 1/2" · 2" · 2 1/2"</td>
+      </tr>
+      <tr style="background:var(--aba-silver);">
+        <td style="padding:8px;border:1px solid var(--aba-border);font-weight:700;">CAÑERIAS MP</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">CAÑERÍA CU MEDIA/BAJA PRESIÓN</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">3/8" · 1/2" · 3/4" · 1" · 1 1/4" · 1 1/2" · 2" · 2 1/2" · 3" · 4"</td>
+      </tr>
+      <tr>
+        <td style="padding:8px;border:1px solid var(--aba-border);font-weight:700;">CAÑERIAS BP</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">CAÑERÍA CU MEDIA/BAJA PRESIÓN</td>
+        <td style="padding:8px;border:1px solid var(--aba-border);">3/8" · 1/2" · 3/4" · 1" · 1 1/4" · 1 1/2" · 2" · 2 1/2" · 3" · 4"</td>
+      </tr>
+    </table>
+  </div>
+
+  <p style="font-size:13px;margin-bottom:12px;">Así se ve en la tabla de la nota:</p>
+  <div class="mock-ui">
+    <div style="overflow-x:auto;">
+      <table class="mock-table">
+        <thead>
+          <tr><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CAÑERIAS MP</td>
+            <td>Inst. Cañería Cu M/B Presión 1"</td>
+            <td class="center">59.5</td>
+            <td class="money"><span style="color:var(--aba-gray);">$</span> 10.125</td>
+            <td class="money"><span style="color:var(--aba-gray);">$</span> 602.438</td>
+            <td class="center"><span class="badge-pc">PRECIO BASE</span></td>
+            <td class="money"><span style="color:var(--aba-gray);">$</span> 602.438</td>
+            <td class="center"><span class="badge-pc">$0</span></td>
+          </tr>
+          <tr class="mock-mat-row">
+            <td>↳ Material</td>
+            <td>🏭 CAÑERÍA CU MEDIA/BAJA PRESIÓN 1"</td>
+            <td class="center">66 ML</td>
+            <td class="money">$ 13.108/ML</td>
+            <td class="money">$ 865.128</td>
+            <td class="center"><span style="background:#FEF3C7;color:#92400E;padding:2px 6px;border-radius:4px;font-size:10px;font-weight:700;">IMPOVAR</span></td>
+            <td class="money">$ 865.128</td>
+            <td class="center"><span class="badge-pc">$0</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout callout-info" style="margin-top:14px;">
+    <span class="callout-icon">ℹ️</span>
+    <div><strong>Precio fijo:</strong> El precio Impovar no puede ser editado por el contratista. Se actualiza en la base de datos cada 3 meses.</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 7: COMPRA DIRECTA -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="compra-directa">
+  <div class="section-header">
+    <div class="section-icon icon-blue">🔧</div>
+    <div>
+      <h2>7. Ítems de Compra Directa</h2>
+      <p>Para equipos o servicios que no están en la base de datos.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-aba">🟠 Colegas Abastible</span>
+
+  <p style="font-size:14px;margin-bottom:16px;">En el panel izquierdo del Paso 2, al final, encontrarás dos formularios para agregar ítems que no existen en la base de datos pero sí en el Detalle Comercial.</p>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+    <div>
+      <div class="cd-form cd-form-blue">
+        <h5>🔧 Equipo Compra Directa</h5>
+        <input class="cd-input" placeholder="Descripción del equipo" style="width:100%;margin-bottom:6px;">
+        <input class="cd-input" placeholder="Proveedor" style="width:100%;margin-bottom:6px;">
+        <div class="cd-grid">
+          <input class="cd-input" placeholder="Cant." value="1">
+          <input class="cd-input" placeholder="Precio unitario">
+        </div>
+        <div class="cd-btn cd-btn-blue" style="margin-top:6px;">+ Agregar Equipo</div>
+      </div>
+      <div class="callout callout-info" style="margin-top:8px;">
+        <span class="callout-icon">ℹ️</span>
+        <div style="font-size:12px;">Todos los campos son <strong>obligatorios</strong>. El proveedor aparecerá en la tabla de la nota.</div>
+      </div>
+    </div>
+    <div>
+      <div class="cd-form cd-form-orange">
+        <h5>🛠️ Servicio Compra Directa</h5>
+        <input class="cd-input" placeholder="Descripción del servicio" style="width:100%;margin-bottom:6px;">
+        <input class="cd-input" placeholder="Proveedor" style="width:100%;margin-bottom:6px;">
+        <div class="cd-grid">
+          <input class="cd-input" placeholder="Cant." value="1">
+          <input class="cd-input" placeholder="Precio unitario">
+        </div>
+        <div class="cd-btn cd-btn-orange" style="margin-top:6px;">+ Agregar Servicio</div>
+      </div>
+      <div class="callout callout-tip" style="margin-top:8px;">
+        <span class="callout-icon">💡</span>
+        <div style="font-size:12px;">Ejemplo: Mano de Obra Industrial de un subcontratista externo como Devia y Rozas.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 8: CARGAR DC -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="cargar-dc">
+  <div class="section-header">
+    <div class="section-icon icon-purple">📄</div>
+    <div>
+      <h2>8. Cargar desde Detalle Comercial (DC)</h2>
+      <p>La forma más rápida de crear una nota para un proyecto adjudicado.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-aba">🟠 Colegas Abastible</span>
+
+  <div class="dc-flow">
+    <div class="dc-step">📄<br>Clic en<br><strong>Cargar DC</strong></div>
+    <div class="dc-arrow">→</div>
+    <div class="dc-step">⬆️<br>Seleccionar<br><strong>PDF del DC</strong></div>
+    <div class="dc-arrow">→</div>
+    <div class="dc-step">⏳<br>Claude AI<br><strong>analiza (~20s)</strong></div>
+    <div class="dc-arrow">→</div>
+    <div class="dc-step">✅<br>Revisar<br><strong>resumen</strong></div>
+    <div class="dc-arrow">→</div>
+    <div class="dc-step">📋<br>Cargar como<br><strong>Nota de Venta</strong></div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Haz clic en el botón morado "📄 Cargar DC"</h3>
+      <p>Está en la barra superior, junto a "Cargar Proyecto".</p>
+      <div class="mock-ui">
+        <div class="mock-toolbar">
+          <span class="mock-btn mock-btn-orange" style="font-size:11px;opacity:0.5;">📂 Cargar Base Excel</span>
+          <span class="mock-btn mock-btn-blue" style="font-size:11px;opacity:0.5;">💾 Guardar Proyecto</span>
+          <span class="mock-btn mock-btn-orange" style="font-size:11px;opacity:0.5;">📂 Cargar Proyecto</span>
+          <span class="mock-btn mock-btn-purple" style="font-size:11px;box-shadow:0 0 0 3px rgba(124,58,237,0.3);">📄 Cargar DC ← Haz clic aquí</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Selecciona el PDF del Detalle Comercial</h3>
+      <p>Se abrirá el selector de archivos de tu computador. El archivo debe ser el PDF original del DC generado por el sistema Renova.</p>
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠️</span>
+        <div><strong>Importante:</strong> NO incluye ítems de MANO DE OBRA INDUSTRIAL (ese valor se genera automáticamente como diferencia en la nota). Tampoco incluye equipos de bodega ni gastos generales.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Espera mientras Claude AI analiza el PDF</h3>
+      <p>El proceso toma aproximadamente 20-30 segundos. Verás el modal con el mensaje "Analizando PDF...".</p>
+      <div class="mock-ui">
+        <div style="background:white;padding:20px;text-align:center;">
+          <div style="width:36px;height:36px;border:3px solid #DDD6FE;border-top:3px solid var(--aba-purple);border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite;"></div>
+          <div style="font-weight:700;color:#1F2937;">Extrayendo ítems del DC...</div>
+          <div style="font-size:12px;color:var(--aba-gray);margin-top:4px;">Esto puede tomar hasta 30 segundos</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h3>Revisa el resumen y confirma</h3>
+      <p>Verás cuántos ítems se extrajeron por categoría. Si todo se ve correcto, haz clic en "Cargar como Nota de Venta".</p>
+      <div class="mock-ui">
+        <div style="padding:16px;background:white;">
+          <div style="background:#F0FDF4;border:1px solid #BBF7D0;border-radius:8px;padding:10px 14px;margin-bottom:12px;">
+            <div style="font-weight:700;color:#166534;">✅ 27 ítems extraídos en 7 categorías · Proyecto: Walmart SBA - 19141594</div>
+          </div>
+          <div style="font-size:12px;">
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">CAÑERIAS BP <span style="font-weight:700;color:var(--aba-purple);">1 ítem</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">CAÑERIAS MP <span style="font-weight:700;color:var(--aba-purple);">1 ítem</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">SERVICIO CAÑERIAS <span style="font-weight:700;color:var(--aba-purple);">4 ítems</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">CONEXIONES <span style="font-weight:700;color:var(--aba-purple);">8 ítems</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">OBRAS CIVILES <span style="font-weight:700;color:var(--aba-purple);">8 ítems</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--aba-border);">NORMALIZACIONES <span style="font-weight:700;color:var(--aba-purple);">4 ítems</span></div>
+            <div style="display:flex;justify-content:space-between;padding:5px 0;">SERVICIO COMPRA DIRECTA <span style="font-weight:700;color:var(--aba-purple);">1 ítem</span></div>
+          </div>
+          <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:14px;">
+            <span style="background:var(--aba-silver);padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">Cancelar</span>
+            <span style="background:var(--aba-purple);color:white;padding:8px 16px;border-radius:20px;font-size:13px;font-weight:600;cursor:pointer;">Cargar como Nota de Venta</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h3>La nota se abre en el Paso 3 con todo precargado</h3>
+      <p>Los datos del proyecto (nombre, cliente, ciudad) y todos los ítems con sus precios Renova quedan listos. El centro aparece como "DETALLE COMERCIAL" — no es necesario cambiarlo.</p>
+      <div class="callout callout-ok">
+        <span class="callout-icon">✅</span>
+        <div><strong>Listo para el contratista:</strong> Guarda el proyecto con "💾 Guardar Proyecto" y envíale el archivo .json para que ingrese sus precios.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 9: CONTRATISTA CREA DESDE CERO -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="contratista-nueva">
+  <div class="section-header">
+    <div class="section-icon icon-blue">🏗️</div>
+    <div>
+      <h2>9. Contratista · Crear una Nota Propia</h2>
+      <p>Para cotizaciones propias o levantamientos en terreno, sin necesitar un DC de Abastible.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-col">🔵 Contratistas</span>
+
+  <p style="font-size:14px;margin-bottom:16px;">Como contratista, puedes crear tu propia nota de venta usando la base de datos como catálogo de ítems. Ingresas tus precios en cada ítem y obtienes una cotización estructurada y exportable a Excel.</p>
+
+  <div style="background:var(--aba-blue-light);border-left:4px solid var(--aba-blue);border-radius:8px;padding:14px 18px;margin-bottom:20px;">
+    <div style="font-weight:700;color:var(--aba-blue);margin-bottom:6px;">¿Cuándo usar esta opción?</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px;color:var(--aba-gray);">
+      <div>✅ Levantamiento propio en terreno</div>
+      <div>✅ Cotización sin DC previo</div>
+      <div>✅ Propuesta adicional a un proyecto</div>
+      <div>✅ Cotización para un cliente directo</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Abre la app y haz clic en "+ Nueva Nota"</h3>
+      <p>Está en la barra superior derecha. Espera que aparezca el mensaje ✅ Base cargada antes de comenzar.</p>
+      <div class="mock-ui">
+        <div class="mock-header">
+          <div class="mock-header-title">Nota de Venta · Instalaciones de Gas</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button style="background:rgba(255,255,255,0.15);color:white;border:none;padding:5px 12px;border-radius:8px;font-size:12px;">📋 Historial</button>
+            <button style="background:var(--aba-orange);color:white;border:none;padding:5px 12px;border-radius:8px;font-size:12px;font-weight:700;box-shadow:0 0 0 3px rgba(254,81,0,0.4);">+ Nueva Nota ← Haz clic aquí</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Completa los datos del proyecto (Paso 1)</h3>
+      <p>Ingresa el nombre del proyecto, el cliente y selecciona el centro más cercano a la obra. Si no sabes qué centro usar, consúltale a tu contraparte en Abastible.</p>
+      <div class="callout callout-tip">
+        <span class="callout-icon">💡</span>
+        <div><strong>Centro:</strong> El centro determina los precios Renova de referencia. Para cotizaciones propias donde no importa el precio Renova, puedes elegir cualquier centro cercano a la obra.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Selecciona los ítems del levantamiento (Paso 2)</h3>
+      <p>Usa las categorías del panel izquierdo para encontrar cada ítem. La base de datos tiene más de 10.000 productos — usa el buscador para encontrarlos rápido por código o descripción.</p>
+      <div class="mock-ui">
+        <div style="display:grid;grid-template-columns:160px 1fr;">
+          <div style="background:white;padding:10px;border-right:1px solid var(--aba-border);">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--aba-gray);margin-bottom:8px;">Categorías</div>
+            <span class="mock-cat-btn mock-cat-active">CONEXIONES</span>
+            <span class="mock-cat-btn mock-cat-inactive">CAÑERIAS MP</span>
+            <span class="mock-cat-btn mock-cat-inactive">OBRAS CIVILES</span>
+            <span class="mock-cat-btn mock-cat-inactive">NORMALIZACIONES</span>
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--aba-border);">
+              <input style="width:100%;padding:6px 8px;border:1px solid var(--aba-border);border-radius:6px;font-size:11px;" placeholder="🔍 Buscar ítem...">
+            </div>
+          </div>
+          <div style="background:#F0F2F5;padding:10px;">
+            <div class="mock-prod-row">
+              <div><div class="mock-prod-name">Conexión Regulador Primera Etapa 3/4"</div><div class="mock-prod-code">1000211 · ST</div></div>
+              <div style="text-align:right;"><div class="mock-prod-price">$45.000</div></div>
+              <span class="mock-add-btn">+ Agregar</span>
+            </div>
+            <div class="mock-prod-row mock-prod-active">
+              <div><div class="mock-prod-name">Conexión Válv. Corte 1/2" M/B Presión</div><div class="mock-prod-code">1000248 · ST</div></div>
+              <div style="text-align:right;"><div class="mock-prod-price">$25.000</div><div class="mock-prod-qty">✓ x9</div></div>
+              <span class="mock-add-btn mock-add-done">✓ Agregar más</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="callout callout-tip" style="margin-top:10px;">
+        <span class="callout-icon">💡</span>
+        <div><strong>Ítems no disponibles:</strong> Si un ítem no está en la base, usa el formulario "Ítem personalizado" del panel izquierdo para agregarlo manualmente con tu precio.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">4</div>
+    <div class="step-body">
+      <h3>Ingresa tus precios en el Paso 3</h3>
+      <p>En la columna "Precio Contratista" ingresa tu precio unitario para cada ítem. El sistema muestra el precio Renova como referencia — la diferencia es la Mano de Obra Industrial.</p>
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div><strong>Precio Renova:</strong> Es el precio base oficial de Abastible. Tu precio contratista puede ser mayor (diferencia positiva = MOI) o puedes igualarlo si corresponde.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">5</div>
+    <div class="step-body">
+      <h3>Exporta o guarda tu cotización</h3>
+      <p>Usa <span class="mock-btn mock-btn-blue" style="font-size:10px;padding:2px 8px;">📊 Exportar a Excel</span> para generar el archivo final, o <span class="mock-btn mock-btn-blue" style="font-size:10px;padding:2px 8px;">💾 Guardar Proyecto</span> para guardar y continuar después.</p>
+      <div class="callout callout-ok">
+        <span class="callout-icon">✅</span>
+        <div><strong>Cuadre validado:</strong> La nota muestra automáticamente si los totales cuadran correctamente antes de exportar.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 10: INGRESAR PRECIOS (CONTRATISTA) -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="contratista-paso3">
+  <div class="section-header">
+    <div class="section-icon icon-blue">💰</div>
+    <div>
+      <h2>10. Ingresar Precios del Contratista</h2>
+      <p>Cuando Abastible te envía un proyecto, ingresas tus precios en la nota precargada.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-col">🔵 Contratistas</span>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Abre el proyecto que te envió Abastible</h3>
+      <p>Recibirás un archivo con extensión <strong>.json</strong>. Para abrirlo:</p>
+      <ol style="font-size:13px;color:var(--aba-gray);margin-left:20px;line-height:2;">
+        <li>Abre el navegador y entra al link de la app</li>
+        <li>Haz clic en <span class="mock-btn mock-btn-orange" style="font-size:10px;padding:2px 8px;">📂 Cargar Proyecto</span></li>
+        <li>Selecciona el archivo .json recibido</li>
+      </ol>
+      <div class="callout callout-warn">
+        <span class="callout-icon">⚠️</span>
+        <div><strong>Antes de cargar el proyecto:</strong> La app necesita cargar la base de datos primero. Espera el mensaje ✅ Base cargada antes de abrir el proyecto.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Localiza la columna "Precio Contratista"</h3>
+      <p>En el Paso 3 verás la tabla con todos los ítems. La columna "Precio Contratista" tiene un campo editable para cada ítem. Los que muestren <span class="badge-sc">SIN COTIZAR</span> necesitan tu precio.</p>
+      <div class="mock-ui">
+        <div style="overflow-x:auto;">
+          <table class="mock-table">
+            <thead>
+              <tr><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>CONEXIONES</td>
+                <td>Conexión Horno de Panadería</td>
+                <td class="center">3</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 25.000</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 75.000</td>
+                <td><input class="input-small" value="28.000" style="border-color:var(--aba-orange);"></td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 84.000</td>
+                <td class="money" style="color:var(--aba-green);">+$ 9.000</td>
+              </tr>
+              <tr>
+                <td>CONEXIONES</td>
+                <td>Conexión Válv. Corte 1/2" MP/BP</td>
+                <td class="center">9</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 25.000</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 225.000</td>
+                <td><input class="input-small" placeholder="Ingrese valor" style="border-color:#D1D5DB;color:var(--aba-gray);"></td>
+                <td><span class="badge-sc">SIN COTIZAR</span></td>
+                <td><span class="badge-sc">PENDIENTE</span></td>
+              </tr>
+              <tr>
+                <td>OBRAS CIVILES</td>
+                <td>Anclaje Estanque Aéreo 4.000 Lts.</td>
+                <td class="center">12</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 14.000</td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 168.000</td>
+                <td><input class="input-small" value="18.000"></td>
+                <td class="money"><span style="color:var(--aba-gray);">$</span> 216.000</td>
+                <td class="money" style="color:var(--aba-green);">+$ 48.000</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>Ingresa el precio unitario de tu cotización</h3>
+      <p>Escribe el precio unitario directamente en el campo. El total se calcula automáticamente. Puedes escribir sin puntos ni símbolos (ej: <strong>28000</strong>).</p>
+      <div class="callout callout-info">
+        <span class="callout-icon">ℹ️</span>
+        <div><strong>Diferencia:</strong> La columna "Diferencia" muestra en <span style="color:var(--aba-green);font-weight:700;">verde</span> si tu precio es mayor al precio Renova, o en <span style="color:red;font-weight:700;">rojo</span> si es menor. Esta diferencia es la <strong>Mano de Obra Industrial</strong>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 10: AJUSTAR CANTIDADES -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="contratista-ajuste">
+  <div class="section-header">
+    <div class="section-icon icon-orange">✏️</div>
+    <div>
+      <h2>11. Ajustar Cantidades</h2>
+      <p>Si la cantidad del proyecto difiere de lo que está en la nota.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-col">🔵 Contratistas</span>
+
+  <p style="font-size:14px;margin-bottom:16px;">En la columna "Cant." de cada fila hay un campo editable. Puedes cambiar la cantidad y los totales se recalculan automáticamente.</p>
+
+  <div class="mock-ui">
+    <div style="overflow-x:auto;">
+      <table class="mock-table">
+        <thead>
+          <tr><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CAÑERIAS MP</td>
+            <td>Inst. Cañería Cu M/B Presión 1"</td>
+            <td class="center"><input type="number" value="59.5" style="width:65px;border:1.5px solid var(--aba-orange);border-radius:5px;padding:4px 6px;font-size:12px;text-align:center;"></td>
+            <td class="money"><span style="color:var(--aba-gray);">$</span> 10.125</td>
+            <td class="money"><span style="color:var(--aba-gray);">$</span> 602.438</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="callout callout-tip" style="margin-top:12px;">
+    <span class="callout-icon">💡</span>
+    <div><strong>Material automático:</strong> Si cambias la cantidad de una instalación de cañería, la cantidad del material Impovar se recalcula automáticamente.</div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 11: AGREGAR ÍTEMS (CONTRATISTA) -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="contratista-agregar">
+  <div class="section-header">
+    <div class="section-icon icon-blue">➕</div>
+    <div>
+      <h2>12. Agregar Ítems No Contemplados</h2>
+      <p>Si tienes trabajos adicionales que no están en la nota, puedes agregarlos.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-col">🔵 Contratistas</span>
+
+  <p style="font-size:14px;margin-bottom:16px;">Si necesitas agregar ítems, primero debes volver al Paso 2 usando el botón "← Volver a productos".</p>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Haz clic en "← Volver a productos"</h3>
+      <p>Está en la parte inferior izquierda de la nota.</p>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>Usa el formulario "Ítem personalizado"</h3>
+      <p>En el panel izquierdo, al final, encontrarás el formulario para agregar ítems manualmente con su precio contratista.</p>
+      <div class="cd-form" style="margin-top:8px;">
+        <h5 style="color:var(--aba-gray);font-size:12px;">➕ ÍTEM PERSONALIZADO</h5>
+        <select class="cd-input" style="width:100%;margin-bottom:6px;"><option>CONEXIONES</option></select>
+        <input class="cd-input" placeholder="Descripción del ítem" style="width:100%;margin-bottom:6px;" value="Trabajo adicional de obra civil">
+        <div class="cd-grid">
+          <input class="cd-input" value="2">
+          <input class="cd-input" value="45000" placeholder="Precio Contratista">
+        </div>
+        <div class="cd-btn" style="background:var(--aba-orange);margin-top:6px;color:white;text-align:center;padding:8px;border-radius:6px;font-weight:700;font-size:12px;">+ Agregar ítem</div>
+        <div style="font-size:10px;color:var(--aba-gray);margin-top:6px;">* El precio que ingresa es el PRECIO CONTRATISTA</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 12: EXPORTAR -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="exportar">
+  <div class="section-header">
+    <div class="section-icon icon-green">📊</div>
+    <div>
+      <h2>13. Exportar a Excel</h2>
+      <p>Genera un archivo Excel profesional con formato corporativo Abastible.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Todos los usuarios</span>
+
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>Haz clic en "📊 Exportar a Excel"</h3>
+      <p>Botón azul en la parte inferior de la nota. Se genera y descarga automáticamente un archivo <strong>.xlsx</strong>.</p>
+      <div class="mock-actions">
+        <span style="background:var(--aba-silver);color:var(--aba-gray);padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;">← Volver a productos</span>
+        <span class="mock-btn mock-btn-blue" style="font-size:12px;">📊 Exportar a Excel</span>
+        <span class="mock-btn mock-btn-orange" style="font-size:12px;">💾 Guardar Nota</span>
+        <span style="background:var(--aba-blue);color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;">🖨️ Imprimir</span>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:13px;margin:12px 0;">El Excel incluye:</p>
+  <ul style="font-size:13px;color:var(--aba-gray);margin-left:20px;line-height:2.2;">
+    <li>Datos del proyecto en el encabezado</li>
+    <li>Tabla completa con columnas de Precio Renova, Precio Contratista y Diferencia</li>
+    <li>Filas de material Impovar (cuando corresponda)</li>
+    <li>Subtotales y totales por categoría con formato corporativo</li>
+    <li>Columna Proveedor (para ítems de Compra Directa)</li>
+    <li>Fila de verificación de cuadre al final</li>
+  </ul>
+</section>
+
+<!-- ══════════════════════════════════════ -->
+<!-- SECCIÓN 13: GUARDAR Y COMPARTIR -->
+<!-- ══════════════════════════════════════ -->
+<section class="section" id="guardar">
+  <div class="section-header">
+    <div class="section-icon icon-blue">💾</div>
+    <div>
+      <h2>14. Guardar y Compartir</h2>
+      <p>Opciones para guardar el trabajo y compartirlo con el equipo.</p>
+    </div>
+  </div>
+
+  <span class="audience-tag tag-both">👥 Todos los usuarios</span>
+
+  <div class="guard-grid">
+    <div class="guard-box" style="background:var(--aba-blue-light);border-color:var(--aba-blue);">
+      <div class="guard-icon">💾</div>
+      <h4 style="color:var(--aba-blue);">Guardar Nota</h4>
+      <p style="font-size:13px;">Guarda en el historial local del navegador. Solo disponible en ese computador. Accede desde el botón <strong>📋 Historial</strong>.</p>
+      <div class="callout callout-warn" style="margin-top:8px;">
+        <span class="callout-icon">⚠️</span>
+        <div style="font-size:11px;">Si limpias el caché del navegador, se pierden las notas guardadas aquí.</div>
+      </div>
+    </div>
+    <div class="guard-box" style="background:var(--aba-orange-light);border-color:var(--aba-orange);">
+      <div class="guard-icon">📂</div>
+      <h4 style="color:var(--aba-orange);">Guardar Proyecto (.json)</h4>
+      <p style="font-size:13px;">Descarga el proyecto como archivo .json. Puedes enviarlo por correo, Teams o guardarlo en OneDrive. Se puede reabrir en cualquier computador.</p>
+      <div class="callout callout-ok" style="margin-top:8px;">
+        <span class="callout-icon">✅</span>
+        <div style="font-size:11px;"><strong>Recomendado</strong> para compartir con contratistas o guardar respaldo.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top:20px;">
+    <div style="font-weight:700;color:var(--aba-blue);font-size:15px;margin-bottom:12px;">Flujo recomendado para proyectos con contratista:</div>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--aba-silver);padding:16px;border-radius:10px;">
+      <div style="background:var(--aba-blue);color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;">1. Abastible<br>crea la nota</div>
+      <div style="font-size:18px;color:var(--aba-gray);">→</div>
+      <div style="background:var(--aba-orange);color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;">2. Guarda<br>como .json</div>
+      <div style="font-size:18px;color:var(--aba-gray);">→</div>
+      <div style="background:var(--aba-gray);color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;">3. Envía .json<br>al contratista</div>
+      <div style="font-size:18px;color:var(--aba-gray);">→</div>
+      <div style="background:#166534;color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;">4. Contratista<br>ingresa precios</div>
+      <div style="font-size:18px;color:var(--aba-gray);">→</div>
+      <div style="background:var(--aba-blue);color:white;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-align:center;">5. Exporta<br>a Excel</div>
+    </div>
+  </div>
+</section>
+
+</main>
+</div>
+
+<footer>
+  <div style="font-size:13px;margin-bottom:6px;">Nota de Venta Abastible · Manual de Usuario v2.0 · 2025 · 14 secciones</div>
+  <div style="font-size:12px;opacity:0.7;">Link de la app: <a href="https://devece.github.io/NOTA-DE-VENTA-ABASTIBLE/NOTA_DE_VENTA.html">devece.github.io/NOTA-DE-VENTA-ABASTIBLE/NOTA_DE_VENTA.html</a></div>
+</footer>
+
+<style>
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
+</body>
+</html>
