@@ -2483,50 +2483,72 @@ document.addEventListener('DOMContentLoaded', () => {
     if(excelInput) excelInput.addEventListener('change', cargarExcel); 
     categoriaActiva = "";
 
-    // Auto-fetch de base_datos.xlsx cuando se abre desde https:// (versión online)
+    // Auto-fetch de base_datos.xlsx + impovar.xlsx al abrir desde https://
     if (window.location.protocol === 'https:') {
-        const baseUrl = window.location.href.replace(/\/[^\/]*$/, '/') + 'base_datos.xlsx';
+        const baseDir = window.location.href.replace(/\/[^\/]*$/, '/');
+        const urlBase    = baseDir + 'base_datos.xlsx';
+        const urlImpovar = baseDir + 'impovar.xlsx';
+
         showLoader("Cargando base de datos...");
-        fetch(baseUrl)
-            .then(r => {
-                if (!r.ok) throw new Error('No se encontró base_datos.xlsx');
-                return r.arrayBuffer();
-            })
-            .then(buffer => {
-                if (typeof XLSX === 'undefined') throw new Error('Librería no cargada');
-                const data = new Uint8Array(buffer);
-                const workbook = XLSX.read(data, { type: 'array' });
-                const hojasVisibles = workbook.SheetNames.filter((name, i) => {
-                    try {
-                        const h = workbook.Workbook?.Sheets?.[i]?.Hidden;
-                        return h !== 1 && h !== 2;
-                    } catch { return true; }
-                });
-                const datosTotales = [];
-                hojasVisibles.forEach(nombreHoja => {
-                    const hoja = workbook.Sheets[nombreHoja];
-                    const datosHoja = XLSX.utils.sheet_to_json(hoja);
-                    datosHoja.forEach(item => {
-                        const codigo = String(item['código'] || item['codigo'] || '').trim();
-                        const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
-                        const precio = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
-                        if (!codigo || !descripcion || precio === null || precio <= 0) return;
-                        item.categoria = nombreHoja;
-                        item.precio = precio;
-                        datosTotales.push(item);
-                    });
-                });
-                if (datosTotales.length > 0) {
-                    transformarBase(datosTotales, hojasVisibles);
-                    const total = Object.values(dbProductos).reduce((s, c) => s + c.length, 0);
-                    mostrarToast(`✅ Base cargada automáticamente: ${total} productos`, 'ok');
-                }
-            })
-            .catch(err => {
-                console.warn('Auto-fetch base_datos:', err.message);
-                hideLoader();
-                // Sin error visible — el usuario puede cargar manualmente
+
+        function parsearWorkbook(buffer, esImpovar) {
+            const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+            const hojasVisibles = workbook.SheetNames.filter((name, i) => {
+                try {
+                    const h = workbook.Workbook?.Sheets?.[i]?.Hidden;
+                    return h !== 1 && h !== 2;
+                } catch { return true; }
             });
+            const items = [];
+            hojasVisibles.forEach(nombreHoja => {
+                const datosHoja = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja]);
+                datosHoja.forEach(item => {
+                    const codigo     = String(item['código'] || item['codigo'] || '').trim();
+                    const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                    const precio     = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                    if (!codigo || !descripcion || precio === null || precio <= 0) return;
+                    item.categoria   = nombreHoja;
+                    item.precio      = precio;
+                    item.esImpovar   = esImpovar || false;
+                    items.push(item);
+                });
+            });
+            return { items, hojas: hojasVisibles };
+        }
+
+        Promise.allSettled([
+            fetch(urlBase).then(r => { if (!r.ok) throw new Error('base_datos no encontrada'); return r.arrayBuffer(); }),
+            fetch(urlImpovar).then(r => { if (!r.ok) throw new Error('impovar no encontrado'); return r.arrayBuffer(); })
+        ]).then(([resBase, resImpovar]) => {
+            if (resBase.status === 'rejected') {
+                console.warn('Auto-fetch base_datos:', resBase.reason?.message);
+                hideLoader();
+                return;
+            }
+
+            const { items: itemsBase, hojas: hojasBase } = parsearWorkbook(resBase.value, false);
+            let itemsImpovar = [];
+            let hojasImpovar = [];
+
+            if (resImpovar.status === 'fulfilled') {
+                const parsed = parsearWorkbook(resImpovar.value, true);
+                itemsImpovar = parsed.items;
+                hojasImpovar = parsed.hojas;
+            } else {
+                console.warn('Auto-fetch impovar:', resImpovar.reason?.message);
+            }
+
+            // Combinar: base primero, luego Impovar al final de cada hoja de cañerías
+            const datosTotales = [...itemsBase, ...itemsImpovar];
+            const hojasTotales = [...new Set([...hojasBase, ...hojasImpovar])];
+
+            if (datosTotales.length > 0) {
+                transformarBase(datosTotales, hojasTotales);
+                const total = Object.values(dbProductos).reduce((s, c) => s + c.length, 0);
+                const msgImpovar = itemsImpovar.length > 0 ? ` + ${itemsImpovar.length} Impovar` : '';
+                mostrarToast(`✅ Base cargada: ${total} productos${msgImpovar}`, 'ok');
+            }
+        });
     }
 });
 </script>
