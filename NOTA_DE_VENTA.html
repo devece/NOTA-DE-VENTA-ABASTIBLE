@@ -45,7 +45,46 @@
             --aba-silver: #F8F8F8;
             --aba-white: #FFFFFF;
             --aba-border: #E5E7EB;
+            --ctta-green: #15803D;
+            --ctta-green-dark: #166534;
+            --ctta-green-light: #ECFDF5;
         }
+
+        body.tema-contratista .btn-primary { background: var(--ctta-green); }
+        body.tema-contratista .btn-primary:hover { background: var(--ctta-green-dark); }
+        body.tema-contratista .cat-btn.active { background: var(--ctta-green); border-color: var(--ctta-green); }
+        body.tema-contratista .prod-row:hover { background: var(--ctta-green-light); border-left-color: var(--ctta-green); }
+        body.tema-contratista .input-cant:focus, body.tema-contratista .input-ctta:focus { border-color: var(--ctta-green); box-shadow: 0 0 0 2px rgba(21,128,61,0.12); }
+        body.tema-contratista .nota-table th { background: var(--ctta-green); }
+
+        .selector-card {
+            background: white;
+            border: 2px solid var(--aba-border);
+            border-radius: 16px;
+            padding: 28px 24px;
+            cursor: pointer;
+            transition: all 0.18s ease;
+            text-align: left;
+        }
+        .selector-card:hover { border-color: var(--aba-orange); box-shadow: 0 8px 20px -8px rgba(0,0,0,0.15); transform: translateY(-2px); }
+        .selector-card.tema-verde:hover { border-color: var(--ctta-green); }
+        .selector-card .sc-icon { font-size: 36px; line-height: 1; margin-bottom: 12px; display: block; }
+        .selector-card .sc-title { font-size: 17px; font-weight: 700; color: #1f2937; margin-bottom: 4px; }
+        .selector-card .sc-desc { font-size: 13px; color: var(--aba-gray); line-height: 1.4; }
+
+        .perfil-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .perfil-badge.pb-abastible { background: var(--aba-orange-light); color: var(--aba-orange-dark); }
+        .perfil-badge.pb-contratista { background: var(--ctta-green-light); color: var(--ctta-green-dark); }
         
         .btn-primary { 
             background: var(--aba-orange); 
@@ -298,14 +337,15 @@
 </head>
 <body>
 
-<div id="warningBaseExcel" class="warning-compact">
+<div id="warningBaseExcel" class="warning-compact hidden">
     <span>⚠️</span>
     <span>Debe cargar la Base Excel para habilitar centros, categorías y productos</span>
 </div>
 
 <!-- Botones superiores -->
-<div style="padding:15px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
+<div id="barraSuperior" class="hidden" style="padding:15px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
     <div class="flex flex-wrap gap-3 items-center">
+        <span id="badgePerfilActivo" class="perfil-badge pb-abastible"></span>
         <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
         <button onclick="document.getElementById('excelFile').click()" id="btnCargarExcel" class="btn-secondary" style="padding:12px 18px; border-radius:12px; font-weight:bold; font-size:14px;">
             📂 Cargar Base Excel
@@ -326,9 +366,13 @@
                 📂 Cargar Proyecto
                 <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
             </label>
-            <label style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block; background:#7C3AED; color:white; transition:background 0.2s;" onmouseover="this.style.background='#6D28D9'" onmouseout="this.style.background='#7C3AED'">
+            <label id="labelCargarDC" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block; background:#7C3AED; color:white; transition:background 0.2s;" onmouseover="this.style.background='#6D28D9'" onmouseout="this.style.background='#7C3AED'">
                 📄 Cargar DC
                 <input type="file" id="cargarDCInput" accept=".pdf" style="display:none;" onchange="procesarDetalleComercial(event)">
+            </label>
+            <label id="labelCargarCotizacionContratista" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:none; background:#0E7490; color:white;">
+                📥 Importar Cotización Contratista
+                <input type="file" id="cargarCotizacionInput" accept=".xlsx,.xls,.json" style="display:none;" onchange="importarCotizacionContratista(event)">
             </label>
         </div>
     </div>
@@ -365,34 +409,133 @@
 </div>
 
 <!-- HEADER -->
-<div class="sticky-header shadow-sm no-print">
+<div id="headerApp" class="sticky-header shadow-sm no-print hidden">
     <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
         <div class="flex items-center gap-4">
             <img src="logos/logo-abastible.png" alt="Abastible" class="h-14 w-auto object-contain" onerror="this.style.display='none'">
             <div>
-                <div class="text-3xl font-bold" style="color: var(--aba-orange);">
+                <div class="text-3xl font-bold" id="tituloApp" style="color: var(--aba-orange);">
                     Nota de Venta · Instalaciones de Gas
                 </div>
             </div>
         </div>
         <div class="flex items-center gap-3">
             <span id="badgeItems" class="hidden bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">0</span>
-            <button onclick="verHistorial()" class="px-4 py-2 border rounded-xl transition font-medium text-sm" style="border-color: var(--aba-blue); color: var(--aba-blue);">📋 Historial</button>
-            <button onclick="nuevaNota()" class="btn-primary px-4 py-2 rounded-xl font-semibold text-sm">+ Nueva Nota</button>
+            <button id="btnHistorialHeader" onclick="verHistorial()" class="px-4 py-2 border rounded-xl transition font-medium text-sm" style="border-color: var(--aba-blue); color: var(--aba-blue);">📋 Historial</button>
+            <button onclick="volverSeleccionPerfil()" class="px-4 py-2 rounded-xl font-medium text-sm" style="background: var(--aba-silver); color: var(--aba-gray);">🔄 Cambiar perfil</button>
+            <button id="btnNuevaNotaHeader" onclick="nuevaNota()" class="btn-primary px-4 py-2 rounded-xl font-semibold text-sm">+ Nueva Nota</button>
         </div>
     </div>
 </div>
 
-<div class="max-w-screen-2xl mx-auto px-5 py-5" id="appContainer">
+<div class="max-w-screen-2xl mx-auto px-5 py-5 hidden" id="appContainer">
+
+<!-- PANTALLA SELECCIÓN DE PERFIL -->
+<div id="pasoPerfil" class="max-w-screen-2xl mx-auto px-5 py-10">
+    <div class="text-center mb-10">
+        <img src="logos/logo-abastible.png" alt="Abastible" class="h-16 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
+        <h1 class="text-2xl font-bold" style="color: var(--aba-blue);">¿Cómo vas a usar la aplicación?</h1>
+        <p class="text-sm mt-2" style="color: var(--aba-gray);">Selecciona tu perfil para continuar</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
+        <div class="selector-card" onclick="seleccionarPerfil('abastible')">
+            <span class="sc-icon">🏢</span>
+            <div class="sc-title">Abastible</div>
+            <div class="sc-desc">Supervisores, jefes de proyecto, coordinadores y personal comercial. Acceso a Nota de Venta, carga de Detalle Comercial y análisis de cotizaciones.</div>
+        </div>
+        <div class="selector-card tema-verde" onclick="seleccionarPerfil('contratista')">
+            <span class="sc-icon">🛠️</span>
+            <div class="sc-title">Contratista</div>
+            <div class="sc-desc">Empresas externas. Genera tu Cotización a partir de los precios Renova de tu zona, agregando los ítems que necesites.</div>
+        </div>
+    </div>
+</div>
+
+<!-- PANTALLA SELECCIÓN DE MODO ABASTIBLE -->
+<div id="pasoModoAbastible" class="max-w-screen-2xl mx-auto px-5 py-10 hidden">
+    <div class="text-center mb-10">
+        <span class="perfil-badge pb-abastible mb-3">🏢 Perfil Abastible</span>
+        <h1 class="text-2xl font-bold mt-3" style="color: var(--aba-blue);">¿Qué documento vas a crear?</h1>
+        <button onclick="volverSeleccionPerfil()" class="text-sm mt-2" style="color: var(--aba-gray);">← Cambiar perfil</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        <div class="selector-card" onclick="iniciarModoAbastible('nota_venta')">
+            <span class="sc-icon">📋</span>
+            <div class="sc-title">Nota de Venta</div>
+            <div class="sc-desc">Crea una Nota de Venta seleccionando productos Renova por centro, con comparativa de precio contratista y MOI.</div>
+        </div>
+        <div class="selector-card" onclick="iniciarModoAbastible('cargar_dc')">
+            <span class="sc-icon">📄</span>
+            <div class="sc-title">Cargar DC</div>
+            <div class="sc-desc">Sube el PDF de un Detalle Comercial para crear automáticamente un proyecto con sus ítems, listo para que el contratista cotice.</div>
+        </div>
+        <div class="selector-card" onclick="iniciarModoAbastible('dc_cotizacion')">
+            <span class="sc-icon">🔍</span>
+            <div class="sc-title">Análisis DC + Cotización</div>
+            <div class="sc-desc">Abre un proyecto DC ya cargado e ingresa o importa la cotización del contratista para el análisis de cuadre y MOI.</div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DATOS CONTRATISTA -->
+<div id="modalDatosContratista" class="modal-overlay">
+    <div class="modal-container" style="max-width:480px;">
+        <div class="modal-header" style="background: linear-gradient(135deg, var(--ctta-green), var(--ctta-green-dark)); padding:20px 24px;">
+            <h3 style="font-size:18px; font-weight:700; color:white; margin:0;">🛠️ Datos de la Empresa Contratista</h3>
+            <p style="color:rgba(255,255,255,0.85); font-size:13px; margin:6px 0 0 0;">Estos datos aparecerán en tu Cotización</p>
+        </div>
+        <div class="modal-body" style="padding:20px 24px;">
+            <div class="space-y-3">
+                <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Razón Social <span class="text-red-500">*</span></label>
+                    <input type="text" id="cttaRazonSocial" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">RUT Empresa <span class="text-red-500">*</span></label>
+                    <input type="text" id="cttaRut" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Representante</label>
+                    <input type="text" id="cttaRepresentante" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Teléfono</label>
+                        <input type="text" id="cttaTelefono" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                    <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Email</label>
+                        <input type="email" id="cttaEmail" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
+                </div>
+                <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Zona <span class="text-red-500">*</span></label>
+                    <select id="cttaZona" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);">
+                        <option value="">-- Seleccione zona --</option>
+                        <option value="Norte">Norte</option>
+                        <option value="Centro">Centro</option>
+                        <option value="Agroindustrial">Agroindustrial</option>
+                        <option value="Sur">Sur</option>
+                        <option value="Austral">Austral</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button onclick="volverSeleccionPerfil()" style="background:#F8F8F8; border:1px solid #E5E7EB; padding:10px 20px; border-radius:40px; font-weight:600; cursor:pointer;">Cancelar</button>
+            <button onclick="confirmarDatosContratista()" style="background:var(--ctta-green); border:none; padding:10px 20px; border-radius:40px; font-weight:600; cursor:pointer; color:white;">Continuar →</button>
+        </div>
+    </div>
+</div>
 
     <!-- PASO 1 -->
-    <div id="paso1">
-        <div class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
+    <div id="paso1" class="hidden">
+        <!-- Panel específico para modo DC + Cotización: invita a abrir el proyecto -->
+        <div id="panelDcCotizacion" class="hidden bg-white rounded-xl shadow-sm border p-10 text-center" style="border-color: var(--aba-border);">
+            <span class="text-5xl block mb-4">📂</span>
+            <h2 class="font-bold text-gray-800 text-lg mb-2">Abra el proyecto DC para continuar</h2>
+            <p class="text-sm mb-6" style="color: var(--aba-gray);">Use el botón <strong>"📂 Cargar Proyecto"</strong> en la barra superior para abrir el archivo .json generado al cargar el Detalle Comercial.</p>
+            <p class="text-sm" style="color: var(--aba-gray);">Una vez abierto, podrá ingresar el precio contratista manualmente en la tabla, o importar la Cotización del contratista con <strong>"📥 Importar Cotización Contratista"</strong>.</p>
+        </div>
+        <div id="formularioPaso1" class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
-                <h2 class="font-bold text-gray-800 text-lg">📋 Datos del Proyecto</h2>
+                <h2 class="font-bold text-gray-800 text-lg" id="tituloPaso1">📋 Datos del Proyecto</h2>
                 <span class="text-xs px-2 py-1 rounded-full" style="color: var(--aba-gray); background: var(--aba-silver);">Paso 1 de 3</span>
             </div>
             <div class="p-6">
+                <div id="bannerEmpresaContratista" class="hidden mb-4 p-3 rounded-lg text-sm flex items-center justify-between" style="background: var(--ctta-green-light); color: var(--ctta-green-dark);">
+                    <div><strong id="bannerEmpresaNombre"></strong> · <span id="bannerEmpresaZona"></span></div>
+                    <button onclick="abrirModalDatosContratista()" class="text-xs underline">Editar datos empresa</button>
+                </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Proyecto <span class="text-red-500">*</span></label>
                         <input type="text" id="nombreProyecto" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
@@ -445,8 +588,19 @@
                 <div class="bg-white rounded-xl shadow-sm border p-4" style="border-color: var(--aba-border);">
                     <div class="text-xs font-bold uppercase tracking-wide mb-2" style="color: var(--aba-gray);">Buscar</div>
                     <input type="text" id="buscarProducto" placeholder="Código o descripción..." class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);">
-                    
 
+                    <div class="mt-5 border-t pt-4" style="border-color: var(--aba-border);">
+                        <div class="text-xs font-bold uppercase tracking-wide mb-3" style="color: var(--aba-gray);">➕ Ítem libre <span class="normal-case font-normal" style="color: var(--aba-gray);">(no está en la base)</span></div>
+                        <div class="space-y-3">
+                            <input type="text" id="customDesc" placeholder="Descripción del ítem" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                            <input type="text" id="customUnidad" placeholder="Unidad (ST, ML, M2...)" class="w-full px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                            <div class="grid grid-cols-2 gap-2">
+                                <input type="number" id="customCant" value="1" placeholder="Cant." class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                                <input type="text" id="customPrecio" placeholder="Precio unitario" class="px-3 py-2 border rounded-xl text-sm" style="border-color: var(--aba-border);">
+                            </div>
+                            <button onclick="agregarCustomItem()" class="btn-primary w-full rounded-xl text-sm font-semibold py-2">+ Agregar ítem libre</button>
+                        </div>
+                    </div>
                 </div>
                 <div class="rounded-xl border p-4 text-xs space-y-1" style="background: var(--aba-orange-light); border-color: #FED7AA; color: #C2410C;">
                     <div class="font-semibold mb-1">💡 Tips</div>
@@ -614,7 +768,7 @@ function generarUUID() {
 }
 
 // Categorías sin precio contratista (CAÑERÍAS - el precio contratista = precio base)
-const CATS_SIN_CTTA = ["CAÑERÍAS AP", "CAÑERÍAS MP", "CAÑERÍAS BP"];
+const CATS_SIN_CTTA = ["CAÑERIAS AP", "CAÑERIAS MP", "CAÑERIAS BP"];
 function tieneCTTA(categoria) { return !CATS_SIN_CTTA.includes(categoria); }
 
 // Categorías de compra directa — van al final de la tabla, con columna Proveedor
@@ -837,6 +991,245 @@ let itemsNota = [];
 let notasGuardadas = [];
 
 // ============================================================
+// PERFILES Y MODOS
+// ============================================================
+let perfilActivo = null;   // 'abastible' | 'contratista'
+let modoActivo = null;     // 'nota_venta' | 'cargar_dc' | 'dc_cotizacion' | 'cotizacion_contratista'
+let datosContratista = null; // { razonSocial, rut, representante, telefono, email, zona }
+
+const CATS_EXCLUIDAS_CONTRATISTA = ['EQUIPO COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
+
+const ZONA_CENTROS = {
+    'Norte': ['Arica', 'Iquique', 'Antofagasta', 'Calama', 'Copiapó'],
+    'Centro': ['El Peñón', 'La Serena', 'Con-Con', 'Viña del Mar', 'Maipú', 'Casa Matriz', 'Santiago', 'Las Condes', 'Pudahuel'],
+    'Agroindustrial': ['San Fernando', 'Curicó', 'Talca', 'Linares'],
+    'Sur': ['Lenga', 'Concepción', 'Chillán', 'Los Ángeles', 'Temuco'],
+    'Austral': ['Valdivia', 'Osorno', 'Puerto Montt', 'Coyhaique', 'Punta Arenas']
+};
+
+// Los nombres de centro en base_datos.xlsx vienen con prefijos variables
+// ("Oficina Ventas Arica", "Planta Con-Con", "Local Ventas Concepción", "Casa Matriz", etc.),
+// así que el match contra ZONA_CENTROS debe ser por contención de texto, no igualdad exacta.
+function normalizarTexto(str) {
+    return String(str || '')
+        .toLowerCase()
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+        .trim();
+}
+
+function centroPerteneceAZona(nombreCentro, zona) {
+    const ciudades = ZONA_CENTROS[zona] || [];
+    const centroNorm = normalizarTexto(nombreCentro);
+    return ciudades.some(ciudad => centroNorm.includes(normalizarTexto(ciudad)));
+}
+
+function seleccionarPerfil(perfil) {
+    if (perfil === 'abastible') {
+        perfilActivo = 'abastible';
+        $('pasoPerfil').classList.add('hidden');
+        $('pasoModoAbastible').classList.remove('hidden');
+    } else {
+        abrirModalDatosContratista();
+    }
+}
+
+function abrirModalDatosContratista() {
+    $('pasoPerfil').classList.add('hidden');
+    $('pasoModoAbastible').classList.add('hidden');
+    if (datosContratista) {
+        $('cttaRazonSocial').value = datosContratista.razonSocial || '';
+        $('cttaRut').value = datosContratista.rut || '';
+        $('cttaRepresentante').value = datosContratista.representante || '';
+        $('cttaTelefono').value = datosContratista.telefono || '';
+        $('cttaEmail').value = datosContratista.email || '';
+        $('cttaZona').value = datosContratista.zona || '';
+    }
+    $('modalDatosContratista').classList.add('active');
+}
+
+function confirmarDatosContratista() {
+    const razonSocial = $('cttaRazonSocial').value.trim();
+    const rut = $('cttaRut').value.trim();
+    const zona = $('cttaZona').value;
+    if (!razonSocial || !rut || !zona) {
+        mostrarToast('Complete Razón Social, RUT y Zona', 'warn');
+        return;
+    }
+    datosContratista = {
+        razonSocial,
+        rut,
+        representante: $('cttaRepresentante').value.trim(),
+        telefono: $('cttaTelefono').value.trim(),
+        email: $('cttaEmail').value.trim(),
+        zona
+    };
+    perfilActivo = 'contratista';
+    modoActivo = 'cotizacion_contratista';
+    $('modalDatosContratista').classList.remove('active');
+    iniciarAppConModo();
+}
+
+function volverSeleccionPerfil() {
+    perfilActivo = null;
+    modoActivo = null;
+    $('headerApp').classList.add('hidden');
+    $('barraSuperior').classList.add('hidden');
+    $('appContainer').classList.add('hidden');
+    $('warningBaseExcel').classList.add('hidden');
+    $('modalDatosContratista').classList.remove('active');
+    $('pasoModoAbastible').classList.add('hidden');
+    $('pasoPerfil').classList.remove('hidden');
+    nuevaNota();
+}
+
+function iniciarModoAbastible(modo) {
+    perfilActivo = 'abastible';
+    modoActivo = modo;
+    $('pasoModoAbastible').classList.add('hidden');
+    iniciarAppConModo();
+}
+
+function iniciarAppConModo() {
+    $('headerApp').classList.remove('hidden');
+    $('barraSuperior').classList.remove('hidden');
+    $('appContainer').classList.remove('hidden');
+
+    const esContratista = perfilActivo === 'contratista';
+    document.body.classList.toggle('tema-contratista', esContratista);
+
+    // Badge de perfil
+    const badge = $('badgePerfilActivo');
+    if (esContratista) {
+        badge.className = 'perfil-badge pb-contratista';
+        badge.textContent = '🛠️ ' + (datosContratista ? datosContratista.razonSocial : 'Contratista');
+    } else {
+        badge.className = 'perfil-badge pb-abastible';
+        badge.textContent = '🏢 Abastible';
+    }
+
+    // Botones de barra superior según modo
+    $('labelCargarDC').style.display = (modoActivo === 'cargar_dc') ? 'inline-block' : 'none';
+    $('labelCargarCotizacionContratista').style.display = (modoActivo === 'dc_cotizacion') ? 'inline-block' : 'none';
+    $('btnCargarExcel').style.display = esContratista ? 'none' : '';
+    $('estadoBaseExcel').classList.toggle('hidden', true);
+    $('accionesProyecto').style.display = (modoActivo === 'nota_venta' || modoActivo === 'dc_cotizacion') ? 'flex' : (esContratista ? 'flex' : 'none');
+    $('btnHistorialHeader').style.display = esContratista ? 'none' : '';
+
+    // Título de cabecera y de paso 1
+    const titulos = {
+        nota_venta: 'Nota de Venta · Instalaciones de Gas',
+        cargar_dc: 'Cargar Detalle Comercial',
+        dc_cotizacion: 'Análisis DC + Cotización Contratista',
+        cotizacion_contratista: 'Cotización · Instalaciones de Gas'
+    };
+    $('tituloApp').textContent = titulos[modoActivo] || 'Nota de Venta';
+    $('tituloPaso1').textContent = esContratista ? '📋 Datos del Proyecto a Cotizar' : '📋 Datos del Proyecto';
+
+    // Banner de empresa contratista en paso1
+    if (esContratista && datosContratista) {
+        $('bannerEmpresaContratista').classList.remove('hidden');
+        $('bannerEmpresaNombre').textContent = datosContratista.razonSocial;
+        $('bannerEmpresaZona').textContent = 'Zona ' + datosContratista.zona;
+    } else {
+        $('bannerEmpresaContratista').classList.add('hidden');
+    }
+
+    nuevaNota();
+
+    if (modoActivo === 'cargar_dc') {
+        $('panelDcCotizacion').classList.add('hidden');
+        $('formularioPaso1').classList.remove('hidden');
+        mostrarSolo('paso1');
+        setTimeout(() => $('cargarDCInput').click(), 150);
+    } else if (modoActivo === 'dc_cotizacion') {
+        $('formularioPaso1').classList.add('hidden');
+        $('panelDcCotizacion').classList.remove('hidden');
+        mostrarSolo('paso1');
+    } else {
+        $('panelDcCotizacion').classList.add('hidden');
+        $('formularioPaso1').classList.remove('hidden');
+        mostrarSolo('paso1');
+        cargarBaseSegunPerfil();
+    }
+    actualizarVisibilidadWarningBase();
+}
+
+// El aviso "Debe cargar la Base Excel..." solo tiene sentido en el modo Nota de Venta
+// de Abastible, que es el único que requiere la base Renova para elegir productos.
+// Cargar DC, DC+Cotización y Contratista no la necesitan (o la cargan/filtran solos).
+function actualizarVisibilidadWarningBase() {
+    const warning = $('warningBaseExcel');
+    if (!warning) return;
+    warning.style.display = '';
+    const requiereBase = (perfilActivo === 'abastible' && modoActivo === 'nota_venta');
+    const faltaBase = Object.keys(dbProductos).length === 0;
+    if (requiereBase && faltaBase) {
+        warning.classList.remove('hidden');
+    } else {
+        warning.classList.add('hidden');
+    }
+}
+
+// Carga la base de datos (con filtro de zona/categorías para Contratista)
+function cargarBaseSegunPerfil() {
+    if (perfilActivo === 'contratista') {
+        if (Object.keys(dbProductosMaestro).length > 0) {
+            aplicarFiltroContratista();
+            return;
+        }
+        // La base aún no está lista (auto-fetch en curso o no se disparó a tiempo).
+        // La pedimos directamente y aplicamos el filtro apenas llegue.
+        showLoader("Cargando base de productos...");
+        cargarBaseDesdeServidor().then(ok => {
+            hideLoader();
+            if (perfilActivo !== 'contratista') return; // el usuario cambió de perfil mientras cargaba
+            if (ok && Object.keys(dbProductosMaestro).length > 0) {
+                aplicarFiltroContratista();
+            } else {
+                mostrarToast('No se pudo cargar la base de productos. Verifique que base_datos.xlsx esté en el sitio.', 'error');
+            }
+            actualizarVisibilidadWarningBase();
+        });
+    } else {
+        restaurarBaseCompleta();
+    }
+}
+
+// Copia íntegra de la base tal como se cargó, sin filtros de perfil.
+// transformarBase() la actualiza cada vez que se carga/recarga la base.
+let dbProductosMaestro = {};
+let categoriasListMaestro = [];
+let centrosMaestro = [];
+
+function restaurarBaseCompleta() {
+    if (categoriasListMaestro.length === 0 && centrosMaestro.length === 0) return; // nada que restaurar aún
+    dbProductos = JSON.parse(JSON.stringify(dbProductosMaestro));
+    categoriasList = [...categoriasListMaestro];
+    centros = [...centrosMaestro];
+    if (!categoriasList.includes(categoriaActiva)) categoriaActiva = categoriasList[0] || "";
+    inicializarCentros();
+    inicializarCategorias();
+    cargarProductos();
+}
+
+function aplicarFiltroContratista() {
+    if (perfilActivo !== 'contratista') return;
+    // Partir siempre desde la base maestra (nunca mutar permanentemente dbProductos/categoriasList/centros)
+    dbProductos = JSON.parse(JSON.stringify(dbProductosMaestro));
+    categoriasList = categoriasListMaestro.filter(c => !CATS_EXCLUIDAS_CONTRATISTA.includes(c));
+    CATS_EXCLUIDAS_CONTRATISTA.forEach(c => delete dbProductos[c]);
+    centros = [...centrosMaestro];
+    // Filtrar centros disponibles según zona del contratista (match por contención, ver centroPerteneceAZona)
+    if (datosContratista && datosContratista.zona && ZONA_CENTROS[datosContratista.zona]) {
+        centros = centros.filter(c => centroPerteneceAZona(c, datosContratista.zona));
+    }
+    if (!categoriasList.includes(categoriaActiva)) categoriaActiva = categoriasList[0] || "";
+    inicializarCentros();
+    inicializarCategorias();
+    cargarProductos();
+}
+
+// ============================================================
 // FUNCIÓN PARA RESETEAR ESTADO DE BASE DE DATOS
 // ============================================================
 function resetearEstadoBase() {
@@ -853,7 +1246,7 @@ function resetearEstadoBase() {
     }
     
     const warning = document.getElementById('warningBaseExcel');
-    if(warning) warning.style.display = 'block';
+    if (warning) actualizarVisibilidadWarningBase();
     
     const btnContinuar = document.getElementById('btnContinuar');
     if(btnContinuar){ 
@@ -867,7 +1260,7 @@ function resetearEstadoBase() {
 // ============================================================
 function actualizarEstadoBaseCargada() {
     const warning = document.getElementById('warningBaseExcel');
-    if(warning) warning.style.display = 'none';
+    if (warning) actualizarVisibilidadWarningBase();
     
     const btnCargarExcel = document.getElementById('btnCargarExcel');
     if(btnCargarExcel) {
@@ -1055,6 +1448,44 @@ function actualizarMaterialVinculado(itemInstalacion) {
 }
 
 function eliminarItemPaso2(index) { itemsNota.splice(index, 1); actualizarItemsAgregadosPaso2(); cargarProductos(); actualizarBadge(); }
+
+// Agrega un ítem libre que no existe en la base de datos.
+// En modo Contratista, el precio ingresado es directamente el precio cotizado (precioCTTA = precioBase, sin comparativa Renova).
+function agregarCustomItem() {
+    const desc = $("customDesc").value.trim();
+    const unidad = $("customUnidad").value.trim() || 'ST';
+    const cantidad = parseFloat($("customCant").value) || 1;
+    const precio = parsePrecio($("customPrecio").value);
+
+    if (!desc) { mostrarToast("Ingrese una descripción", "warn"); return; }
+    if (precio === null || precio <= 0) { mostrarToast("Ingrese un precio válido", "warn"); return; }
+    if (!categoriaActiva) { mostrarToast("Seleccione una categoría primero", "warn"); return; }
+
+    const nuevoItem = {
+        id: generarUUID(),
+        codigo: 'LIBRE-' + generarUUID().slice(0, 6),
+        descripcion: desc,
+        categoria: categoriaActiva,
+        unidad,
+        cantidad,
+        precioBase: precio,
+        precioCTTA: precio,
+        centro: centroActivo,
+        tieneCotizacion: true,
+        esItemLibre: true
+    };
+    itemsNota.push(nuevoItem);
+
+    $("customDesc").value = '';
+    $("customUnidad").value = '';
+    $("customCant").value = '1';
+    $("customPrecio").value = '';
+
+    actualizarItemsAgregadosPaso2();
+    cargarProductos();
+    actualizarBadge();
+    mostrarToast('Ítem libre agregado', 'ok');
+}
 
 function actualizarItemsAgregadosPaso2() {
     const container = $("itemsAgregadosPaso2");
@@ -1279,13 +1710,115 @@ function renderizarNotaFinal() {
     }, 10);
 }
 
-function cambiarCantidad(idx, val) { 
-    const n = parseFloat(val); 
+// ============================================================
+// RENDER COTIZACIÓN CONTRATISTA — formato limpio sin Renova/MOI
+// ============================================================
+function renderizarCotizacionContratista() {
+    $("notaProyecto").textContent = $("nombreProyecto").value;
+    $("notaCliente").textContent = $("nombreCliente").value;
+    $("notaRut").textContent = $("rutCliente").value || "-";
+    $("notaFecha").textContent = $("fecha").value || new Date().toISOString().split("T")[0];
+    $("notaDireccion").textContent = $("direccion").value || "-";
+    $("notaCiudad").textContent = $("ciudad").value || "-";
+    $("notaTelefono").textContent = $("telefono").value || "-";
+    $("notaCentro").textContent = centroActivo || "-";
+    $("notaVencimiento").textContent = $("vencimiento").value || "-";
+
+    const grupos = {};
+    itemsNota.forEach((item, idx) => {
+        if (item.esMaterialImpovar) return; // los materiales Impovar siguen como subfila
+        if (!grupos[item.categoria]) grupos[item.categoria] = [];
+        grupos[item.categoria].push({ ...item, globalIdx: idx });
+    });
+
+    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>Precio Unit.</th><th>Total</th><th></th></thead><tbody>`;
+    let totalGeneral = 0;
+
+    for (const cat in grupos) {
+        const items = grupos[cat];
+        if (!items || items.length === 0) continue;
+        let subtotal = 0;
+
+        for (const item of items) {
+            const esCañeriaPrecioFijo = CATS_SIN_CTTA.includes(item.categoria);
+            const precio = esCañeriaPrecioFijo
+                ? item.precioBase
+                : ((item.precioCTTA !== null && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
+            const total = precio * item.cantidad;
+            subtotal += total;
+
+            html += `<tr class="item-row">`;
+            html += `<td>${escapeHTML(item.categoria)}</td>`;
+            html += `<td>${escapeHTML(item.descripcion)}</td>`;
+            html += `<td class="text-center">${escapeHTML(item.unidad)}</td>`;
+            html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidad(${item.globalIdx}, this.value)"></td>`;
+            if (esCañeriaPrecioFijo) {
+                html += `<td class="text-right"><span class="ctta-fixed">${fmtMoney(precio)}</span></td>`;
+            } else {
+                html += `<td class="text-right"><input type="text" value="${fmt(precio)}" class="input-ctta" onchange="cambiarPrecioCotizacion(${item.globalIdx}, this.value)"></td>`;
+            }
+            html += `<td>${fmtMoney(total)}</td>`;
+            html += `<td class="text-center"><button onclick="eliminarItem(${item.globalIdx})" class="text-red-500 hover:text-red-700 text-lg leading-none" style="font-size:18px">✕</button></td>`;
+            html += `</tr>`;
+
+            // Subfila material Impovar vinculado (si aplica)
+            const matImpovar = itemsNota.find(i => i.esMaterialImpovar && i.idInstalacion === item.id);
+            if (matImpovar) {
+                const totalMat = matImpovar.precioBase * matImpovar.cantidad;
+                subtotal += totalMat;
+                html += `<tr style="background:#FFFBF0; font-size:13px;">`;
+                html += `<td style="padding-left:24px; color:#92400E; font-style:italic;">↳ Material</td>`;
+                html += `<td style="color:#78350F;">🏭 ${escapeHTML(matImpovar.descripcion)}</td>`;
+                html += `<td style="text-align:center; color:#92400E;">ML</td>`;
+                html += `<td style="text-align:center; color:#92400E;">${matImpovar.cantidad}</td>`;
+                html += `<td style="text-align:right; color:#78350F;">${fmtMoney(matImpovar.precioBase)}</td>`;
+                html += `<td style="color:#78350F;">${fmtMoney(totalMat)}</td>`;
+                html += `<td></td></tr>`;
+            }
+        }
+
+        html += `<tr class="subtotal-row"><td colspan="5" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotal)}</strong></td><td></td></tr>`;
+        html += `<tr style="height:8px"><td colspan="7" style="border:none"></tr></tr>`;
+        totalGeneral += subtotal;
+    }
+    html += `</tbody></table>`;
+    $("tablaNotaContainer").innerHTML = html;
+
+    $("resumenFinalContainer").innerHTML = `<div class="bg-white rounded-lg border-2 overflow-hidden" style="border-color: var(--ctta-green);">
+        <div class="text-white px-4 py-2 font-bold text-sm" style="background: var(--ctta-green);">📊 RESUMEN DE LA COTIZACIÓN</div>
+        <div class="p-4">
+            <div class="text-center p-3 rounded-lg" style="background: var(--ctta-green-light);">
+                <div class="text-xs font-semibold uppercase" style="color: var(--ctta-green-dark);">Total Cotización</div>
+                <div class="text-3xl font-bold mt-1" style="color: var(--ctta-green-dark);">$${fmt(totalGeneral)}</div>
+            </div>
+        </div>
+    </div>`;
+}
+
+function cambiarPrecioCotizacion(idx, val) {
+    const item = itemsNota[idx];
+    if (CATS_SIN_CTTA.includes(item.categoria)) {
+        // CAÑERIAS AP/MP/BP: precio fijo igual al Renova, no editable. Solo cantidad es editable.
+        item.precioCTTA = item.precioBase;
+        renderizarCotizacionContratista();
+        return;
+    }
+    let n = parsePrecio(val);
+    if (n !== null && n > 0) {
+        item.precioCTTA = n;
+        item.precioBase = n;
+    }
+    renderizarCotizacionContratista();
+}
+
+function cambiarCantidad(idx, val) {
+    const n = parseFloat(val);
     if (isNaN(n) || n < 0) return; 
     itemsNota[idx].cantidad = n;
     // Si es instalación de cañería, recalcular material vinculado
     actualizarMaterialVinculado(itemsNota[idx]);
-    renderizarNotaFinal(); 
+    if (perfilActivo === 'contratista') renderizarCotizacionContratista();
+    else renderizarNotaFinal();
 }
 
 function cambiarPrecioCTTA(idx, val) {
@@ -1336,7 +1869,8 @@ async function eliminarItem(idx) {
         inicializarCategorias(); 
         cargarProductos(); 
     } else { 
-        renderizarNotaFinal(); 
+        if (perfilActivo === 'contratista') renderizarCotizacionContratista();
+        else renderizarNotaFinal();
     } 
     actualizarBadge(); 
 }
@@ -1344,7 +1878,228 @@ async function eliminarItem(idx) {
 // ============================================================
 // EXCEL - Formato profesional con colores corporativos (MEJORADO)
 // ============================================================
+// ============================================================
+// EXCEL - COTIZACIÓN CONTRATISTA (formato limpio, sin Renova/MOI)
+// ============================================================
+async function exportarCotizacionExcel() {
+    if (itemsNota.length === 0) {
+        mostrarToast('No hay ítems para exportar', 'warn');
+        return;
+    }
+    if (typeof ExcelJS === 'undefined') {
+        mostrarToast("Librería ExcelJS no cargada", "error");
+        return;
+    }
+
+    showLoader("Generando Cotización...");
+
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('COTIZACIÓN');
+
+        const C = {
+            green: 'FF15803D',
+            greenDark: 'FF166534',
+            greenL: 'FFECFDF5',
+            white: 'FFFFFFFF',
+            silver: 'FFF5F5F5',
+            gray: 'FF54585A',
+            gridLine: 'FFD9D9D9',
+            blue: 'FF001489',
+        };
+        const MONEY = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+        function money(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+        function gridBorder() { const s = { style: 'thin', color: { argb: C.gridLine } }; return { top: s, bottom: s, left: s, right: s }; }
+        function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
+
+        sheet.columns = [
+            { width: 16 }, { width: 36 }, { width: 8 }, { width: 8 }, { width: 13 }, { width: 13 }
+        ];
+
+        // Banner
+        sheet.getRow(1).height = 32;
+        sheet.mergeCells('A1:F1');
+        const banner = sheet.getCell('A1');
+        banner.value = 'COTIZACIÓN · INSTALACIONES DE GAS';
+        banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
+        banner.fill = fillSolid(C.green);
+        banner.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Datos empresa contratista
+        const dc = datosContratista || {};
+        const camposEmpresa = [
+            ['EMPRESA', dc.razonSocial || '-'],
+            ['RUT EMPRESA', dc.rut || '-'],
+            ['REPRESENTANTE', dc.representante || '-'],
+            ['TELÉFONO', dc.telefono || '-'],
+            ['EMAIL', dc.email || '-'],
+            ['ZONA', dc.zona || '-'],
+        ];
+        let r = 2;
+        camposEmpresa.forEach(([k, v]) => {
+            sheet.getRow(r).height = 15;
+            const lbl = sheet.getCell(r, 1);
+            lbl.value = k;
+            lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lbl.fill = fillSolid(C.silver);
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            sheet.mergeCells(r, 2, r, 3);
+            const val = sheet.getCell(r, 2);
+            val.value = v;
+            val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+            val.alignment = { horizontal: 'left', vertical: 'middle' };
+            r++;
+        });
+
+        // Datos del proyecto (columna derecha, mismo bloque)
+        const camposProyecto = [
+            ['PROYECTO', $("nombreProyecto").value || '-'],
+            ['CLIENTE', $("nombreCliente").value || '-'],
+            ['RUT CLIENTE', $("rutCliente").value || '-'],
+            ['DIRECCIÓN', $("direccion").value || '-'],
+            ['CENTRO', centroActivo || '-'],
+            ['FECHA', $("fecha").value || '-'],
+        ];
+        r = 2;
+        camposProyecto.forEach(([k, v]) => {
+            const lbl = sheet.getCell(r, 4);
+            lbl.value = k;
+            lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lbl.fill = fillSolid(C.silver);
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            const val = sheet.getCell(r, 5);
+            sheet.mergeCells(r, 5, r, 6);
+            val.value = v;
+            val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            val.alignment = { horizontal: 'left', vertical: 'middle' };
+            r++;
+        });
+
+        // Separador
+        const filaSep = r;
+        sheet.getRow(filaSep).height = 4;
+        sheet.mergeCells(`A${filaSep}:F${filaSep}`);
+        sheet.getCell(`A${filaSep}`).fill = fillSolid(C.green);
+        r++;
+
+        // Header tabla
+        const filaHeader = r;
+        sheet.getRow(filaHeader).height = 24;
+        ['CATEGORÍA', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO UNIT.', 'TOTAL'].forEach((h, i) => {
+            const c = sheet.getCell(filaHeader, i + 1);
+            c.value = h;
+            c.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.white } };
+            c.fill = fillSolid(C.green);
+            c.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        r++;
+
+        const grupos = {};
+        itemsNota.forEach(item => {
+            if (item.esMaterialImpovar) return;
+            if (!grupos[item.categoria]) grupos[item.categoria] = [];
+            grupos[item.categoria].push(item);
+        });
+
+        let totalGeneral = 0;
+        for (const cat in grupos) {
+            const items = grupos[cat];
+            let subtotal = 0;
+            for (const item of items) {
+                const precio = (item.precioCTTA !== null && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase;
+                const total = precio * item.cantidad;
+                subtotal += total;
+                const fila = [cat, item.descripcion, item.unidad, item.cantidad, money(precio), money(total)];
+                fila.forEach((v, i) => {
+                    const col = i + 1;
+                    const cell = sheet.getCell(r, col);
+                    cell.value = v;
+                    cell.border = gridBorder();
+                    cell.font = { name: 'Arial', size: 9 };
+                    if (col === 5 || col === 6) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if (col === 3 || col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                });
+                r++;
+
+                // Material Impovar vinculado
+                const matImpovar = itemsNota.find(i => i.esMaterialImpovar && i.idInstalacion === item.id);
+                if (matImpovar) {
+                    const totalMat = matImpovar.precioBase * matImpovar.cantidad;
+                    subtotal += totalMat;
+                    const filaMat = ['↳ Material', '🏭 ' + matImpovar.descripcion, 'ML', matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat)];
+                    filaMat.forEach((v, i) => {
+                        const col = i + 1;
+                        const cell = sheet.getCell(r, col);
+                        cell.value = v;
+                        cell.fill = fillSolid('FFFFFBF0');
+                        cell.border = gridBorder();
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        if (col === 5 || col === 6) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                        else if (col === 3 || col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                    });
+                    r++;
+                }
+            }
+            sheet.mergeCells(r, 1, r, 5);
+            const subCell = sheet.getCell(r, 1);
+            subCell.value = 'SUBTOTAL ' + cat;
+            subCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+            subCell.fill = fillSolid(C.greenL);
+            subCell.alignment = { horizontal: 'right', vertical: 'middle' };
+            const subVal = sheet.getCell(r, 6);
+            subVal.value = money(subtotal);
+            subVal.numFmt = MONEY;
+            subVal.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+            subVal.fill = fillSolid(C.greenL);
+            subVal.alignment = { horizontal: 'right', vertical: 'middle' };
+            r++;
+            totalGeneral += subtotal;
+        }
+
+        // Total general
+        sheet.mergeCells(r, 1, r, 5);
+        const totLbl = sheet.getCell(r, 1);
+        totLbl.value = 'TOTAL COTIZACIÓN';
+        totLbl.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+        totLbl.fill = fillSolid(C.green);
+        totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+        const totVal = sheet.getCell(r, 6);
+        totVal.value = money(totalGeneral);
+        totVal.numFmt = MONEY;
+        totVal.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+        totVal.fill = fillSolid(C.green);
+        totVal.alignment = { horizontal: 'right', vertical: 'middle' };
+        sheet.getRow(r).height = 22;
+        r++;
+
+        sheet.pageSetup.orientation = 'portrait';
+        sheet.pageSetup.fitToPage = true;
+        sheet.pageSetup.fitToWidth = 1;
+        sheet.pageSetup.fitToHeight = 0;
+        sheet.pageSetup.margins = { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.1, footer: 0.1 };
+        sheet.views = [{ state: 'frozen', ySplit: filaHeader }];
+        sheet.showGridLines = false;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const proyecto = $("nombreProyecto").value || 'SIN_PROYECTO';
+        link.href = URL.createObjectURL(blob);
+        link.download = `COTIZACION_${proyecto.replace(/\s+/g, '_')}.xlsx`;
+        link.click();
+        mostrarToast("Cotización exportada correctamente", "ok");
+    } catch (error) {
+        console.error('Error exportando Cotización:', error);
+        mostrarToast("Error exportando Cotización", "error");
+    } finally {
+        hideLoader();
+    }
+}
+
 async function exportarAExcel() {
+    if (perfilActivo === 'contratista') return exportarCotizacionExcel();
     if (itemsNota.length === 0 && !$("nombreProyecto").value) { 
         mostrarToast('No hay datos para exportar', 'warn'); 
         return; 
@@ -1989,6 +2744,13 @@ function nuevaNota() {
     categoriaActiva = categoriasList && categoriasList.length > 0 ? categoriasList[0] : ""; 
     itemsNota = []; 
     actualizarBadge(); 
+    if (modoActivo === 'dc_cotizacion') {
+        $('formularioPaso1').classList.add('hidden');
+        $('panelDcCotizacion').classList.remove('hidden');
+    } else if ($('panelDcCotizacion')) {
+        $('panelDcCotizacion').classList.add('hidden');
+        $('formularioPaso1').classList.remove('hidden');
+    }
     mostrarSolo("paso1"); 
 }
 
@@ -2034,7 +2796,20 @@ function cargarProyecto(event) {
             $("vencimiento").value = data.vencimiento || ""; 
             centroActivo = data.centroActivo || ""; 
             itemsNota = data.itemsNota || [];
-            if(centroActivo && centros.length > 0) {
+
+            // Un proyecto generado desde Detalle Comercial no depende de la base Renova
+            // (sus precios ya vienen incluidos en cada ítem), así que no requiere centros cargados.
+            const esProyectoDC = centroActivo === 'DETALLE COMERCIAL' || itemsNota.some(i => i.desdeDetalle);
+
+            if (esProyectoDC) {
+                if (modoActivo === 'dc_cotizacion') {
+                    $('formularioPaso1').classList.add('hidden');
+                    $('panelDcCotizacion').classList.add('hidden');
+                }
+                itemsNota = migrarItemsLegacy(itemsNota);
+                renderizarNotaFinal();
+                mostrarSolo("paso3");
+            } else if (centroActivo && centros.length > 0) {
                 inicializarCentros(); 
                 inicializarCategorias(); 
                 cargarProductos();
@@ -2046,8 +2821,7 @@ function cargarProyecto(event) {
                 mostrarToast("⚠️ Cargue la Base Excel para completar los materiales de cañería", "warn"); 
                 mostrarSolo("paso1"); 
             } 
-            const aviso = document.getElementById('warningBaseExcel'); 
-            if(aviso && centros.length > 0) aviso.style.display = 'none'; 
+            actualizarVisibilidadWarningBase();
             mostrarToast('Proyecto cargado correctamente', 'ok'); 
         } catch(error) { 
             console.error(error); 
@@ -2056,6 +2830,98 @@ function cargarProyecto(event) {
     }; 
     reader.readAsText(file);
 }
+
+// ============================================================
+// IMPORTAR COTIZACIÓN CONTRATISTA (modo DC + Cotización)
+// Acepta: .json (exportado por guardarProyecto del Contratista) o .xlsx
+// (exportado por exportarCotizacionExcel). Hace match por descripción
+// y vuelca el precio cotizado en precioCTTA de cada ítem ya cargado.
+// ============================================================
+function importarCotizacionContratista(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    if (itemsNota.length === 0) {
+        mostrarToast("Primero abra o cargue un proyecto DC", "warn");
+        return;
+    }
+
+    const esJSON = /\.json$/i.test(file.name);
+
+    if (esJSON) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = JSON.parse(e.target.result);
+                const itemsCotizados = data.itemsNota || data.items || [];
+                aplicarCotizacionAItems(itemsCotizados);
+            } catch (err) {
+                console.error(err);
+                mostrarToast("Error leyendo JSON de cotización", "error");
+            }
+        };
+        reader.readAsText(file);
+        return;
+    }
+
+    // Excel
+    if (typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+            const sheetName = wb.SheetNames[0];
+            const filas = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 });
+            // Buscar fila de header (la que contenga "DESCRIPCIÓN" o "DESCRIPCION")
+            let headerIdx = filas.findIndex(f => f.some(c => String(c || '').toUpperCase().includes('DESCRIP')));
+            if (headerIdx === -1) { mostrarToast("No se encontró encabezado de tabla en el Excel", "error"); return; }
+            const header = filas[headerIdx].map(h => String(h || '').toUpperCase().trim());
+            const idxDesc = header.findIndex(h => h.includes('DESCRIP'));
+            const idxPrecio = header.findIndex(h => h.includes('PRECIO'));
+            if (idxDesc === -1 || idxPrecio === -1) { mostrarToast("No se identificaron columnas de descripción/precio", "error"); return; }
+
+            const itemsCotizados = [];
+            for (let i = headerIdx + 1; i < filas.length; i++) {
+                const fila = filas[i];
+                if (!fila || !fila[idxDesc]) continue;
+                const precio = parsePrecio(fila[idxPrecio]);
+                if (precio === null || precio <= 0) continue;
+                itemsCotizados.push({ descripcion: String(fila[idxDesc]).trim(), precioCTTA: precio });
+            }
+            aplicarCotizacionAItems(itemsCotizados);
+        } catch (err) {
+            console.error(err);
+            mostrarToast("Error leyendo Excel de cotización", "error");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+function aplicarCotizacionAItems(itemsCotizados) {
+    if (!itemsCotizados || itemsCotizados.length === 0) {
+        mostrarToast("El archivo no contiene ítems cotizados", "warn");
+        return;
+    }
+    let matches = 0;
+    itemsNota.forEach(item => {
+        if (item.esMaterialImpovar) return;
+        const encontrado = itemsCotizados.find(ic =>
+            String(ic.descripcion || '').trim().toLowerCase() === String(item.descripcion || '').trim().toLowerCase()
+        );
+        if (encontrado) {
+            const precio = encontrado.precioCTTA !== undefined ? encontrado.precioCTTA : encontrado.precioBase;
+            if (precio !== undefined && precio !== null && precio > 0) {
+                item.precioCTTA = Number(precio);
+                item.tieneCotizacion = true;
+                matches++;
+            }
+        }
+    });
+    renderizarNotaFinal();
+    mostrarToast(`Cotización aplicada: ${matches} de ${itemsNota.length} ítem(s) coincidieron`, matches > 0 ? 'ok' : 'warn');
+}
+
 
 // ============================================================
 // EXCEL - CARGA
@@ -2215,12 +3081,22 @@ function transformarBase(datos, ordenCategoriasExplicit = null) {
     
     centros = Array.from(centrosSet).sort();
     
+    // Guardar copia maestra (sin filtros de perfil) — se usa para restaurar/filtrar según el perfil activo
+    dbProductosMaestro = JSON.parse(JSON.stringify(dbProductos));
+    categoriasListMaestro = [...categoriasList];
+    centrosMaestro = [...centros];
+    
     // Actualizar UI para mostrar que la base está cargada
     actualizarEstadoBaseCargada();
     
     inicializarCentros();
     inicializarCategorias();
     cargarProductos();
+
+    // Si el perfil activo es Contratista, aplicar filtro de categorías y zona
+    if (perfilActivo === 'contratista') {
+        aplicarFiltroContratista();
+    }
 
     // Si hay ítems cargados (proyecto abierto antes que la base),
     // ejecutar migración ahora que dbProductos está disponible
@@ -2261,7 +3137,11 @@ function irPaso2() {
 function volverPaso1() { mostrarSolo("paso1"); }
 function irPaso3() {
     if (itemsNota.length === 0) { mostrarToast("Agregue al menos un producto", "warn"); return; }
-    renderizarNotaFinal();
+    if (perfilActivo === 'contratista') {
+        renderizarCotizacionContratista();
+    } else {
+        renderizarNotaFinal();
+    }
     mostrarSolo("paso3");
 }
 function volverPaso2() { mostrarSolo("paso2"); actualizarItemsAgregadosPaso2(); }
@@ -2417,6 +3297,9 @@ function cerrarModalDC() {
     document.getElementById('modalDC').classList.remove('active');
     document.getElementById('btnConfirmarDC').style.display = '';
     dcDatosExtraidos = null;
+    if (modoActivo === 'cargar_dc' && itemsNota.length === 0) {
+        volverSeleccionPerfil();
+    }
 }
 
 function confirmarDC() {
@@ -2485,72 +3368,87 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-fetch de base_datos.xlsx + impovar.xlsx al abrir desde https://
     if (window.location.protocol === 'https:') {
-        const baseDir = window.location.href.replace(/\/[^\/]*$/, '/');
-        const urlBase    = baseDir + 'base_datos.xlsx';
-        const urlImpovar = baseDir + 'impovar.xlsx';
-
-        showLoader("Cargando base de datos...");
-
-        function parsearWorkbook(buffer, esImpovar) {
-            const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
-            const hojasVisibles = workbook.SheetNames.filter((name, i) => {
-                try {
-                    const h = workbook.Workbook?.Sheets?.[i]?.Hidden;
-                    return h !== 1 && h !== 2;
-                } catch { return true; }
-            });
-            const items = [];
-            hojasVisibles.forEach(nombreHoja => {
-                const datosHoja = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja]);
-                datosHoja.forEach(item => {
-                    const codigo     = String(item['código'] || item['codigo'] || '').trim();
-                    const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
-                    const precio     = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
-                    if (!codigo || !descripcion || precio === null || precio <= 0) return;
-                    item.categoria   = nombreHoja;
-                    item.precio      = precio;
-                    item.esImpovar   = esImpovar || false;
-                    items.push(item);
-                });
-            });
-            return { items, hojas: hojasVisibles };
-        }
-
-        Promise.allSettled([
-            fetch(urlBase).then(r => { if (!r.ok) throw new Error('base_datos no encontrada'); return r.arrayBuffer(); }),
-            fetch(urlImpovar).then(r => { if (!r.ok) throw new Error('impovar no encontrado'); return r.arrayBuffer(); })
-        ]).then(([resBase, resImpovar]) => {
-            if (resBase.status === 'rejected') {
-                console.warn('Auto-fetch base_datos:', resBase.reason?.message);
-                hideLoader();
-                return;
-            }
-
-            const { items: itemsBase, hojas: hojasBase } = parsearWorkbook(resBase.value, false);
-            let itemsImpovar = [];
-            let hojasImpovar = [];
-
-            if (resImpovar.status === 'fulfilled') {
-                const parsed = parsearWorkbook(resImpovar.value, true);
-                itemsImpovar = parsed.items;
-                hojasImpovar = parsed.hojas;
-            } else {
-                console.warn('Auto-fetch impovar:', resImpovar.reason?.message);
-            }
-
-            // Combinar: base primero, luego Impovar al final de cada hoja de cañerías
-            const datosTotales = [...itemsBase, ...itemsImpovar];
-            const hojasTotales = [...new Set([...hojasBase, ...hojasImpovar])];
-
-            if (datosTotales.length > 0) {
-                transformarBase(datosTotales, hojasTotales);
-                const total = Object.values(dbProductos).reduce((s, c) => s + c.length, 0);
-                const msgImpovar = itemsImpovar.length > 0 ? ` + ${itemsImpovar.length} Impovar` : '';
-                mostrarToast(`✅ Base cargada: ${total} productos${msgImpovar}`, 'ok');
-            }
-        });
+        cargarBaseDesdeServidor();
     }
 });
+
+// Descarga y procesa base_datos.xlsx + impovar.xlsx desde el mismo directorio del sitio.
+// Reutilizable: se llama automáticamente al cargar la página (https) y también bajo demanda
+// si el perfil Contratista la necesita y aún no se cargó (por ejemplo si el usuario eligió
+// el perfil antes de que terminara el auto-fetch inicial).
+let promesaCargaBase = null;
+function cargarBaseDesdeServidor() {
+    if (promesaCargaBase) return promesaCargaBase; // evita fetches duplicados en paralelo
+
+    const baseDir = window.location.href.replace(/\/[^\/]*$/, '/');
+    const urlBase    = baseDir + 'base_datos.xlsx';
+    const urlImpovar = baseDir + 'impovar.xlsx';
+
+    function parsearWorkbook(buffer, esImpovar) {
+        const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+        const hojasVisibles = workbook.SheetNames.filter((name, i) => {
+            try {
+                const h = workbook.Workbook?.Sheets?.[i]?.Hidden;
+                return h !== 1 && h !== 2;
+            } catch { return true; }
+        });
+        const items = [];
+        hojasVisibles.forEach(nombreHoja => {
+            const datosHoja = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja]);
+            datosHoja.forEach(item => {
+                const codigo     = String(item['código'] || item['codigo'] || '').trim();
+                const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
+                const precio     = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
+                if (!codigo || !descripcion || precio === null || precio <= 0) return;
+                item.categoria   = nombreHoja;
+                item.precio      = precio;
+                item.esImpovar   = esImpovar || false;
+                items.push(item);
+            });
+        });
+        return { items, hojas: hojasVisibles };
+    }
+
+    promesaCargaBase = Promise.allSettled([
+        fetch(urlBase).then(r => { if (!r.ok) throw new Error('base_datos no encontrada'); return r.arrayBuffer(); }),
+        fetch(urlImpovar).then(r => { if (!r.ok) throw new Error('impovar no encontrado'); return r.arrayBuffer(); })
+    ]).then(([resBase, resImpovar]) => {
+        if (resBase.status === 'rejected') {
+            console.warn('Auto-fetch base_datos:', resBase.reason?.message);
+            hideLoader();
+            promesaCargaBase = null; // permitir reintentar más adelante
+            return false;
+        }
+
+        const { items: itemsBase, hojas: hojasBase } = parsearWorkbook(resBase.value, false);
+        let itemsImpovar = [];
+        let hojasImpovar = [];
+
+        if (resImpovar.status === 'fulfilled') {
+            const parsed = parsearWorkbook(resImpovar.value, true);
+            itemsImpovar = parsed.items;
+            hojasImpovar = parsed.hojas;
+        } else {
+            console.warn('Auto-fetch impovar:', resImpovar.reason?.message);
+        }
+
+        // Combinar: base primero, luego Impovar al final de cada hoja de cañerías
+        const datosTotales = [...itemsBase, ...itemsImpovar];
+        const hojasTotales = [...new Set([...hojasBase, ...hojasImpovar])];
+
+        if (datosTotales.length > 0) {
+            transformarBase(datosTotales, hojasTotales);
+            const total = Object.values(dbProductosMaestro).reduce((s, c) => s + c.length, 0);
+            const msgImpovar = itemsImpovar.length > 0 ? ` + ${itemsImpovar.length} Impovar` : '';
+            mostrarToast(`✅ Base cargada: ${total} productos${msgImpovar}`, 'ok');
+            return true;
+        }
+        return false;
+    });
+
+    return promesaCargaBase;
+}
+
 </script>
 
 </body>
