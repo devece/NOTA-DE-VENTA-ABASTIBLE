@@ -353,6 +353,7 @@
 <div id="barraSuperior" class="hidden" style="padding:15px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
     <div class="flex flex-wrap gap-3 items-center">
         <span id="badgePerfilActivo" class="perfil-badge pb-abastible"></span>
+        <span id="badgeZonaFija" class="hidden text-xs px-3 py-1.5 rounded-full font-semibold" style="background: var(--aba-blue-light); color: var(--aba-blue);"></span>
         <input type="file" id="excelFile" accept=".xlsx,.xls" style="display:none;">
         <button onclick="document.getElementById('excelFile').click()" id="btnCargarExcel" class="btn-secondary" style="padding:12px 18px; border-radius:12px; font-weight:bold; font-size:14px;">
             📂 Cargar Base Excel
@@ -441,6 +442,7 @@
         <img src="logos/logo-abastible.png" alt="Abastible" class="h-16 w-auto object-contain mx-auto mb-4" onerror="this.style.display='none'">
         <h1 class="text-2xl font-bold" style="color: var(--aba-blue);">¿Cómo vas a usar la aplicación?</h1>
         <p class="text-sm mt-2" style="color: var(--aba-gray);">Selecciona tu perfil para continuar</p>
+        <div id="indicadorZonaInicial" class="hidden inline-block mt-3 text-xs px-3 py-1.5 rounded-full font-semibold" style="background: var(--aba-blue-light); color: var(--aba-blue);"></div>
     </div>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
         <div class="selector-card" onclick="seleccionarPerfil('abastible')">
@@ -503,7 +505,7 @@
                     <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Email</label>
                         <input type="email" id="cttaEmail" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);"></div>
                 </div>
-                <div><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Zona <span class="text-red-500">*</span></label>
+                <div id="bloqueZonaContratista"><label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Zona <span class="text-red-500">*</span></label>
                     <select id="cttaZona" class="w-full px-3 py-2 border rounded-lg text-sm" style="border-color: var(--aba-border);">
                         <option value="">-- Seleccione zona --</option>
                         <option value="Norte">Norte</option>
@@ -513,6 +515,7 @@
                         <option value="Austral">Austral</option>
                     </select>
                 </div>
+                <div id="zonaFijaIndicador" class="hidden p-3 rounded-lg text-sm" style="background: var(--ctta-green-light); color: var(--ctta-green-dark);"></div>
             </div>
         </div>
         <div class="modal-footer">
@@ -1003,6 +1006,9 @@ let notasGuardadas = [];
 let perfilActivo = null;   // 'abastible' | 'contratista'
 let modoActivo = null;     // 'nota_venta' | 'cargar_dc' | 'dc_cotizacion' | 'cotizacion_contratista'
 let datosContratista = null; // { razonSocial, rut, representante, telefono, email, zona }
+// true cuando el Contratista cargó un proyecto existente (NdV/DC de Abastible) para rellenar
+// sus valores, en vez de armar una Cotización libre desde cero. Cambia qué vista/export usa.
+let contratistaSobreProyectoCargado = false;
 
 const CATS_EXCLUIDAS_CONTRATISTA = ['EQUIPO COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
 
@@ -1013,6 +1019,33 @@ const ZONA_CENTROS = {
     'Sur': ['Lenga', 'Concepción', 'Chillán', 'Los Ángeles', 'Temuco'],
     'Austral': ['Valdivia', 'Osorno', 'Puerto Montt', 'Coyhaique', 'Punta Arenas']
 };
+
+const ZONA_JEFE = {
+    'Norte': 'Fernando Videla',
+    'Centro': 'Alberto Ho',
+    'Agroindustrial': 'Luis Berríos',
+    'Sur': 'Floriano Nuñez',
+    'Austral': 'Manuel Estay'
+};
+
+const ZONA_COORDINADOR = {
+    'Norte': 'Daniel Villalobos',
+    'Centro': 'Marcelo Silva',
+    'Agroindustrial': 'José Cabrera',
+    'Sur': 'José Cabrera',
+    'Austral': 'Gloria Sepúlveda'
+};
+
+// ============================================================
+// ZONA FIJA DEL PAQUETE DE DESPLIEGUE
+// ============================================================
+// Si este HTML forma parte de un paquete zonal (Norte/Centro/Agroindustrial/Sur/Austral),
+// fijar aquí el nombre de la zona. Eso hace que TODA la app (Abastible y Contratista)
+// quede restringida a esa zona: el modal de Contratista no pide zona (ya la sabe),
+// la Nota de Venta y demás modos solo muestran los centros de esa zona, y se exhibe
+// el nombre del jefe de proyecto correspondiente.
+// Dejar en null para el paquete genérico (todas las zonas disponibles, comportamiento actual).
+const ZONA_FIJA_PAQUETE = 'Norte';
 
 // Los nombres de centro en base_datos.xlsx vienen con prefijos variables
 // ("Oficina Ventas Arica", "Planta Con-Con", "Local Ventas Concepción", "Casa Matriz", etc.),
@@ -1051,13 +1084,22 @@ function abrirModalDatosContratista() {
         $('cttaEmail').value = datosContratista.email || '';
         $('cttaZona').value = datosContratista.zona || '';
     }
+    if (ZONA_FIJA_PAQUETE) {
+        $('bloqueZonaContratista').classList.add('hidden');
+        $('zonaFijaIndicador').classList.remove('hidden');
+        $('zonaFijaIndicador').innerHTML = `📍 Zona <strong>${ZONA_FIJA_PAQUETE}</strong> · Jefe de Proyecto: <strong>${ZONA_JEFE[ZONA_FIJA_PAQUETE] || '-'}</strong> · Coordinador: <strong>${ZONA_COORDINADOR[ZONA_FIJA_PAQUETE] || '-'}</strong>`;
+        $('cttaZona').value = ZONA_FIJA_PAQUETE;
+    } else {
+        $('bloqueZonaContratista').classList.remove('hidden');
+        $('zonaFijaIndicador').classList.add('hidden');
+    }
     $('modalDatosContratista').classList.add('active');
 }
 
 function confirmarDatosContratista() {
     const razonSocial = $('cttaRazonSocial').value.trim();
     const rut = $('cttaRut').value.trim();
-    const zona = $('cttaZona').value;
+    const zona = ZONA_FIJA_PAQUETE || $('cttaZona').value;
     if (!razonSocial || !rut || !zona) {
         mostrarToast('Complete Razón Social, RUT y Zona', 'warn');
         return;
@@ -1112,6 +1154,15 @@ function iniciarAppConModo() {
     } else {
         badge.className = 'perfil-badge pb-abastible';
         badge.textContent = '🏢 Abastible';
+    }
+
+    // Badge de zona fija del paquete (si aplica) + jefe de proyecto
+    const badgeZona = $('badgeZonaFija');
+    if (ZONA_FIJA_PAQUETE) {
+        badgeZona.classList.remove('hidden');
+        badgeZona.textContent = `📍 Zona ${ZONA_FIJA_PAQUETE} · Jefe Proyecto: ${ZONA_JEFE[ZONA_FIJA_PAQUETE] || '-'} · Coord.: ${ZONA_COORDINADOR[ZONA_FIJA_PAQUETE] || '-'}`;
+    } else {
+        badgeZona.classList.add('hidden');
     }
 
     // Botones de barra superior según modo
@@ -1213,6 +1264,11 @@ function restaurarBaseCompleta() {
     dbProductos = JSON.parse(JSON.stringify(dbProductosMaestro));
     categoriasList = [...categoriasListMaestro];
     centros = [...centrosMaestro];
+    // Capa de seguridad: si este paquete tiene zona fija, filtrar centros por las dudas
+    // (el base_datos.xlsx del paquete ya debería venir filtrado, esto es un respaldo).
+    if (ZONA_FIJA_PAQUETE) {
+        centros = centros.filter(c => centroPerteneceAZona(c, ZONA_FIJA_PAQUETE));
+    }
     if (!categoriasList.includes(categoriaActiva)) categoriaActiva = categoriasList[0] || "";
     inicializarCentros();
     inicializarCategorias();
@@ -1818,15 +1874,154 @@ function cambiarPrecioCotizacion(idx, val) {
     renderizarCotizacionContratista();
 }
 
+// ============================================================
+// COMPARATIVA CONTRATISTA — cuando el Contratista carga un proyecto
+// (NdV o DC) ya armado por Abastible y debe rellenar SUS valores.
+// A diferencia de renderizarNotaFinal (Abastible), esta vista:
+//   - Excluye EQUIPO/SERVICIO COMPRA DIRECTA (el contratista no las ve)
+//   - NO calcula ni muestra MOI ni bloque de cuadre (eso lo hace Abastible después)
+//   - Sí conserva el precio Renova original como referencia (precioBase intacto)
+// ============================================================
+function renderizarComparativaContratista() {
+    $("notaProyecto").textContent = $("nombreProyecto").value;
+    $("notaCliente").textContent = $("nombreCliente").value;
+    $("notaRut").textContent = $("rutCliente").value || "-";
+    $("notaFecha").textContent = $("fecha").value || new Date().toISOString().split("T")[0];
+    $("notaDireccion").textContent = $("direccion").value || "-";
+    $("notaCiudad").textContent = $("ciudad").value || "-";
+    $("notaTelefono").textContent = $("telefono").value || "-";
+    $("notaCentro").textContent = centroActivo || "-";
+    $("notaVencimiento").textContent = $("vencimiento").value || "-";
+
+    const grupos = {};
+    itemsNota.forEach((item, idx) => {
+        if (item.esMaterialImpovar) return;
+        if (CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return; // por si acaso, doble filtro
+        if (!grupos[item.categoria]) grupos[item.categoria] = [];
+        grupos[item.categoria].push({ ...item, globalIdx: idx });
+    });
+
+    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>`;
+    let totalGeneralRenova = 0;
+    let totalGeneralContratista = 0;
+
+    for (const cat in grupos) {
+        const items = grupos[cat];
+        if (!items || items.length === 0) continue;
+        const esCañeriaPrecioFijo = CATS_SIN_CTTA.includes(cat);
+        let subtotalRenova = 0;
+        let subtotalContratista = 0;
+
+        for (const item of items) {
+            const totalRenova = item.precioBase * item.cantidad;
+            subtotalRenova += totalRenova;
+
+            const precioCtta = esCañeriaPrecioFijo
+                ? item.precioBase
+                : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
+            const totalContratista = precioCtta * item.cantidad;
+            subtotalContratista += totalContratista;
+            const diferencia = totalContratista - totalRenova;
+
+            html += `<tr class="item-row">`;
+            html += `<td>${escapeHTML(item.categoria)}</td>`;
+            html += `<td>${escapeHTML(item.descripcion)}</td>`;
+            html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidadComparativa(${item.globalIdx}, this.value)"></td>`;
+            html += `<td>${item.precioBase > 0 ? fmtMoney(item.precioBase) : '<span style="color:var(--aba-gray)">-</span>'}</td>`;
+            html += `<td>${fmtMoney(totalRenova)}</td>`;
+            if (esCañeriaPrecioFijo) {
+                html += `<td class="text-right"><span class="ctta-fixed">PRECIO RENOVA</span></td>`;
+            } else {
+                html += `<td class="text-right"><input type="text" value="${fmt(precioCtta)}" class="input-ctta" onchange="cambiarPrecioComparativa(${item.globalIdx}, this.value)"></td>`;
+            }
+            html += `<td>${fmtMoney(totalContratista)}</td>`;
+            html += `<td>${fmtMoneyColor(diferencia)}</td>`;
+            html += `<td class="text-center"><button onclick="eliminarItem(${item.globalIdx})" class="text-red-500 hover:text-red-700 text-lg leading-none" style="font-size:18px">✕</button></td>`;
+            html += `</tr>`;
+
+            // Subfila material Impovar vinculado (si aplica)
+            const matImpovar = itemsNota.find(i => i.esMaterialImpovar && i.idInstalacion === item.id);
+            if (matImpovar) {
+                const totalMat = matImpovar.precioBase * matImpovar.cantidad;
+                subtotalRenova += totalMat;
+                subtotalContratista += totalMat;
+                html += `<tr style="background:#FFFBF0; font-size:13px;">`;
+                html += `<td style="padding-left:24px; color:#92400E; font-style:italic;">↳ Material</td>`;
+                html += `<td style="color:#78350F;">🏭 ${escapeHTML(matImpovar.descripcion)}</td>`;
+                html += `<td style="text-align:center; color:#92400E;">${matImpovar.cantidad} ML</td>`;
+                html += `<td style="color:#78350F;">${fmtMoney(matImpovar.precioBase)}</td>`;
+                html += `<td style="color:#78350F;">${fmtMoney(totalMat)}</td>`;
+                html += `<td style="text-align:right;"><span class="ctta-fixed" style="font-size:11px;">IMPOVAR</span></td>`;
+                html += `<td style="color:#78350F;">${fmtMoney(totalMat)}</td>`;
+                html += `<td></td><td></td></tr>`;
+            }
+        }
+
+        const diferenciaCat = subtotalContratista - subtotalRenova;
+        html += `<tr class="subtotal-row"><td colspan="4" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalRenova)}</strong></td><td></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${fmtMoneyColor(diferenciaCat)}</strong></td><td></tr>`;
+        html += `<tr style="height:8px"><td colspan="9" style="border:none"></tr></tr>`;
+
+        totalGeneralRenova += subtotalRenova;
+        totalGeneralContratista += subtotalContratista;
+    }
+    html += `</tbody></table>`;
+    $("tablaNotaContainer").innerHTML = html;
+
+    const diferenciaGeneral = totalGeneralContratista - totalGeneralRenova;
+    $("resumenFinalContainer").innerHTML = `<div class="bg-white rounded-lg border-2 overflow-hidden" style="border-color: var(--ctta-green);">
+        <div class="text-white px-4 py-2 font-bold text-sm" style="background: var(--ctta-green);">📊 RESUMEN COMPARATIVO</div>
+        <div class="p-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center p-3 rounded-lg" style="background: #EBEEF9;">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--aba-blue);">Total Referencia Renova</div>
+                    <div class="text-2xl font-bold mt-1" style="color: var(--aba-blue);">$${fmt(totalGeneralRenova)}</div>
+                </div>
+                <div class="text-center p-3 rounded-lg" style="background: var(--ctta-green-light);">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--ctta-green-dark);">Total Mi Cotización</div>
+                    <div class="text-2xl font-bold mt-1" style="color: var(--ctta-green-dark);">$${fmt(totalGeneralContratista)}</div>
+                </div>
+                <div class="text-center p-3 rounded-lg" style="background: var(--aba-silver);">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--aba-gray);">Diferencia</div>
+                    <div class="text-2xl font-bold mt-1">${fmtMoneyColor(diferenciaGeneral)}</div>
+                </div>
+            </div>
+            <div class="mt-4 p-3 text-center rounded-lg text-xs" style="background: var(--aba-silver); color: var(--aba-gray);">
+                Esta es la comparación entre el precio de referencia Renova y tu cotización. El cuadre final de Mano de Obra Industrial lo realiza Abastible al recibir este archivo.
+            </div>
+        </div>
+    </div>`;
+}
+
+function cambiarPrecioComparativa(idx, val) {
+    const item = itemsNota[idx];
+    if (CATS_SIN_CTTA.includes(item.categoria)) {
+        item.precioCTTA = item.precioBase;
+        renderizarComparativaContratista();
+        return;
+    }
+    let n = parsePrecio(val);
+    if (n !== null && n > 0) {
+        item.precioCTTA = n; // precioBase (Renova) se conserva intacto como referencia
+    }
+    renderizarComparativaContratista();
+}
+
 function cambiarCantidad(idx, val) {
     const n = parseFloat(val);
     if (isNaN(n) || n < 0) return; 
     itemsNota[idx].cantidad = n;
     // Si es instalación de cañería, recalcular material vinculado
     actualizarMaterialVinculado(itemsNota[idx]);
-    if (perfilActivo === 'contratista') renderizarCotizacionContratista();
-    else renderizarNotaFinal();
+    if (perfilActivo === 'contratista') {
+        if (contratistaSobreProyectoCargado) renderizarComparativaContratista();
+        else renderizarCotizacionContratista();
+    } else {
+        renderizarNotaFinal();
+    }
 }
+
+// Alias usado por la tabla comparativa (mismo comportamiento que cambiarCantidad)
+function cambiarCantidadComparativa(idx, val) { cambiarCantidad(idx, val); }
 
 function cambiarPrecioCTTA(idx, val) {
     const item = itemsNota[idx];
@@ -1876,8 +2071,12 @@ async function eliminarItem(idx) {
         inicializarCategorias(); 
         cargarProductos(); 
     } else { 
-        if (perfilActivo === 'contratista') renderizarCotizacionContratista();
-        else renderizarNotaFinal();
+        if (perfilActivo === 'contratista') {
+            if (contratistaSobreProyectoCargado) renderizarComparativaContratista();
+            else renderizarCotizacionContratista();
+        } else {
+            renderizarNotaFinal();
+        }
     } 
     actualizarBadge(); 
 }
@@ -2105,8 +2304,264 @@ async function exportarCotizacionExcel() {
     }
 }
 
+// ============================================================
+// EXCEL - COMPARATIVA CONTRATISTA (proyecto cargado de Abastible)
+// Incluye columna Renova de referencia + columna Contratista + diferencia.
+// NO incluye MOI ni bloque de cuadre — eso lo calcula Abastible al recibir este archivo.
+// ============================================================
+async function exportarComparativaContratistaExcel() {
+    if (itemsNota.length === 0) {
+        mostrarToast('No hay ítems para exportar', 'warn');
+        return;
+    }
+    if (typeof ExcelJS === 'undefined') {
+        mostrarToast("Librería ExcelJS no cargada", "error");
+        return;
+    }
+
+    showLoader("Generando Comparativa...");
+
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('COMPARATIVA');
+
+        const C = {
+            green: 'FF15803D',
+            greenDark: 'FF166534',
+            greenL: 'FFECFDF5',
+            white: 'FFFFFFFF',
+            silver: 'FFF5F5F5',
+            gray: 'FF54585A',
+            gridLine: 'FFD9D9D9',
+            blue: 'FF001489',
+            blueL: 'FFEBEEF9',
+            red: 'FFDC2626',
+        };
+        const MONEY = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+        function money(v) { const n = Number(v); return isNaN(n) ? 0 : n; }
+        function gridBorder() { const s = { style: 'thin', color: { argb: C.gridLine } }; return { top: s, bottom: s, left: s, right: s }; }
+        function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
+
+        sheet.columns = [
+            { width: 14 }, { width: 30 }, { width: 7 },
+            { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 11 }
+        ];
+
+        // Banner
+        sheet.getRow(1).height = 32;
+        sheet.mergeCells('A1:H1');
+        const banner = sheet.getCell('A1');
+        banner.value = 'COMPARATIVA CONTRATISTA · INSTALACIONES DE GAS';
+        banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
+        banner.fill = fillSolid(C.green);
+        banner.alignment = { horizontal: 'center', vertical: 'middle' };
+
+        // Datos empresa contratista (izquierda) + datos proyecto (derecha)
+        const dc = datosContratista || {};
+        const camposEmpresa = [
+            ['EMPRESA', dc.razonSocial || '-'],
+            ['RUT EMPRESA', dc.rut || '-'],
+            ['ZONA', dc.zona || '-'],
+        ];
+        const camposProyecto = [
+            ['PROYECTO', $("nombreProyecto").value || '-'],
+            ['CLIENTE', $("nombreCliente").value || '-'],
+            ['CENTRO', centroActivo || '-'],
+            ['FECHA', $("fecha").value || '-'],
+        ];
+        let r = 2;
+        camposEmpresa.forEach(([k, v]) => {
+            sheet.getRow(r).height = 15;
+            const lbl = sheet.getCell(r, 1);
+            lbl.value = k;
+            lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lbl.fill = fillSolid(C.silver);
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            sheet.mergeCells(r, 2, r, 3);
+            const val = sheet.getCell(r, 2);
+            val.value = v;
+            val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+            val.alignment = { horizontal: 'left', vertical: 'middle' };
+            r++;
+        });
+        r = 2;
+        camposProyecto.forEach(([k, v]) => {
+            const lbl = sheet.getCell(r, 4);
+            lbl.value = k;
+            lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lbl.fill = fillSolid(C.silver);
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            sheet.mergeCells(r, 5, r, 8);
+            const val = sheet.getCell(r, 5);
+            val.value = v;
+            val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            val.alignment = { horizontal: 'left', vertical: 'middle' };
+            r++;
+        });
+        r = Math.max(r, 5);
+
+        // Separador
+        const filaSep = r;
+        sheet.getRow(filaSep).height = 4;
+        sheet.mergeCells(`A${filaSep}:H${filaSep}`);
+        sheet.getCell(`A${filaSep}`).fill = fillSolid(C.green);
+        r++;
+
+        // Header tabla
+        const filaHeader = r;
+        sheet.getRow(filaHeader).height = 26;
+        ['CATEGORÍA', 'DESCRIPCIÓN', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'DIFERENCIA'].forEach((h, i) => {
+            const c = sheet.getCell(filaHeader, i + 1);
+            c.value = h;
+            c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.white } };
+            c.fill = fillSolid(C.green);
+            c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+        });
+        r++;
+
+        const grupos = {};
+        itemsNota.forEach(item => {
+            if (item.esMaterialImpovar) return;
+            if (CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return;
+            if (!grupos[item.categoria]) grupos[item.categoria] = [];
+            grupos[item.categoria].push(item);
+        });
+
+        let totalRenovaGeneral = 0;
+        let totalContratistaGeneral = 0;
+
+        for (const cat in grupos) {
+            const items = grupos[cat];
+            const esCañeriaPrecioFijo = CATS_SIN_CTTA.includes(cat);
+            let subtotalRenova = 0;
+            let subtotalContratista = 0;
+
+            for (const item of items) {
+                const totalRenova = money(item.precioBase) * money(item.cantidad);
+                subtotalRenova += totalRenova;
+                const precioCtta = esCañeriaPrecioFijo
+                    ? item.precioBase
+                    : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
+                const totalContratista = money(precioCtta) * money(item.cantidad);
+                subtotalContratista += totalContratista;
+                const diferencia = totalContratista - totalRenova;
+
+                const fila = [cat, item.descripcion, item.cantidad, money(item.precioBase), money(totalRenova), money(precioCtta), money(totalContratista), money(diferencia)];
+                fila.forEach((v, i) => {
+                    const col = i + 1;
+                    const cell = sheet.getCell(r, col);
+                    cell.value = v;
+                    cell.border = gridBorder();
+                    cell.font = { name: 'Arial', size: 8 };
+                    if ([4, 5, 6, 7, 8].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if (col === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                });
+                r++;
+
+                // Material Impovar vinculado
+                const matImpovar = itemsNota.find(i => i.esMaterialImpovar && i.idInstalacion === item.id);
+                if (matImpovar) {
+                    const totalMat = money(matImpovar.precioBase) * money(matImpovar.cantidad);
+                    subtotalRenova += totalMat;
+                    subtotalContratista += totalMat;
+                    const filaMat = ['↳ Material', '🏭 ' + matImpovar.descripcion, matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat), 'IMPOVAR', money(totalMat), 0];
+                    filaMat.forEach((v, i) => {
+                        const col = i + 1;
+                        const cell = sheet.getCell(r, col);
+                        cell.value = v;
+                        cell.fill = fillSolid('FFFFFBF0');
+                        cell.border = gridBorder();
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        if ([4, 5, 7, 8].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                        else if (col === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        else if (col === 6) cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                    });
+                    r++;
+                }
+            }
+
+            const diferenciaCat = subtotalContratista - subtotalRenova;
+            sheet.mergeCells(r, 1, r, 3);
+            const subLbl = sheet.getCell(r, 1);
+            subLbl.value = 'SUBTOTAL ' + cat;
+            subLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+            subLbl.fill = fillSolid(C.greenL);
+            subLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            [4, 5, 6, 7, 8].forEach(col => {
+                const cell = sheet.getCell(r, col);
+                cell.fill = fillSolid(C.greenL);
+                cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                if (col === 5) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
+                else if (col === 7) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
+                else if (col === 8) { cell.value = money(diferenciaCat); cell.numFmt = MONEY; }
+            });
+            r++;
+
+            totalRenovaGeneral += subtotalRenova;
+            totalContratistaGeneral += subtotalContratista;
+        }
+
+        // Total general (sin cuadre, sin MOI — solo referencia y comparación)
+        const diferenciaGeneral = totalContratistaGeneral - totalRenovaGeneral;
+        sheet.mergeCells(r, 1, r, 3);
+        const totLbl = sheet.getCell(r, 1);
+        totLbl.value = 'TOTAL COMPARATIVA';
+        totLbl.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
+        totLbl.fill = fillSolid(C.green);
+        totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+        [4, 5, 6, 7, 8].forEach(col => {
+            const cell = sheet.getCell(r, col);
+            cell.fill = fillSolid(C.green);
+            cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            if (col === 5) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
+            else if (col === 7) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
+            else if (col === 8) { cell.value = money(diferenciaGeneral); cell.numFmt = MONEY; }
+        });
+        sheet.getRow(r).height = 20;
+        r++;
+
+        // Nota aclaratoria (sin cuadre MOI — lo hace Abastible)
+        const filaNota = r;
+        sheet.mergeCells(`A${filaNota}:H${filaNota}`);
+        const notaCell = sheet.getCell(`A${filaNota}`);
+        notaCell.value = 'El cuadre de Mano de Obra Industrial (MOI) lo realiza Abastible al recibir este archivo.';
+        notaCell.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
+        notaCell.alignment = { horizontal: 'center', vertical: 'middle' };
+        r++;
+
+        sheet.pageSetup.orientation = 'landscape';
+        sheet.pageSetup.fitToPage = true;
+        sheet.pageSetup.fitToWidth = 1;
+        sheet.pageSetup.fitToHeight = 0;
+        sheet.pageSetup.margins = { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.1, footer: 0.1 };
+        sheet.views = [{ state: 'frozen', ySplit: filaHeader }];
+        sheet.showGridLines = false;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const proyecto = $("nombreProyecto").value || 'SIN_PROYECTO';
+        link.href = URL.createObjectURL(blob);
+        link.download = `COMPARATIVA_${proyecto.replace(/\s+/g, '_')}.xlsx`;
+        link.click();
+        mostrarToast("Comparativa exportada correctamente", "ok");
+    } catch (error) {
+        console.error('Error exportando Comparativa:', error);
+        mostrarToast("Error exportando Comparativa", "error");
+    } finally {
+        hideLoader();
+    }
+}
+
 async function exportarAExcel() {
-    if (perfilActivo === 'contratista') return exportarCotizacionExcel();
+    if (perfilActivo === 'contratista') {
+        if (contratistaSobreProyectoCargado) return exportarComparativaContratistaExcel();
+        return exportarCotizacionExcel();
+    }
     if (itemsNota.length === 0 && !$("nombreProyecto").value) { 
         mostrarToast('No hay datos para exportar', 'warn'); 
         return; 
@@ -2750,6 +3205,7 @@ function nuevaNota() {
     centroActivo = ""; 
     categoriaActiva = categoriasList && categoriasList.length > 0 ? categoriasList[0] : ""; 
     itemsNota = []; 
+    contratistaSobreProyectoCargado = false;
     actualizarBadge(); 
     if (modoActivo === 'dc_cotizacion') {
         $('formularioPaso1').classList.add('hidden');
@@ -2793,6 +3249,19 @@ function cargarProyecto(event) {
     reader.onload = function(e) { 
         try { 
             const data = JSON.parse(e.target.result); 
+
+            // Si el contratista tiene zona fija, el proyecto cargado debe ser de esa misma zona.
+            // El centro del proyecto debe pertenecer a la zona del paquete; si no, se rechaza.
+            if (perfilActivo === 'contratista' && ZONA_FIJA_PAQUETE) {
+                const centroProyecto = data.centroActivo || '';
+                const esDC = centroProyecto === 'DETALLE COMERCIAL' || (data.itemsNota || []).some(i => i.desdeDetalle);
+                if (!esDC && centroProyecto && !centroPerteneceAZona(centroProyecto, ZONA_FIJA_PAQUETE)) {
+                    mostrarToast(`⛔ Este proyecto pertenece a otra zona (centro: ${centroProyecto}). No corresponde a la zona ${ZONA_FIJA_PAQUETE}.`, 'error');
+                    event.target.value = '';
+                    return;
+                }
+            }
+
             $("nombreProyecto").value = data.proyecto || ""; 
             $("nombreCliente").value = data.cliente || ""; 
             $("rutCliente").value = data.rut || ""; 
@@ -2804,26 +3273,44 @@ function cargarProyecto(event) {
             centroActivo = data.centroActivo || ""; 
             itemsNota = data.itemsNota || [];
 
+            const esContratista = perfilActivo === 'contratista';
+            contratistaSobreProyectoCargado = esContratista;
+
+            // Para el Contratista: nunca debe ver ni operar sobre Equipo/Servicio Compra Directa.
+            // Si el proyecto cargado los trae, se descartan al cargar.
+            if (esContratista) {
+                itemsNota = itemsNota.filter(i => !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria));
+                // Los precios de CAÑERIAS AP/MP/BP quedan fijos al valor Renova original (precioBase),
+                // sin importar qué traiga el proyecto en precioCTTA.
+                itemsNota.forEach(i => {
+                    if (CATS_SIN_CTTA.includes(i.categoria) && !i.esMaterialImpovar) {
+                        i.precioCTTA = i.precioBase;
+                    }
+                });
+            }
+
             // Un proyecto generado desde Detalle Comercial no depende de la base Renova
             // (sus precios ya vienen incluidos en cada ítem), así que no requiere centros cargados.
             const esProyectoDC = centroActivo === 'DETALLE COMERCIAL' || itemsNota.some(i => i.desdeDetalle);
+
+            const renderizarSegunPerfil = () => {
+                itemsNota = migrarItemsLegacy(itemsNota);
+                if (esContratista) renderizarComparativaContratista();
+                else renderizarNotaFinal();
+                mostrarSolo("paso3");
+            };
 
             if (esProyectoDC) {
                 if (modoActivo === 'dc_cotizacion') {
                     $('formularioPaso1').classList.add('hidden');
                     $('panelDcCotizacion').classList.add('hidden');
                 }
-                itemsNota = migrarItemsLegacy(itemsNota);
-                renderizarNotaFinal();
-                mostrarSolo("paso3");
+                renderizarSegunPerfil();
             } else if (centroActivo && centros.length > 0) {
                 inicializarCentros(); 
                 inicializarCategorias(); 
                 cargarProductos();
-                // Migrar DESPUÉS de inicializar para que dbProductos esté completamente listo
-                itemsNota = migrarItemsLegacy(itemsNota);
-                renderizarNotaFinal();
-                mostrarSolo("paso3");
+                renderizarSegunPerfil();
             } else { 
                 mostrarToast("⚠️ Cargue la Base Excel para completar los materiales de cañería", "warn"); 
                 mostrarSolo("paso1"); 
@@ -3145,13 +3632,22 @@ function volverPaso1() { mostrarSolo("paso1"); }
 function irPaso3() {
     if (itemsNota.length === 0) { mostrarToast("Agregue al menos un producto", "warn"); return; }
     if (perfilActivo === 'contratista') {
-        renderizarCotizacionContratista();
+        if (contratistaSobreProyectoCargado) renderizarComparativaContratista();
+        else renderizarCotizacionContratista();
     } else {
         renderizarNotaFinal();
     }
     mostrarSolo("paso3");
 }
-function volverPaso2() { mostrarSolo("paso2"); actualizarItemsAgregadosPaso2(); }
+function volverPaso2() {
+    mostrarSolo("paso2");
+    if (categoriasList && categoriasList.length > 0) {
+        if (!categoriaActiva || !categoriasList.includes(categoriaActiva)) categoriaActiva = categoriasList[0];
+        inicializarCategorias();
+        cargarProductos();
+    }
+    actualizarItemsAgregadosPaso2();
+}
 function volverAlUltimoPaso() {
     if (itemsNota.length > 0) irPaso3();
     else if ($("nombreProyecto").value) { mostrarSolo("paso2"); inicializarCategorias(); cargarProductos(); actualizarItemsAgregadosPaso2(); }
@@ -3372,6 +3868,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const excelInput = document.getElementById('excelFile'); 
     if(excelInput) excelInput.addEventListener('change', cargarExcel); 
     categoriaActiva = "";
+
+    // Indicador de zona fija en la pantalla inicial de selección de perfil
+    if (ZONA_FIJA_PAQUETE) {
+        const ind = $('indicadorZonaInicial');
+        if (ind) {
+            ind.classList.remove('hidden');
+            ind.textContent = `📍 Paquete Zona ${ZONA_FIJA_PAQUETE} · Jefe Proyecto: ${ZONA_JEFE[ZONA_FIJA_PAQUETE] || '-'} · Coord.: ${ZONA_COORDINADOR[ZONA_FIJA_PAQUETE] || '-'}`;
+        }
+    }
 
     // Auto-fetch de base_datos.xlsx + impovar.xlsx al abrir desde https://
     if (window.location.protocol === 'https:') {
