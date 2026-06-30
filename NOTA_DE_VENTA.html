@@ -33,6 +33,12 @@
         
         * { font-family: 'Ubuntu', 'Segoe UI', system-ui, sans-serif; }
         body { background: #F0F2F5; margin: 0; padding: 0; }
+
+        /* Definición propia de .hidden (no depender únicamente del CDN de Tailwind):
+           si el CDN tarda en cargar o falla, los elementos con esta clase deben
+           seguir ocultos igual. !important asegura que gane sobre cualquier
+           display explícito definido en una clase de un solo selector. */
+        .hidden { display: none !important; }
         
         :root {
             --aba-orange: #FE5100;
@@ -310,6 +316,7 @@
             align-items: center;
             gap: 12px;
         }
+        .warning-compact.hidden { display: none !important; }
         
         .estado-badge {
             background: #E8F5E9;
@@ -428,8 +435,6 @@
     </div>
 </div>
 
-<div class="max-w-screen-2xl mx-auto px-5 py-5 hidden" id="appContainer">
-
 <!-- PANTALLA SELECCIÓN DE PERFIL -->
 <div id="pasoPerfil" class="max-w-screen-2xl mx-auto px-5 py-10">
     <div class="text-center mb-10">
@@ -516,6 +521,8 @@
         </div>
     </div>
 </div>
+
+<div class="max-w-screen-2xl mx-auto px-5 py-5 hidden" id="appContainer">
 
     <!-- PASO 1 -->
     <div id="paso1" class="hidden">
