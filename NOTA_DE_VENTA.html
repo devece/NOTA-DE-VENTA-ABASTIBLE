@@ -3443,89 +3443,136 @@ function cargarCotizacionDirecta(event) {
     event.target.value = '';
     if (!file) return;
 
+    const esExcel = /\.(xlsx|xls)$/i.test(file.name);
+    const esJSON  = /\.json$/i.test(file.name);
+
+    if (!esExcel && !esJSON) {
+        mostrarToast("Formato no soportado. Use .json o .xlsx", "warn");
+        return;
+    }
+
+    if (esExcel) {
+        if (typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const data = new Uint8Array(e.target.result);
+                const wb   = XLSX.read(data, { type: 'array' });
+                const filas = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
+                // Buscar fila de header
+                const headerIdx = filas.findIndex(f => f.some(c => String(c || '').toUpperCase().includes('DESCRIP')));
+                if (headerIdx === -1) { mostrarToast("No se encontró encabezado en el Excel", "error"); return; }
+                const header = filas[headerIdx].map(h => String(h || '').toUpperCase().trim());
+                const idxDesc  = header.findIndex(h => h.includes('DESCRIP'));
+                const idxPrecio= header.findIndex(h => h.includes('CONTRATISTA') || h.includes('PRECIO'));
+                const idxCant  = header.findIndex(h => h.includes('CANT'));
+                if (idxDesc === -1 || idxPrecio === -1) { mostrarToast("No se identificaron columnas de descripción/precio", "error"); return; }
+                const itemsCotizados = [];
+                for (let i = headerIdx + 1; i < filas.length; i++) {
+                    const fila = filas[i];
+                    if (!fila || !fila[idxDesc]) continue;
+                    const precio = parsePrecio(fila[idxPrecio]);
+                    if (!precio || precio <= 0) continue;
+                    itemsCotizados.push({
+                        descripcion: String(fila[idxDesc]).trim(),
+                        precioCTTA:  precio,
+                        cantidad:    idxCant >= 0 ? (parseFloat(fila[idxCant]) || 1) : 1
+                    });
+                }
+                procesarItemsCotizacionDirecta(itemsCotizados, null);
+            } catch(err) { console.error(err); mostrarToast("Error leyendo el Excel", "error"); }
+        };
+        reader.readAsArrayBuffer(file);
+        return;
+    }
+
+    // JSON
     const reader = new FileReader();
-    reader.onload = function(e) {
+    reader.onload = (e) => {
         try {
             const data = JSON.parse(e.target.result);
-
-            // Rellenar datos del proyecto desde el JSON del contratista
-            $("nombreProyecto").value = data.proyecto || "";
-            $("nombreCliente").value  = data.cliente  || "";
-            $("rutCliente").value     = data.rut       || "";
-            $("direccion").value      = data.direccion || "";
-            $("ciudad").value         = data.ciudad    || "";
-            $("telefono").value       = data.telefono  || "";
-            $("fecha").value          = data.fecha     || new Date().toISOString().split("T")[0];
-            $("vencimiento").value    = data.vencimiento || "";
-            centroActivo              = data.centroActivo || "";
-
-            const itemsCotizados = data.itemsNota || data.items || [];
-            if (itemsCotizados.length === 0) {
-                mostrarToast("El archivo no contiene ítems", "warn");
-                return;
-            }
-
-            // Filtrar categorías que Abastible no muestra al contratista
-            // (pueden venir si el JSON fue generado por Abastible en modo NdV)
-            const itemsFiltrados = itemsCotizados.filter(i =>
-                !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria)
-            );
-
-            // Para cada ítem, recuperar el precio Renova desde la base de datos actual.
-            // Si el ítem es de CAÑERIAS AP/MP/BP, el precio Renova está en la base;
-            // para el resto, el precioBase del JSON ya viene del sistema.
-            itemsNota = itemsFiltrados.map(item => {
-                const esItemLibre = item.esItemLibre || false;
-                let precioRenova = item.precioBase || 0;
-
-                // Intentar recuperar precio Renova desde dbProductos si la base está cargada
-                if (!esItemLibre && centroActivo && dbProductos[item.categoria]) {
-                    const prodBase = dbProductos[item.categoria].find(p =>
-                        p.cod === item.codigo && (!p.centro || p.centro === centroActivo)
-                    );
-                    if (prodBase) precioRenova = prodBase.precios?.default || prodBase.precio || precioRenova;
-                }
-
-                return {
-                    ...item,
-                    precioBase: precioRenova,
-                    precioCTTA: (item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0)
-                        ? item.precioCTTA
-                        : (CATS_SIN_CTTA.includes(item.categoria) ? precioRenova : null),
-                    tieneCotizacion: item.precioCTTA > 0
-                };
-            });
-
-            // Migrar legacy y recalcular materiales Impovar si la base está disponible
-            if (centroActivo && Object.keys(dbProductos).length > 0) {
-                inicializarCentros();
-                inicializarCategorias();
-                cargarProductos();
-                itemsNota = migrarItemsLegacy(itemsNota);
-            }
-
-            // Ocultar el panel de selección y mostrar la tabla
-            $('panelDcCotizacion').classList.add('hidden');
-            contratistaSobreProyectoCargado = false; // es Abastible, usa renderizarNotaFinal
-            renderizarNotaFinal();
-            mostrarSolo("paso3");
-
-            const sinPrecio = itemsNota.filter(i =>
-                !i.esMaterialImpovar && !CATS_SIN_CTTA.includes(i.categoria) &&
-                (!i.precioCTTA || i.precioCTTA <= 0)
-            ).length;
-
-            mostrarToast(
-                `Cotización cargada: ${itemsNota.length} ítems` +
-                (sinPrecio > 0 ? ` · ${sinPrecio} sin precio contratista` : ' · precios completos ✅'),
-                sinPrecio > 0 ? 'warn' : 'ok'
-            );
-        } catch(err) {
-            console.error(err);
-            mostrarToast("Error leyendo el archivo de cotización", "error");
-        }
+            procesarItemsCotizacionDirecta(data.itemsNota || data.items || [], data);
+        } catch(err) { console.error(err); mostrarToast("Error leyendo el JSON", "error"); }
     };
     reader.readAsText(file);
+}
+
+function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
+    if (!itemsCotizados || itemsCotizados.length === 0) {
+        mostrarToast("El archivo no contiene ítems", "warn");
+        return;
+    }
+
+    // Rellenar datos del proyecto si vienen del JSON
+    if (datosProyecto) {
+        $("nombreProyecto").value = datosProyecto.proyecto  || "";
+        $("nombreCliente").value  = datosProyecto.cliente   || "";
+        $("rutCliente").value     = datosProyecto.rut       || "";
+        $("direccion").value      = datosProyecto.direccion || "";
+        $("ciudad").value         = datosProyecto.ciudad    || "";
+        $("telefono").value       = datosProyecto.telefono  || "";
+        $("fecha").value          = datosProyecto.fecha     || new Date().toISOString().split("T")[0];
+        $("vencimiento").value    = datosProyecto.vencimiento || "";
+        centroActivo              = datosProyecto.centroActivo || "";
+    }
+
+    // Filtrar categorías excluidas para contratista
+    const itemsFiltrados = itemsCotizados.filter(i =>
+        i && !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria)
+    );
+
+    // Reconstruir itemsNota recuperando precio Renova SIEMPRE desde la base de datos,
+    // sin confiar en el precioBase del JSON (puede haber sido sobreescrito por el precio
+    // del contratista al guardar desde el modo Cotización).
+    itemsNota = itemsFiltrados.map(item => {
+        if (item.esMaterialImpovar) return item;
+
+        // Precio del contratista: en precioCTTA; si no, en precioBase del JSON (fallback)
+        const precioCtta = (item.precioCTTA > 0) ? item.precioCTTA : (item.precioBase || 0);
+
+        // Precio Renova: buscar en la base de datos actual por código y centro
+        let precioRenova = 0;
+        const cat = item.categoria;
+        if (cat && dbProductos[cat] && centroActivo) {
+            const prodBase = dbProductos[cat].find(p =>
+                p.cod === item.codigo && (!p.centro || p.centro === centroActivo)
+            );
+            if (prodBase) precioRenova = prodBase.precios?.default || 0;
+        }
+        // Si no encontró en la base (ítem libre, o base no cargada), usar el precioCTTA como referencia
+        if (!precioRenova) precioRenova = precioCtta;
+
+        return {
+            ...item,
+            precioBase:     precioRenova,   // Renova oficial desde la base
+            precioCTTA:     CATS_SIN_CTTA.includes(cat) ? precioRenova : precioCtta,
+            tieneCotizacion: precioCtta > 0
+        };
+    });
+
+    // Si la base está cargada y hay centro, inicializar y migrar materiales Impovar
+    if (centroActivo && Object.keys(dbProductos).length > 0) {
+        inicializarCentros();
+        inicializarCategorias();
+        cargarProductos();
+        itemsNota = migrarItemsLegacy(itemsNota);
+    }
+
+    $('panelDcCotizacion').classList.add('hidden');
+    contratistaSobreProyectoCargado = false;
+    renderizarNotaFinal();
+    mostrarSolo("paso3");
+
+    const sinPrecio = itemsNota.filter(i =>
+        !i.esMaterialImpovar && !CATS_SIN_CTTA.includes(i.categoria) &&
+        (!i.precioCTTA || i.precioCTTA <= 0)
+    ).length;
+
+    mostrarToast(
+        `Cotización cargada: ${itemsNota.length} ítems` +
+        (sinPrecio > 0 ? ` · ${sinPrecio} sin precio contratista` : ' · precios completos ✅'),
+        sinPrecio > 0 ? 'warn' : 'ok'
+    );
 }
 
 
