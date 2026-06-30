@@ -529,12 +529,27 @@
 
     <!-- PASO 1 -->
     <div id="paso1" class="hidden">
-        <!-- Panel específico para modo DC + Cotización: invita a abrir el proyecto -->
-        <div id="panelDcCotizacion" class="hidden bg-white rounded-xl shadow-sm border p-10 text-center" style="border-color: var(--aba-border);">
-            <span class="text-5xl block mb-4">📂</span>
-            <h2 class="font-bold text-gray-800 text-lg mb-2">Abra el proyecto DC para continuar</h2>
-            <p class="text-sm mb-6" style="color: var(--aba-gray);">Use el botón <strong>"📂 Cargar Proyecto"</strong> en la barra superior para abrir el archivo .json generado al cargar el Detalle Comercial.</p>
-            <p class="text-sm" style="color: var(--aba-gray);">Una vez abierto, podrá ingresar el precio contratista manualmente en la tabla, o importar la Cotización del contratista con <strong>"📥 Importar Cotización Contratista"</strong>.</p>
+        <!-- Panel específico para modo DC + Cotización: dos vías de entrada -->
+        <div id="panelDcCotizacion" class="hidden bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
+            <div class="px-6 py-4 border-b" style="border-color: var(--aba-border);">
+                <h2 class="font-bold text-gray-800 text-lg">🔍 Análisis DC + Cotización Contratista</h2>
+                <p class="text-sm mt-1" style="color: var(--aba-gray);">Selecciona desde dónde quieres partir</p>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Opción 1: abrir proyecto DC -->
+                <div class="selector-card" onclick="document.getElementById('cargarProyectoInput').click()">
+                    <span class="sc-icon">📂</span>
+                    <div class="sc-title">Abrir proyecto DC</div>
+                    <div class="sc-desc">Tienes un proyecto DC guardado previamente (.json) y quieres ingresar o importar la cotización del contratista para hacer el análisis.</div>
+                </div>
+                <!-- Opción 2: abrir cotización del contratista directamente -->
+                <div class="selector-card" onclick="document.getElementById('cargarCotizacionDirectaInput').click()">
+                    <span class="sc-icon">📥</span>
+                    <div class="sc-title">Abrir cotización del contratista</div>
+                    <div class="sc-desc">Tienes el archivo de cotización (.json) generado por el contratista desde esta app. La comparativa y el MOI se calculan automáticamente.</div>
+                </div>
+            </div>
+            <input type="file" id="cargarCotizacionDirectaInput" accept=".json,.xlsx,.xls" style="display:none;" onchange="cargarCotizacionDirecta(event)">
         </div>
         <div id="formularioPaso1" class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
@@ -1045,7 +1060,7 @@ const ZONA_COORDINADOR = {
 // la Nota de Venta y demás modos solo muestran los centros de esa zona, y se exhibe
 // el nombre del jefe de proyecto correspondiente.
 // Dejar en null para el paquete genérico (todas las zonas disponibles, comportamiento actual).
-const ZONA_FIJA_PAQUETE = 'Norte';
+const ZONA_FIJA_PAQUETE = null; // ej: 'Norte' | 'Centro' | 'Agroindustrial' | 'Sur' | 'Austral' | null
 
 // Los nombres de centro en base_datos.xlsx vienen con prefijos variables
 // ("Oficina Ventas Arica", "Planta Con-Con", "Local Ventas Concepción", "Casa Matriz", etc.),
@@ -3414,6 +3429,103 @@ function aplicarCotizacionAItems(itemsCotizados) {
     });
     renderizarNotaFinal();
     mostrarToast(`Cotización aplicada: ${matches} de ${itemsNota.length} ítem(s) coincidieron`, matches > 0 ? 'ok' : 'warn');
+}
+
+// ============================================================
+// CARGAR COTIZACIÓN DIRECTA DEL CONTRATISTA (modo dc_cotizacion)
+// El contratista generó su cotización desde la app y guardó el JSON.
+// Este flujo la abre directamente en Abastible: recupera los precios
+// Renova desde la base de datos actual, aplica los precios del
+// contratista, y genera la vista NdV completa con MOI y cuadre.
+// ============================================================
+function cargarCotizacionDirecta(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+
+            // Rellenar datos del proyecto desde el JSON del contratista
+            $("nombreProyecto").value = data.proyecto || "";
+            $("nombreCliente").value  = data.cliente  || "";
+            $("rutCliente").value     = data.rut       || "";
+            $("direccion").value      = data.direccion || "";
+            $("ciudad").value         = data.ciudad    || "";
+            $("telefono").value       = data.telefono  || "";
+            $("fecha").value          = data.fecha     || new Date().toISOString().split("T")[0];
+            $("vencimiento").value    = data.vencimiento || "";
+            centroActivo              = data.centroActivo || "";
+
+            const itemsCotizados = data.itemsNota || data.items || [];
+            if (itemsCotizados.length === 0) {
+                mostrarToast("El archivo no contiene ítems", "warn");
+                return;
+            }
+
+            // Filtrar categorías que Abastible no muestra al contratista
+            // (pueden venir si el JSON fue generado por Abastible en modo NdV)
+            const itemsFiltrados = itemsCotizados.filter(i =>
+                !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria)
+            );
+
+            // Para cada ítem, recuperar el precio Renova desde la base de datos actual.
+            // Si el ítem es de CAÑERIAS AP/MP/BP, el precio Renova está en la base;
+            // para el resto, el precioBase del JSON ya viene del sistema.
+            itemsNota = itemsFiltrados.map(item => {
+                const esItemLibre = item.esItemLibre || false;
+                let precioRenova = item.precioBase || 0;
+
+                // Intentar recuperar precio Renova desde dbProductos si la base está cargada
+                if (!esItemLibre && centroActivo && dbProductos[item.categoria]) {
+                    const prodBase = dbProductos[item.categoria].find(p =>
+                        p.cod === item.codigo && (!p.centro || p.centro === centroActivo)
+                    );
+                    if (prodBase) precioRenova = prodBase.precios?.default || prodBase.precio || precioRenova;
+                }
+
+                return {
+                    ...item,
+                    precioBase: precioRenova,
+                    precioCTTA: (item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0)
+                        ? item.precioCTTA
+                        : (CATS_SIN_CTTA.includes(item.categoria) ? precioRenova : null),
+                    tieneCotizacion: item.precioCTTA > 0
+                };
+            });
+
+            // Migrar legacy y recalcular materiales Impovar si la base está disponible
+            if (centroActivo && Object.keys(dbProductos).length > 0) {
+                inicializarCentros();
+                inicializarCategorias();
+                cargarProductos();
+                itemsNota = migrarItemsLegacy(itemsNota);
+            }
+
+            // Ocultar el panel de selección y mostrar la tabla
+            $('panelDcCotizacion').classList.add('hidden');
+            contratistaSobreProyectoCargado = false; // es Abastible, usa renderizarNotaFinal
+            renderizarNotaFinal();
+            mostrarSolo("paso3");
+
+            const sinPrecio = itemsNota.filter(i =>
+                !i.esMaterialImpovar && !CATS_SIN_CTTA.includes(i.categoria) &&
+                (!i.precioCTTA || i.precioCTTA <= 0)
+            ).length;
+
+            mostrarToast(
+                `Cotización cargada: ${itemsNota.length} ítems` +
+                (sinPrecio > 0 ? ` · ${sinPrecio} sin precio contratista` : ' · precios completos ✅'),
+                sinPrecio > 0 ? 'warn' : 'ok'
+            );
+        } catch(err) {
+            console.error(err);
+            mostrarToast("Error leyendo el archivo de cotización", "error");
+        }
+    };
+    reader.readAsText(file);
 }
 
 
