@@ -536,11 +536,11 @@
                 <p class="text-sm mt-1" style="color: var(--aba-gray);">Selecciona desde dónde quieres partir</p>
             </div>
             <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Opción 1: abrir proyecto DC -->
-                <div class="selector-card" onclick="document.getElementById('cargarProyectoInput').click()">
-                    <span class="sc-icon">📂</span>
-                    <div class="sc-title">Abrir proyecto DC</div>
-                    <div class="sc-desc">Tienes un proyecto DC guardado previamente (.json) y quieres ingresar o importar la cotización del contratista para hacer el análisis.</div>
+                <!-- Opción 1: cargar DC en PDF -->
+                <div class="selector-card" onclick="document.getElementById('cargarDCInput').click()">
+                    <span class="sc-icon">📄</span>
+                    <div class="sc-title">Cargar DC (PDF)</div>
+                    <div class="sc-desc">Sube el PDF del Detalle Comercial. Se extraen automáticamente los ítems y precios Renova para luego importar o ingresar la cotización del contratista y hacer el análisis.</div>
                 </div>
                 <!-- Opción 2: abrir cotización del contratista directamente -->
                 <div class="selector-card" onclick="document.getElementById('cargarCotizacionDirectaInput').click()">
@@ -3834,6 +3834,7 @@ async function procesarDetalleComercial(event) {
     document.getElementById('dcFooter').style.display = 'none';
     document.getElementById('dcMensaje').textContent = 'Analizando PDF...';
     document.getElementById('dcSubMensaje').textContent = 'Esto puede tomar hasta 30 segundos';
+    document.getElementById('btnConfirmarDC').textContent = (modoActivo === 'dc_cotizacion') ? 'Cargar ítems del DC' : 'Cargar como Nota de Venta';
     modal.classList.add('active');
     dcDatosExtraidos = null;
 
@@ -4014,6 +4015,14 @@ function confirmarDC() {
 
     // Agregar materiales Impovar para ítems de cañería del DC
     itemsNota = migrarItemsLegacy(itemsNota);
+
+    // En modo Análisis DC + Cotización, ocultar los paneles de selección
+    // (igual que al abrir un proyecto DC ya guardado) para que "Modificar datos"
+    // no vuelva a mostrar las tarjetas de selección junto al formulario.
+    if (modoActivo === 'dc_cotizacion') {
+        $('formularioPaso1').classList.add('hidden');
+        $('panelDcCotizacion').classList.add('hidden');
+    }
 
     // Ir directo al paso 3 — no necesita seleccionar centro
     renderizarNotaFinal();
