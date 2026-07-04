@@ -836,9 +836,13 @@ function esMaterialCañeria(desc) {
            !d.includes('INSTA ') && !d.includes('LAP') && !d.includes('LMP') && !d.includes('LBP');
 }
 
+// Impovar cotiza la cañería por TIRA (barra de 6 metros), no por ML — confirmado:
+// precio_impovar / precio_base_ML = 6.00 exacto en las 8 medidas de CAÑERIAS AP.
+const ML_POR_TIRA = 6;
+
 // Calcula metros de material: cantidad × 1.05 redondeado al múltiplo de 6 superior
 function calcularMetrosMaterial(metros) {
-    return Math.ceil((metros * 1.05) / 6) * 6;
+    return Math.ceil((metros * 1.05) / ML_POR_TIRA) * ML_POR_TIRA;
 }
 
 // Busca en dbProductos el material que corresponde al ítem de instalación.
@@ -853,16 +857,20 @@ function obtenerMaterialCañeria(item) {
 
     const productosCat = dbProductos[cat] || [];
 
-    // Buscar material: mismo diámetro + mismo centro
+    // Buscar material: SOLO en productos de Impovar (nunca en la base Renova/base_datos),
+    // mismo diámetro + mismo centro
     let matProd = productosCat.find(p =>
+        p.esImpovar === true &&
         esMaterialCañeria(p.desc) &&
         extraerDiametro(p.desc) === diametroInstalacion &&
         (!p.centro || p.centro === item.centro)
     );
 
-    // Fallback: cualquier centro
+    // Fallback: cualquier centro (impovar.xlsx no trae columna centro, así que este
+    // suele ser el camino real de match, no solo un respaldo)
     if (!matProd) {
         matProd = productosCat.find(p =>
+            p.esImpovar === true &&
             esMaterialCañeria(p.desc) &&
             extraerDiametro(p.desc) === diametroInstalacion
         );
@@ -870,7 +878,11 @@ function obtenerMaterialCañeria(item) {
 
     if (!matProd) return null;
 
-    const precio = obtenerPrecioBase(matProd, item.centro);
+    const precioTira = obtenerPrecioBase(matProd, item.centro);
+    // El precio de Impovar viene por TIRA; acá se muestra y cobra por ML, así que
+    // hay que convertir antes de multiplicar por la cantidad en ML.
+    const esPorTira = String(matProd.um || '').toUpperCase().includes('TIRA');
+    const precioPorML = esPorTira ? precioTira / ML_POR_TIRA : precioTira;
     const metros = calcularMetrosMaterial(item.cantidad);
 
     return {
@@ -881,8 +893,8 @@ function obtenerMaterialCañeria(item) {
         categoria: cat,
         unidad: 'ML',
         cantidad: metros,
-        precioBase: precio,
-        precioCTTA: precio,
+        precioBase: precioPorML,
+        precioCTTA: precioPorML,
         centro: item.centro,
         tieneCotizacion: true,
         esMaterialImpovar: true,
@@ -3725,6 +3737,7 @@ function transformarBase(datos, ordenCategoriasExplicit = null) {
                 desc: descLimpia,
                 um: item['unidad_medida'] || 'ST',
                 centro: centro,
+                esImpovar: !!item.esImpovar,
                 precios: { default: Number(item['precio'] || 0) }
             });
         }
