@@ -1694,9 +1694,9 @@ function renderizarNotaFinal() {
 
         const colProveedor = hayCompraDirecta ? '<th>Proveedor</th>' : '';
         const colsProv = hayCompraDirecta
-            ? `<colgroup><col style="width:13%"><col style="width:22%"><col style="width:9%"><col style="width:6%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:4%"></colgroup>`
-            : `<colgroup><col style="width:14%"><col style="width:28%"><col style="width:6%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:10%"><col style="width:4%"></colgroup>`;
-        let html = `<table class="nota-table">${colsProv}<thead><th>Categoría</th><th>Descripción</th>${colProveedor}<th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>`;
+            ? `<colgroup><col style="width:12%"><col style="width:8%"><col style="width:18%"><col style="width:8%"><col style="width:6%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:9%"><col style="width:3%"></colgroup>`
+            : `<colgroup><col style="width:12%"><col style="width:8%"><col style="width:24%"><col style="width:6%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:10%"><col style="width:8%"><col style="width:3%"></colgroup>`;
+        let html = `<table class="nota-table">${colsProv}<thead><th>Categoría</th><th>Código</th><th>Descripción</th>${colProveedor}<th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>`;
         let totalGeneralBase = 0;
         let totalGeneralMOI = 0;
         let totalGeneralContratista = 0;
@@ -1752,6 +1752,7 @@ function renderizarNotaFinal() {
                     : esCertificador ? ' style="background:#ECFDF5;"' : '';
                 html += `<tr class="item-row"${rowStyle}>`;
                 html += `<td>${escapeHTML(item.categoria)}</td>`;
+                html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
                 html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
                 if (hayCompraDirecta) {
                     html += `<td class="text-center text-xs" style="color:var(--aba-gray);">${escapeHTML(item.proveedor || '-')}</td>`;
@@ -1792,6 +1793,7 @@ function renderizarNotaFinal() {
                     subtotalContratista += totalMat;
                     html += `<tr style="background:#FFFBF0; font-size:13px;">`;
                     html += `<td style="padding-left:24px; color:#92400E; font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">↳ Material</td>`;
+                    html += `<td class="text-xs" style="color:#92400E;">${escapeHTML(String(matImpovar.codigo || '').replace(/^0+/, '') || '-')}</td>`;
                     html += `<td style="color:#78350F; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">🏭 ${escapeHTML(matImpovar.descripcion)}</td>`;
                     if (hayCompraDirecta) html += `<td style="text-align:center; color:#92400E; white-space:nowrap;">IMPOVAR</td>`;
                     html += `<td style="text-align:center; color:#92400E; white-space:nowrap;">${matImpovar.cantidad} ML</td>`;
@@ -1806,8 +1808,8 @@ function renderizarNotaFinal() {
             
             const moi = esCompraDirecta ? 0 : (subtotalContratista - subtotalBase);
             const totalCat = esCompraDirecta ? subtotalContratista : (subtotalBase + moi);
-            const colspan = hayCompraDirecta ? 5 : 4;
-            const colspanTotal = hayCompraDirecta ? 10 : 9;
+            const colspan = hayCompraDirecta ? 6 : 5;
+            const colspanTotal = hayCompraDirecta ? 11 : 10;
             
             html += `<tr class="subtotal-row"><td colspan="${colspan}" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td class="text-right"></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${moi !== 0 ? fmtMoneyColor(moi) : fmtMoney(0)}</strong></td><td></tr>`;
             
@@ -1879,7 +1881,7 @@ function renderizarCotizacionContratista() {
         grupos[item.categoria].push({ ...item, globalIdx: idx });
     });
 
-    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>Precio Unit.</th><th>Total</th><th></th></thead><tbody>`;
+    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Código</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>Precio Unit.</th><th>Total</th><th></th></thead><tbody>`;
     let totalGeneral = 0;
 
     for (const cat in grupos) {
@@ -1897,6 +1899,7 @@ function renderizarCotizacionContratista() {
 
             html += `<tr class="item-row">`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
+            html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
             html += `<td>${escapeHTML(item.descripcion)}</td>`;
             html += `<td class="text-center">${escapeHTML(item.unidad)}</td>`;
             html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidad(${item.globalIdx}, this.value)"></td>`;
@@ -1916,6 +1919,7 @@ function renderizarCotizacionContratista() {
                 subtotal += totalMat;
                 html += `<tr style="background:#FFFBF0; font-size:13px;">`;
                 html += `<td style="padding-left:24px; color:#92400E; font-style:italic;">↳ Material</td>`;
+                html += `<td class="text-xs" style="color:#92400E;">${escapeHTML(String(matImpovar.codigo || '').replace(/^0+/, '') || '-')}</td>`;
                 html += `<td style="color:#78350F;">🏭 ${escapeHTML(matImpovar.descripcion)}</td>`;
                 html += `<td style="text-align:center; color:#92400E;">ML</td>`;
                 html += `<td style="text-align:center; color:#92400E;">${matImpovar.cantidad}</td>`;
@@ -1925,8 +1929,8 @@ function renderizarCotizacionContratista() {
             }
         }
 
-        html += `<tr class="subtotal-row"><td colspan="5" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotal)}</strong></td><td></td></tr>`;
-        html += `<tr style="height:8px"><td colspan="7" style="border:none"></tr></tr>`;
+        html += `<tr class="subtotal-row"><td colspan="6" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotal)}</strong></td><td></td></tr>`;
+        html += `<tr style="height:8px"><td colspan="8" style="border:none"></tr></tr>`;
         totalGeneral += subtotal;
     }
     html += `</tbody></table>`;
@@ -1986,7 +1990,7 @@ function renderizarComparativaContratista() {
         grupos[item.categoria].push({ ...item, globalIdx: idx });
     });
 
-    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>`;
+    let html = `<table class="nota-table"><thead><th>Categoría</th><th>Código</th><th>Descripción</th><th>Cant.</th><th>Precio Renova</th><th>Total Renova</th><th>Precio Contratista</th><th>Total Contratista</th><th>Diferencia</th><th></th></thead><tbody>`;
     let totalGeneralRenova = 0;
     let totalGeneralContratista = 0;
 
@@ -2017,6 +2021,7 @@ function renderizarComparativaContratista() {
                 : esCertificador ? ' style="background:#ECFDF5;"' : '';
             html += `<tr class="item-row"${rowStyleC}>`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
+            html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
             html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
             html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidadComparativa(${item.globalIdx}, this.value)"></td>`;
             html += `<td>${item.precioBase > 0 ? fmtMoney(item.precioBase) : '<span style="color:var(--aba-gray)">-</span>'}</td>`;
@@ -2045,6 +2050,7 @@ function renderizarComparativaContratista() {
                 subtotalContratista += totalMat;
                 html += `<tr style="background:#FFFBF0; font-size:13px;">`;
                 html += `<td style="padding-left:24px; color:#92400E; font-style:italic;">↳ Material</td>`;
+                html += `<td class="text-xs" style="color:#92400E;">${escapeHTML(String(matImpovar.codigo || '').replace(/^0+/, '') || '-')}</td>`;
                 html += `<td style="color:#78350F;">🏭 ${escapeHTML(matImpovar.descripcion)}</td>`;
                 html += `<td style="text-align:center; color:#92400E;">${matImpovar.cantidad} ML</td>`;
                 html += `<td style="color:#78350F;">${fmtMoney(matImpovar.precioBase)}</td>`;
@@ -2056,8 +2062,8 @@ function renderizarComparativaContratista() {
         }
 
         const diferenciaCat = subtotalContratista - subtotalRenova;
-        html += `<tr class="subtotal-row"><td colspan="4" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalRenova)}</strong></td><td></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${fmtMoneyColor(diferenciaCat)}</strong></td><td></tr>`;
-        html += `<tr style="height:8px"><td colspan="9" style="border:none"></tr></tr>`;
+        html += `<tr class="subtotal-row"><td colspan="5" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalRenova)}</strong></td><td></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${fmtMoneyColor(diferenciaCat)}</strong></td><td></tr>`;
+        html += `<tr style="height:8px"><td colspan="10" style="border:none"></tr></tr>`;
 
         totalGeneralRenova += subtotalRenova;
         totalGeneralContratista += subtotalContratista;
