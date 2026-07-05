@@ -4209,14 +4209,13 @@ MAPEO DE CATEGORÍAS (DC → App):
 Analiza este PDF de Detalle Comercial y extrae TODOS los ítems en formato JSON.
 
 REGLAS IMPORTANTES:
-1. Extrae TODOS los ítems de TODAS las secciones sin excepción: cañerías, servicio cañerías, conexiones, obras civiles, normalización SEC, SERVICIOS COMPRA DIRECTA, EQUIPOS COMPRA DIRECTA
-2. SERVICIOS COMPRA DIRECTA: incluye TODOS los ítems de esta sección, incluyendo MANO OBRA INDUSTRIAL, inspecciones periódicas, y cualquier otro ítem. Cada uno con su campo "proveedor" (el nombre de la empresa que aparece en la columna Proveedor del DC)
-3. NO incluyas ítems de: Equipos/Tanques de bodega (Sub-Total RESERVA), Gastos generales (OTROS)
-4. Los ítems con operación/código 0400 en NORMALIZACIÓN SEC corresponden al certificador (Sello Verde) — destácalos incluyendo el campo "esCertificador": true
+1. Extrae SOLO los ítems que pertenecen al Sub-Total SOLPED. Las categorías SOLPED son: Cañerías AP/MP/BP, Servicio Cañerías, Conexiones, Obras Civiles, Normalización SEC, Equipos Compra Directa, Servicios Compra Directa
+2. NO incluyas nada del Sub-Total RESERVA (Equipos de bodega, Estanques/Tanques) ni Sub-Total OTROS
+3. SERVICIOS COMPRA DIRECTA: incluye TODOS los ítems, incluyendo MANO OBRA INDUSTRIAL, inspecciones periódicas, y cualquier otro. Cada uno con su campo "proveedor" (nombre de la empresa en la columna Proveedor del DC)
+4. Los ítems con operación/código 0400 en NORMALIZACIÓN SEC corresponden al certificador (Sello Verde) — márcalos con "esCertificador": true
 5. Usa los precios unitarios Renova exactamente como aparecen en el DC
 6. Para cañerías, usa el precio del SERVICIO de instalación (no el material)
 7. Las cantidades deben ser números (metros, unidades, etc.)
-8. Para EQUIPOS COMPRA DIRECTA, incluye los equipos que NO sean "De Bodega" (los de bodega son stock de Abastible)
 
 ${catMap}
 
