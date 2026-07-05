@@ -852,7 +852,8 @@ function obtenerMaterialCañeria(item) {
     const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
     if (!catsCañeria.includes(cat)) return null;
 
-    const diametroInstalacion = extraerDiametro(item.descripcion);
+    // Usar columna diametro si existe, sino extraer de la descripción
+    const diametroInstalacion = item.diametro || extraerDiametro(item.descripcion);
     if (!diametroInstalacion) return null;
 
     const productosCat = dbProductos[cat] || [];
@@ -862,7 +863,7 @@ function obtenerMaterialCañeria(item) {
     let matProd = productosCat.find(p =>
         p.esImpovar === true &&
         esMaterialCañeria(p.desc) &&
-        extraerDiametro(p.desc) === diametroInstalacion &&
+        (p.diametro || extraerDiametro(p.desc)) === diametroInstalacion &&
         (!p.centro || p.centro === item.centro)
     );
 
@@ -872,7 +873,7 @@ function obtenerMaterialCañeria(item) {
         matProd = productosCat.find(p =>
             p.esImpovar === true &&
             esMaterialCañeria(p.desc) &&
-            extraerDiametro(p.desc) === diametroInstalacion
+            (p.diametro || extraerDiametro(p.desc)) === diametroInstalacion
         );
     }
 
@@ -1493,14 +1494,15 @@ function agregarItem(codigo) {
         // Actualizar material Impovar vinculado si existe
         actualizarMaterialVinculado(existente);
     } else {
-        const nuevoItem = { 
-            id: generarUUID(), 
-            codigo, 
-            descripcion: prod.desc, 
-            categoria: cat, 
-            unidad: prod.um, 
-            cantidad: 1, 
-            precioBase: precio, 
+        const nuevoItem = {
+            id: generarUUID(),
+            codigo,
+            descripcion: prod.desc,
+            categoria: cat,
+            unidad: prod.um,
+            diametro: prod.diametro || null,
+            cantidad: 1,
+            precioBase: precio,
             precioCTTA: null,
             centro: centroActivo,
             tieneCotizacion: false
@@ -2267,7 +2269,7 @@ async function exportarCotizacionExcel() {
                         cell.value = v;
                         cell.fill = fillSolid('FFFFFBF0');
                         cell.border = gridBorder();
-                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } };
                         if (col === 5 || col === 6) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                         else if (col === 3 || col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                         else cell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -2499,7 +2501,7 @@ async function exportarComparativaContratistaExcel() {
                         cell.value = v;
                         cell.fill = fillSolid('FFFFFBF0');
                         cell.border = gridBorder();
-                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } };
                         if ([4, 5, 7, 8].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                         else if (col === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                         else if (col === 6) cell.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -2833,7 +2835,7 @@ async function exportarAExcel() {
                     cell.value = v;
                     cell.fill = fillSolid(bg);
                     cell.border = gridBorder();
-                    cell.font = { name: 'Arial', size: 9, color: { argb: '1F2937' } };
+                    cell.font = { name: 'Arial', size: 9, color: { argb: 'FF1F2937' } };
 
                     if (col === 4 || col === 7) {
                         cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' };
@@ -2885,7 +2887,7 @@ async function exportarAExcel() {
                         cell.value = v;
                         cell.fill = fillSolid(matBg);
                         cell.border = gridBorder();
-                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: '92400E' } };
+                        cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } };
                         if ((col === 4 || col === 7 || col === 8) && typeof v === 'number') {
                             cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' };
                         } else if (col === 5) {
@@ -2912,7 +2914,7 @@ async function exportarAExcel() {
                     else if (col === 7) { cell.value = money(moi); cell.numFmt = MONEY; }
                     cell.fill = fillSolid(C.orangeL);
                     cell.border = gridBorder();
-                    cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'C2410C' } };
+                    cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'FFC2410C' } };
                     cell.alignment = { horizontal: col === 1 ? 'center' : 'right', vertical: 'middle' };
                 });
                 currentDataRow++;
@@ -3419,28 +3421,83 @@ function importarCotizacionContratista(event) {
     reader.readAsArrayBuffer(file);
 }
 
+function _normalizarDescripcion(texto) {
+    return String(texto || '').trim().toLowerCase()
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-z0-9\s/]/g, ' ')
+        .replace(/\s+/g, ' ').trim();
+}
+
+function _extraerPalabrasClave(textoNormalizado) {
+    const stopwords = new Set(['de','del','en','para','con','por','la','el','los','las','un','una','y','a','e','o']);
+    return textoNormalizado.split(' ')
+        .filter(p => p.length > 1 && !stopwords.has(p))
+        .map(p => p.replace(/e?s$/, ''));
+}
+
+function _similitudDescripciones(desc1, desc2) {
+    const norm1 = _normalizarDescripcion(desc1);
+    const norm2 = _normalizarDescripcion(desc2);
+    if (norm1 === norm2) return 1;
+    const palabras1 = _extraerPalabrasClave(norm1);
+    const palabras2 = _extraerPalabrasClave(norm2);
+    if (palabras1.length === 0 || palabras2.length === 0) return 0;
+    const set2 = new Set(palabras2);
+    const coincidencias = palabras1.filter(p => set2.has(p) || [...set2].some(p2 => p.length >= 3 && p2.length >= 3 && (p.startsWith(p2) || p2.startsWith(p)))).length;
+    const menor = Math.min(palabras1.length, palabras2.length);
+    return coincidencias / menor;
+}
+
 function aplicarCotizacionAItems(itemsCotizados) {
     if (!itemsCotizados || itemsCotizados.length === 0) {
         mostrarToast("El archivo no contiene ítems cotizados", "warn");
         return;
     }
-    let matches = 0;
+    let matchesExactos = 0;
+    let matchesFuzzy = 0;
+    const UMBRAL_SIMILITUD = 0.5;
     itemsNota.forEach(item => {
         if (item.esMaterialImpovar) return;
-        const encontrado = itemsCotizados.find(ic =>
-            String(ic.descripcion || '').trim().toLowerCase() === String(item.descripcion || '').trim().toLowerCase()
+        const descItem = String(item.descripcion || '').trim().toLowerCase();
+        const exacto = itemsCotizados.find(ic =>
+            String(ic.descripcion || '').trim().toLowerCase() === descItem
         );
-        if (encontrado) {
-            const precio = encontrado.precioCTTA !== undefined ? encontrado.precioCTTA : encontrado.precioBase;
+        if (exacto) {
+            const precio = exacto.precioCTTA !== undefined ? exacto.precioCTTA : exacto.precioBase;
             if (precio !== undefined && precio !== null && precio > 0) {
                 item.precioCTTA = Number(precio);
                 item.tieneCotizacion = true;
-                matches++;
+                matchesExactos++;
+            }
+            return;
+        }
+        let mejorScore = 0;
+        let mejorCandidate = null;
+        itemsCotizados.forEach(ic => {
+            const score = _similitudDescripciones(item.descripcion, ic.descripcion);
+            if (score > mejorScore) {
+                mejorScore = score;
+                mejorCandidate = ic;
+            }
+        });
+        if (mejorScore >= UMBRAL_SIMILITUD && mejorCandidate) {
+            const precio = mejorCandidate.precioCTTA !== undefined ? mejorCandidate.precioCTTA : mejorCandidate.precioBase;
+            if (precio !== undefined && precio !== null && precio > 0) {
+                item.precioCTTA = Number(precio);
+                item.tieneCotizacion = true;
+                item.matchFuzzy = true;
+                item.matchScore = Math.round(mejorScore * 100);
+                item.matchOriginal = mejorCandidate.descripcion;
+                matchesFuzzy++;
             }
         }
     });
     renderizarNotaFinal();
-    mostrarToast(`Cotización aplicada: ${matches} de ${itemsNota.length} ítem(s) coincidieron`, matches > 0 ? 'ok' : 'warn');
+    const total = matchesExactos + matchesFuzzy;
+    const msg = matchesFuzzy > 0
+        ? `Cotización aplicada: ${total} coincidencias (${matchesExactos} exactas + ${matchesFuzzy} por similitud)`
+        : `Cotización aplicada: ${matchesExactos} de ${itemsNota.length} ítem(s) coincidieron`;
+    mostrarToast(msg, total > 0 ? 'ok' : 'warn');
 }
 
 // ============================================================
@@ -3544,18 +3601,23 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
 
         // Precio Renova: buscar en la base de datos actual por código y centro
         let precioRenova = 0;
+        let diametroBase = item.diametro || null;
         const cat = item.categoria;
         if (cat && dbProductos[cat] && centroActivo) {
             const prodBase = dbProductos[cat].find(p =>
                 p.cod === item.codigo && (!p.centro || p.centro === centroActivo)
             );
-            if (prodBase) precioRenova = prodBase.precios?.default || 0;
+            if (prodBase) {
+                precioRenova = prodBase.precios?.default || 0;
+                if (prodBase.diametro) diametroBase = prodBase.diametro;
+            }
         }
         // Si no encontró en la base (ítem libre, o base no cargada), usar el precioCTTA como referencia
         if (!precioRenova) precioRenova = precioCtta;
 
         return {
             ...item,
+            diametro:       diametroBase,
             precioBase:     precioRenova,   // Renova oficial desde la base
             precioCTTA:     CATS_SIN_CTTA.includes(cat) ? precioRenova : precioCtta,
             tieneCotizacion: precioCtta > 0
@@ -3732,10 +3794,13 @@ function transformarBase(datos, ordenCategoriasExplicit = null) {
         );
         
         if (!existe) {
+            const diamRaw = String(item['diametro'] || '').trim();
+            const diametroNorm = diamRaw ? (diamRaw.includes('"') ? diamRaw : diamRaw + '"') : null;
             dbProductos[categoriaVisual].push({
                 cod: codigo,
                 desc: descLimpia,
                 um: item['unidad_medida'] || 'ST',
+                diametro: diametroNorm,
                 centro: centro,
                 esImpovar: !!item.esImpovar,
                 precios: { default: Number(item['precio'] || 0) }
