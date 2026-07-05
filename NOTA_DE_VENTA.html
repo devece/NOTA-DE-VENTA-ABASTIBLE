@@ -1712,16 +1712,17 @@ function renderizarNotaFinal() {
                 // Saltar materiales Impovar — se renderizan como subfila del ítem de instalación
                 if (item.esMaterialImpovar) continue;
 
+                const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
                 const totalBase = item.precioBase * item.cantidad;
-                subtotalBase += totalBase;
-                
+                if (!itemEsMOI) subtotalBase += totalBase;
+
                 const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
                 const esCategoriaSinEditable = categoriasSinCttaEditable.includes(item.categoria);
-                
+
                 let totalContratista = totalBase;
                 let precioCTTA = null;
                 let tieneCotizacion = false;
-                
+
                 if (esCategoriaSinEditable) {
                     precioCTTA = item.precioBase;
                     totalContratista = totalBase;
@@ -1739,29 +1740,34 @@ function renderizarNotaFinal() {
                     totalContratista = 0;
                     tieneCotizacion = false;
                 }
-                
-                subtotalContratista += totalContratista;
+
+                if (!itemEsMOI) subtotalContratista += totalContratista;
                 const diferencia = esCompraDirecta ? 0 : (totalContratista - totalBase);
 
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion)
                     || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-                const rowStyle = esCertificador ? ' style="background:#ECFDF5;"' : '';
+                const rowStyle = itemEsMOI ? ' style="background:#FFF7ED; opacity:0.7;"'
+                    : esCertificador ? ' style="background:#ECFDF5;"' : '';
                 html += `<tr class="item-row"${rowStyle}>`;
                 html += `<td>${escapeHTML(item.categoria)}</td>`;
-                html += `<td>${escapeHTML(item.descripcion)}</td>`;
+                html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
                 if (hayCompraDirecta) {
                     html += `<td class="text-center text-xs" style="color:var(--aba-gray);">${escapeHTML(item.proveedor || '-')}</td>`;
                 }
                 html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidad(${item.globalIdx}, this.value)"></td>`;
                 html += `<td>${item.precioBase > 0 ? fmtMoney(item.precioBase) : '<span style="color:var(--aba-gray)">-</span>'}</td>`;
                 html += `<td>${fmtMoney(totalBase)}</td>`;
-                
+
                 if (esCategoriaSinEditable) {
                     html += `<td class="text-right"><span class="ctta-fixed">PRECIO BASE</span></td>`;
                     html += `<td>${fmtMoney(totalBase)}</td>`;
                     html += `<td class="text-right"><span class="ctta-fixed">$0</span></td>`;
+                } else if (itemEsMOI) {
+                    html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">NO SUMA</span></td>`;
+                    html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">SUPUESTO DC</span></td>`;
+                    html += `<td></td>`;
                 } else if (esCompraDirecta) {
                     html += `<td class="text-right"><input type="text" value="${fmt(precioCTTA)}" class="input-ctta" onchange="cambiarPrecioCTTA(${item.globalIdx}, this.value)"></td>`;
                     html += `<td>${fmtMoney(totalContratista)}</td>`;
@@ -1992,34 +1998,42 @@ function renderizarComparativaContratista() {
         let subtotalContratista = 0;
 
         for (const item of items) {
+            const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
             const totalRenova = item.precioBase * item.cantidad;
-            subtotalRenova += totalRenova;
+            if (!itemEsMOI) subtotalRenova += totalRenova;
 
             const precioCtta = esCañeriaPrecioFijo
                 ? item.precioBase
                 : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
             const totalContratista = precioCtta * item.cantidad;
-            subtotalContratista += totalContratista;
+            if (!itemEsMOI) subtotalContratista += totalContratista;
             const diferencia = totalContratista - totalRenova;
 
             const esCertificador = item.esCertificador
                 || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                 || /sello\s*verde/i.test(item.descripcion)
                 || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-            const rowStyleC = esCertificador ? ' style="background:#ECFDF5;"' : '';
+            const rowStyleC = itemEsMOI ? ' style="background:#FFF7ED; opacity:0.7;"'
+                : esCertificador ? ' style="background:#ECFDF5;"' : '';
             html += `<tr class="item-row"${rowStyleC}>`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
-            html += `<td>${escapeHTML(item.descripcion)}</td>`;
+            html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
             html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidadComparativa(${item.globalIdx}, this.value)"></td>`;
             html += `<td>${item.precioBase > 0 ? fmtMoney(item.precioBase) : '<span style="color:var(--aba-gray)">-</span>'}</td>`;
             html += `<td>${fmtMoney(totalRenova)}</td>`;
-            if (esCañeriaPrecioFijo) {
+            if (itemEsMOI) {
+                html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">NO SUMA</span></td>`;
+                html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">SUPUESTO DC</span></td>`;
+                html += `<td></td>`;
+            } else if (esCañeriaPrecioFijo) {
                 html += `<td class="text-right"><span class="ctta-fixed">PRECIO RENOVA</span></td>`;
             } else {
                 html += `<td class="text-right"><input type="text" value="${fmt(precioCtta)}" class="input-ctta" onchange="cambiarPrecioComparativa(${item.globalIdx}, this.value)"></td>`;
             }
-            html += `<td>${fmtMoney(totalContratista)}</td>`;
-            html += `<td>${fmtMoneyColor(diferencia)}</td>`;
+            if (!itemEsMOI) {
+                html += `<td>${fmtMoney(totalContratista)}</td>`;
+                html += `<td>${fmtMoneyColor(diferencia)}</td>`;
+            }
             html += `<td class="text-center"><button onclick="eliminarItem(${item.globalIdx})" class="text-red-500 hover:text-red-700 text-lg leading-none" style="font-size:18px">✕</button></td>`;
             html += `</tr>`;
 
@@ -4211,7 +4225,7 @@ Analiza este PDF de Detalle Comercial y extrae TODOS los ítems en formato JSON.
 REGLAS IMPORTANTES:
 1. Extrae SOLO los ítems que pertenecen al Sub-Total SOLPED. Las categorías SOLPED son: Cañerías AP/MP/BP, Servicio Cañerías, Conexiones, Obras Civiles, Normalización SEC, Equipos Compra Directa, Servicios Compra Directa
 2. NO incluyas nada del Sub-Total RESERVA (Equipos de bodega, Estanques/Tanques) ni Sub-Total OTROS
-3. SERVICIOS COMPRA DIRECTA: incluye TODOS los ítems, incluyendo MANO OBRA INDUSTRIAL, inspecciones periódicas, y cualquier otro. Cada uno con su campo "proveedor" (nombre de la empresa en la columna Proveedor del DC)
+3. SERVICIOS COMPRA DIRECTA: incluye TODOS los ítems, incluyendo MANO OBRA INDUSTRIAL, inspecciones periódicas, y cualquier otro. Cada uno con su campo "proveedor". Para ítems de MANO OBRA INDUSTRIAL, agrega el campo "esMOI": true
 4. Los ítems con operación/código 0400 en NORMALIZACIÓN SEC corresponden al certificador (Sello Verde) — márcalos con "esCertificador": true
 5. Usa los precios unitarios Renova exactamente como aparecen en el DC
 6. Para cañerías, usa el precio del SERVICIO de instalación (no el material)
@@ -4233,7 +4247,8 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:
       "cantidad": número,
       "precioBase": precio_unitario_renova,
       "proveedor": "para COMPRA DIRECTA o certificador, sino omitir",
-      "esCertificador": "true solo si es ítem código 0400 (Sello Verde), sino omitir"
+      "esCertificador": "true solo si es ítem código 0400 (Sello Verde), sino omitir",
+      "esMOI": "true solo si es MANO OBRA INDUSTRIAL, sino omitir"
     }
   ]
 }`;
@@ -4365,6 +4380,7 @@ function confirmarDC() {
         descripcion: item.descripcion || '',
         proveedor: item.proveedor || undefined,
         esCertificador: !!item.esCertificador,
+        esMOI: !!item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || ''),
         categoria: item.categoria || '',
         unidad: item.unidad || 'ST',
         cantidad: Number(item.cantidad) || 1,
@@ -4442,6 +4458,7 @@ confirmarDC = function() {
         descripcion: item.descripcion || '',
         proveedor: item.proveedor || undefined,
         esCertificador: !!item.esCertificador,
+        esMOI: !!item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || ''),
         categoria: item.categoria || '',
         unidad: item.unidad || 'ST',
         cantidad: Number(item.cantidad) || 1,
