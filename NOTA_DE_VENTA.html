@@ -535,7 +535,7 @@
                 <h2 class="font-bold text-gray-800 text-lg">🔍 Análisis DC + Cotización Contratista</h2>
                 <p class="text-sm mt-1" style="color: var(--aba-gray);">Selecciona desde dónde quieres partir</p>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
                 <!-- Opción 1: cargar DC en PDF -->
                 <div class="selector-card" onclick="document.getElementById('cargarDCInput').click()">
                     <span class="sc-icon">📄</span>
@@ -548,8 +548,15 @@
                     <div class="sc-title">Abrir cotización del contratista</div>
                     <div class="sc-desc">Tienes el archivo de cotización (.json) generado por el contratista desde esta app. La comparativa y el MOI se calculan automáticamente.</div>
                 </div>
+                <!-- Opción 3: importar presupuesto del contratista (Excel) -->
+                <div class="selector-card" onclick="document.getElementById('importarPptoInput').click()">
+                    <span class="sc-icon">📊</span>
+                    <div class="sc-title">Convertir Ppto. Contratista</div>
+                    <div class="sc-desc">Sube el presupuesto Excel (.xls/.xlsx) del contratista. Se importan los ítems al sistema, vinculando automáticamente material Impovar y precios Renova.</div>
+                </div>
             </div>
             <input type="file" id="cargarCotizacionDirectaInput" accept=".json,.xlsx,.xls" style="display:none;" onchange="cargarCotizacionDirecta(event)">
+            <input type="file" id="importarPptoInput" accept=".xlsx,.xls" style="display:none;" onchange="importarPptoContratista(event)">
         </div>
         <div id="formularioPaso1" class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
@@ -3649,6 +3656,218 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
     );
 }
 
+
+// ============================================================
+// IMPORTAR PRESUPUESTO CONTRATISTA (Excel .xls/.xlsx)
+// Lee el presupuesto del contratista, matchea ítems con la base
+// de datos, vincula material Impovar y genera la Nota de Venta.
+// ============================================================
+function importarPptoContratista(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+    if (typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
+    if (Object.keys(dbProductos).length === 0) {
+        mostrarToast("Primero debe cargarse la base de datos", "error");
+        return;
+    }
+
+    showLoader("Procesando presupuesto contratista...");
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+
+            // Leer todas las hojas y buscar filas con datos
+            let filasTotal = [];
+            wb.SheetNames.forEach(sheetName => {
+                const filas = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 });
+                filas.forEach(f => { f._hoja = sheetName; });
+                filasTotal = filasTotal.concat(filas);
+            });
+
+            // Buscar fila de encabezado
+            const headerIdx = filasTotal.findIndex(f =>
+                f.some(c => /descrip/i.test(String(c || ''))) &&
+                f.some(c => /cant|qty/i.test(String(c || '')))
+            );
+            if (headerIdx === -1) {
+                hideLoader();
+                mostrarToast("No se encontró encabezado con columnas descripción/cantidad en el Excel", "error");
+                return;
+            }
+
+            const header = filasTotal[headerIdx].map(h => String(h || '').toUpperCase().trim());
+            const idxDesc   = header.findIndex(h => h.includes('DESCRIP'));
+            const idxCant   = header.findIndex(h => h.includes('CANT') || h.includes('QTY'));
+            const idxUn     = header.findIndex(h => h.includes('UNID') || h.includes('U.M') || h === 'UN' || h === 'UM');
+            const idxPUnit  = header.findIndex(h => h.includes('UNIT') || h.includes('P.U') || h.includes('VR. UNIT'));
+            const idxPTotal = header.findIndex(h => h.includes('TOTAL') || h.includes('SUBTOTAL'));
+            const idxCat    = header.findIndex(h => h.includes('CATEG') || h.includes('PARTIDA') || h.includes('ACTIVIDAD'));
+
+            if (idxDesc === -1) {
+                hideLoader();
+                mostrarToast("No se identificó columna de descripción", "error");
+                return;
+            }
+
+            // Extraer ítems del presupuesto
+            const itemsPpto = [];
+            let categoriaActual = '';
+            for (let i = headerIdx + 1; i < filasTotal.length; i++) {
+                const fila = filasTotal[i];
+                if (!fila || fila.length === 0) continue;
+
+                const descRaw = String(fila[idxDesc] || '').trim();
+                if (!descRaw) continue;
+
+                const cantidad = idxCant >= 0 ? (parseFloat(fila[idxCant]) || 0) : 0;
+                const precioUnit = idxPUnit >= 0 ? parsePrecio(fila[idxPUnit]) : 0;
+                const precioTotal = idxPTotal >= 0 ? parsePrecio(fila[idxPTotal]) : 0;
+
+                // Detectar filas que son headers de categoría (sin cantidad ni precio)
+                if (!cantidad && !precioUnit && !precioTotal && descRaw.length > 2) {
+                    if (idxCat >= 0 && fila[idxCat]) {
+                        categoriaActual = String(fila[idxCat]).trim();
+                    } else {
+                        categoriaActual = descRaw;
+                    }
+                    continue;
+                }
+
+                if (cantidad <= 0) continue;
+
+                const precio = precioUnit > 0 ? precioUnit : (precioTotal > 0 && cantidad > 0 ? Math.round(precioTotal / cantidad) : 0);
+
+                itemsPpto.push({
+                    descripcion: descRaw,
+                    cantidad,
+                    precio,
+                    unidad: idxUn >= 0 ? String(fila[idxUn] || '').trim() : '',
+                    categoriaOrigen: categoriaActual
+                });
+            }
+
+            if (itemsPpto.length === 0) {
+                hideLoader();
+                mostrarToast("No se encontraron ítems en el presupuesto", "warn");
+                return;
+            }
+
+            // Matchear con base de datos
+            itemsNota = [];
+            const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+            let matched = 0, libre = 0;
+
+            itemsPpto.forEach(pItem => {
+                const descUp = pItem.descripcion.toUpperCase();
+                let productoEncontrado = null;
+                let categoriaMatch = '';
+
+                // Buscar en todas las categorías de dbProductos
+                for (const [cat, productos] of Object.entries(dbProductos)) {
+                    const prod = productos.find(p =>
+                        !p.esImpovar &&
+                        (!p.centro || p.centro === centroActivo) &&
+                        (p.desc.toUpperCase() === descUp ||
+                         descUp.includes(p.desc.toUpperCase()) ||
+                         p.desc.toUpperCase().includes(descUp))
+                    );
+                    if (prod) {
+                        productoEncontrado = prod;
+                        categoriaMatch = cat;
+                        break;
+                    }
+                }
+
+                const id = generarUUID();
+                if (productoEncontrado) {
+                    matched++;
+                    const precioRenova = productoEncontrado.precios?.default || 0;
+                    const nuevoItem = {
+                        id,
+                        codigo: productoEncontrado.cod,
+                        descripcion: productoEncontrado.desc,
+                        categoria: categoriaMatch,
+                        unidad: productoEncontrado.um,
+                        diametro: productoEncontrado.diametro || null,
+                        cantidad: pItem.cantidad,
+                        precioBase: precioRenova,
+                        precioCTTA: pItem.precio || precioRenova,
+                        centro: centroActivo,
+                        tieneCotizacion: pItem.precio > 0
+                    };
+                    itemsNota.push(nuevoItem);
+
+                    // Si es cañería, agregar material Impovar
+                    if (catsCañeria.includes(categoriaMatch)) {
+                        const material = obtenerMaterialCañeria(nuevoItem);
+                        if (material) {
+                            itemsNota.push(material);
+                        }
+                    }
+                } else {
+                    libre++;
+                    // Intentar detectar categoría por descripción
+                    let catDetectada = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
+                    itemsNota.push({
+                        id,
+                        codigo: 'PPTO-' + id.slice(0, 6),
+                        descripcion: pItem.descripcion,
+                        categoria: catDetectada,
+                        unidad: pItem.unidad || 'ST',
+                        cantidad: pItem.cantidad,
+                        precioBase: pItem.precio,
+                        precioCTTA: pItem.precio,
+                        centro: centroActivo,
+                        tieneCotizacion: true,
+                        esItemLibre: true
+                    });
+                }
+            });
+
+            hideLoader();
+
+            // Mostrar paso 3 con los resultados
+            renderizarNotaFinal();
+            mostrarSolo("paso3");
+            mostrarToast(
+                `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} coincidieron con Renova, ${libre} como ítem libre`,
+                libre > matched ? 'warn' : 'ok'
+            );
+        } catch(err) {
+            hideLoader();
+            console.error('Error importando ppto:', err);
+            mostrarToast("Error procesando el presupuesto: " + err.message, "error");
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// Intenta detectar la categoría del ítem según su descripción o categoría de origen
+function detectarCategoriaPpto(descUp, catOrigen) {
+    const catOrigenUp = (catOrigen || '').toUpperCase();
+
+    if (descUp.includes('ALTA PRESI') || catOrigenUp.includes('ALTA PRESI') || catOrigenUp.includes('AP'))
+        return 'CAÑERIAS AP';
+    if (descUp.includes('MEDIA') || descUp.includes('BAJA PRESI') || catOrigenUp.includes('MEDIA') || catOrigenUp.includes('MP'))
+        return 'CAÑERIAS MP';
+    if (catOrigenUp.includes('BP'))
+        return 'CAÑERIAS BP';
+    if (descUp.includes('CONEXI') || descUp.includes('COCINA') || descUp.includes('CALEFONT') || descUp.includes('LLAVE'))
+        return 'CONEXIONES';
+    if (descUp.includes('NORMALI') || descUp.includes('CERTIFICAC') || descUp.includes('DECLARACI') || descUp.includes('SEC'))
+        return 'NORMALIZACIONES';
+    if (descUp.includes('OBRA') || descUp.includes('BASE') || descUp.includes('RADIER') || descUp.includes('MURO'))
+        return 'OBRAS CIVILES';
+    if (descUp.includes('DETEC') || descUp.includes('ANCLAJE') || descUp.includes('PROTECC') || descUp.includes('PINTURA'))
+        return 'SERVICIO CAÑERIAS';
+    if (catOrigenUp.includes('SERVICIO') || catOrigenUp.includes('MANO DE OBRA'))
+        return 'SERVICIO COMPRA DIRECTA';
+
+    return categoriasList[0] || 'SERVICIO COMPRA DIRECTA';
+}
 
 // ============================================================
 // EXCEL - CARGA
