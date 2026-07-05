@@ -1191,12 +1191,10 @@ function volverSeleccionPerfil() {
 
 function iniciarModoContratista(modo) {
     perfilActivo = 'contratista';
-    modoActivo = 'cotizacion_contratista';
+    modoActivo = modo;
     $('pasoModoContratista').classList.add('hidden');
     iniciarAppConModo();
     if (modo === 'cotizacion_sobre_dc') {
-        // Abrir file picker directamente — la extracción AI toma ~30s,
-        // tiempo suficiente para que la base termine de cargar en paralelo
         setTimeout(() => $('cargarDCContratistaInput').click(), 500);
     }
 }
@@ -4456,8 +4454,8 @@ confirmarDC = function() {
     inicializarCategorias();
     cargarProductos();
     renderizarNotaFinal();
-    mostrarSolo('paso2');
-    mostrarToast(`DC cargado: ${itemsNota.length} ítems del Detalle Comercial — ingrese sus precios`, 'ok');
+    mostrarSolo('paso3');
+    mostrarToast(`DC cargado: ${itemsNota.length} ítems del Detalle Comercial`, 'ok');
 };
 
 document.addEventListener('DOMContentLoaded', () => {
