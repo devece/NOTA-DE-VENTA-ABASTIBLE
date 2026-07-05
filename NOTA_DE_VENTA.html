@@ -1347,10 +1347,15 @@ function restaurarBaseCompleta() {
 
 function aplicarFiltroContratista() {
     if (perfilActivo !== 'contratista') return;
+    const sobreDC = modoActivo === 'cotizacion_sobre_dc';
     // Partir siempre desde la base maestra (nunca mutar permanentemente dbProductos/categoriasList/centros)
     dbProductos = JSON.parse(JSON.stringify(dbProductosMaestro));
-    categoriasList = categoriasListMaestro.filter(c => !CATS_EXCLUIDAS_CONTRATISTA.includes(c));
-    CATS_EXCLUIDAS_CONTRATISTA.forEach(c => delete dbProductos[c]);
+    if (sobreDC) {
+        categoriasList = [...categoriasListMaestro];
+    } else {
+        categoriasList = categoriasListMaestro.filter(c => !CATS_EXCLUIDAS_CONTRATISTA.includes(c));
+        CATS_EXCLUIDAS_CONTRATISTA.forEach(c => delete dbProductos[c]);
+    }
     centros = [...centrosMaestro];
     // Filtrar centros disponibles según zona del contratista (match por contención, ver centroPerteneceAZona)
     if (datosContratista && datosContratista.zona && ZONA_CENTROS[datosContratista.zona]) {
@@ -1967,7 +1972,7 @@ function renderizarComparativaContratista() {
     const grupos = {};
     itemsNota.forEach((item, idx) => {
         if (item.esMaterialImpovar) return;
-        if (CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return; // por si acaso, doble filtro
+        if (modoActivo !== 'cotizacion_sobre_dc' && CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return;
         if (!grupos[item.categoria]) grupos[item.categoria] = [];
         grupos[item.categoria].push({ ...item, globalIdx: idx });
     });
@@ -2493,7 +2498,7 @@ async function exportarComparativaContratistaExcel() {
         const grupos = {};
         itemsNota.forEach(item => {
             if (item.esMaterialImpovar) return;
-            if (CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return;
+            if (modoActivo !== 'cotizacion_sobre_dc' && CATS_EXCLUIDAS_CONTRATISTA.includes(item.categoria)) return;
             if (!grupos[item.categoria]) grupos[item.categoria] = [];
             grupos[item.categoria].push(item);
         });
@@ -3347,9 +3352,7 @@ function cargarProyecto(event) {
             const esContratista = perfilActivo === 'contratista';
             contratistaSobreProyectoCargado = esContratista;
 
-            // Para el Contratista: nunca debe ver ni operar sobre Equipo/Servicio Compra Directa.
-            // Si el proyecto cargado los trae, se descartan al cargar.
-            if (esContratista) {
+            if (esContratista && modoActivo !== 'cotizacion_sobre_dc') {
                 itemsNota = itemsNota.filter(i => !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria));
                 // Los precios de CAÑERIAS AP/MP/BP quedan fijos al valor Renova original (precioBase),
                 // sin importar qué traiga el proyecto en precioCTTA.
@@ -3627,10 +3630,9 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
         centroActivo              = datosProyecto.centroActivo || "";
     }
 
-    // Filtrar categorías excluidas para contratista
-    const itemsFiltrados = itemsCotizados.filter(i =>
-        i && !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria)
-    );
+    const itemsFiltrados = modoActivo === 'cotizacion_sobre_dc'
+        ? itemsCotizados.filter(i => i)
+        : itemsCotizados.filter(i => i && !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria));
 
     // Reconstruir itemsNota recuperando precio Renova SIEMPRE desde la base de datos,
     // sin confiar en el precioBase del JSON (puede haber sido sobreescrito por el precio
