@@ -1742,8 +1742,12 @@ function renderizarNotaFinal() {
                 
                 subtotalContratista += totalContratista;
                 const diferencia = esCompraDirecta ? 0 : (totalContratista - totalBase);
-                
-                html += `<tr class="item-row">`;
+
+                const esCertificador = (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                    || /sello\s*verde/i.test(item.descripcion)
+                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                const rowStyle = esCertificador ? ' style="background:#ECFDF5;"' : '';
+                html += `<tr class="item-row"${rowStyle}>`;
                 html += `<td>${escapeHTML(item.categoria)}</td>`;
                 html += `<td>${escapeHTML(item.descripcion)}</td>`;
                 if (hayCompraDirecta) {
@@ -1997,7 +2001,11 @@ function renderizarComparativaContratista() {
             subtotalContratista += totalContratista;
             const diferencia = totalContratista - totalRenova;
 
-            html += `<tr class="item-row">`;
+            const esCertificador = (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                || /sello\s*verde/i.test(item.descripcion)
+                || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+            const rowStyleC = esCertificador ? ' style="background:#ECFDF5;"' : '';
+            html += `<tr class="item-row"${rowStyleC}>`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
             html += `<td>${escapeHTML(item.descripcion)}</td>`;
             html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidadComparativa(${item.globalIdx}, this.value)"></td>`;
@@ -4199,10 +4207,10 @@ MAPEO DE CATEGORÍAS (DC → App):
 Analiza este PDF de Detalle Comercial y extrae TODOS los ítems en formato JSON.
 
 REGLAS IMPORTANTES:
-1. Extrae TODOS los ítems de TODAS las secciones: cañerías, servicios, conexiones, obras civiles, normalización, compra directa
+1. Extrae TODOS los ítems de TODAS las secciones: cañerías, servicios, conexiones, obras civiles, normalización, compra directa, MANO DE OBRA INDUSTRIAL
 2. NO incluyas ítems de: Equipos/Tanques de bodega (Sub-Total RESERVA), Gastos generales (OTROS)
-3. NO incluyas ítems de MANO DE OBRA INDUSTRIAL — se genera automáticamente
-4. Para ítems de SERVICIOS COMPRA DIRECTA y EQUIPOS COMPRA DIRECTA, incluye el campo "proveedor"
+3. Para ítems de SERVICIOS COMPRA DIRECTA y EQUIPOS COMPRA DIRECTA, incluye el campo "proveedor" con el nombre del proveedor que aparezca en el DC
+4. El ítem con código 400 es "Sello Verde" y corresponde al certificador — extráelo en NORMALIZACIONES con el proveedor si aparece
 5. Usa los precios unitarios Renova exactamente como aparecen en el DC
 6. Para cañerías, usa el precio del SERVICIO de instalación (no el material)
 7. Las cantidades deben ser números (metros, unidades, etc.)
@@ -4423,17 +4431,20 @@ confirmarDC = function() {
     }
     if (sel) sel.value = centroActivo;
 
+    const catsCD = ['EQUIPOS COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
     itemsNota = d.items.map(item => ({
         id: generarUUID(),
-        codigo: 'DC-' + generarUUID().slice(0, 8),
+        codigo: item.codigo || ('DC-' + generarUUID().slice(0, 8)),
         descripcion: item.descripcion || '',
+        proveedor: item.proveedor || undefined,
         categoria: item.categoria || '',
         unidad: item.unidad || 'ST',
         cantidad: Number(item.cantidad) || 1,
         precioBase: Number(item.precioBase) || 0,
-        precioCTTA: null,
+        precioCTTA: catsCD.includes(item.categoria) ? Number(item.precioBase) || 0 : null,
         centro: centroActivo,
-        tieneCotizacion: false,
+        tieneCotizacion: catsCD.includes(item.categoria),
+        esCompraDirecta: catsCD.includes(item.categoria),
         desdeDetalle: true
     }));
 
