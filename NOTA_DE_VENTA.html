@@ -1191,17 +1191,13 @@ function volverSeleccionPerfil() {
 
 function iniciarModoContratista(modo) {
     perfilActivo = 'contratista';
-    modoActivo = modo;
+    modoActivo = 'cotizacion_contratista';
     $('pasoModoContratista').classList.add('hidden');
+    iniciarAppConModo();
     if (modo === 'cotizacion_sobre_dc') {
-        modoActivo = 'cotizacion_contratista';
-        iniciarAppConModo();
-        // Abrir selector de DC PDF después de inicializar
-        setTimeout(() => {
-            $('cargarDCContratistaInput').click();
-        }, 300);
-    } else {
-        iniciarAppConModo();
+        // Abrir file picker directamente — la extracción AI toma ~30s,
+        // tiempo suficiente para que la base termine de cargar en paralelo
+        setTimeout(() => $('cargarDCContratistaInput').click(), 500);
     }
 }
 
@@ -4296,8 +4292,16 @@ function cerrarModalDC() {
     document.getElementById('modalDC').classList.remove('active');
     document.getElementById('btnConfirmarDC').style.display = '';
     dcDatosExtraidos = null;
-    if (modoActivo === 'cargar_dc' && itemsNota.length === 0) {
-        volverSeleccionPerfil();
+    if (itemsNota.length === 0) {
+        if (perfilActivo === 'contratista') {
+            // Volver al selector de modo contratista
+            $('headerApp').classList.add('hidden');
+            $('barraSuperior').classList.add('hidden');
+            $('appContainer').classList.add('hidden');
+            $('pasoModoContratista').classList.remove('hidden');
+        } else if (modoActivo === 'cargar_dc') {
+            volverSeleccionPerfil();
+        }
     }
 }
 
@@ -4391,13 +4395,19 @@ confirmarDC = function() {
     $('ciudad').value = d.ciudad || '';
     $('fecha').value = new Date().toISOString().split('T')[0];
 
-    // Contratista: usar centro activo de la zona, no "DETALLE COMERCIAL"
-    // Si no hay centro seleccionado, usar el primero disponible
+    // Contratista: usar centro activo de la zona
     if (!centroActivo || centroActivo === 'DETALLE COMERCIAL') {
-        centroActivo = centros[0] || '';
+        centroActivo = centros[0] || 'DETALLE COMERCIAL';
     }
-
-    const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+    // Asegurar que el centro exista en el selector
+    const sel = $('centro');
+    if (sel && !Array.from(sel.options).some(o => o.value === centroActivo)) {
+        const opt = document.createElement('option');
+        opt.value = centroActivo;
+        opt.textContent = centroActivo;
+        sel.appendChild(opt);
+    }
+    if (sel) sel.value = centroActivo;
 
     itemsNota = d.items.map(item => ({
         id: generarUUID(),
@@ -4415,13 +4425,18 @@ confirmarDC = function() {
 
     cerrarModalDC();
 
-    // Agregar materiales Impovar para cañerías
-    itemsNota = migrarItemsLegacy(itemsNota);
+    // Agregar materiales Impovar para cañerías (si la base está cargada)
+    if (Object.keys(dbProductos).length > 0) {
+        itemsNota = migrarItemsLegacy(itemsNota);
+    }
 
     // Marcar que el contratista está cotizando sobre un proyecto DC
     contratistaSobreProyectoCargado = true;
 
-    // Ir al paso 2 para que el contratista edite precios y agregue ítems
+    // Agregar categorías del DC al listado para navegación
+    const catsDC = [...new Set(itemsNota.map(i => i.categoria).filter(Boolean))];
+    catsDC.forEach(c => { if (!categoriasList.includes(c)) categoriasList.push(c); });
+
     inicializarCategorias();
     cargarProductos();
     renderizarNotaFinal();
