@@ -459,6 +459,26 @@
 </div>
 
 <!-- PANTALLA SELECCIÓN DE MODO ABASTIBLE -->
+<div id="pasoModoContratista" class="max-w-screen-2xl mx-auto px-5 py-10 hidden">
+    <div class="text-center mb-10">
+        <span class="perfil-badge pb-contratista mb-3" id="badgeModoContratista">🛠️ Contratista</span>
+        <h1 class="text-2xl font-bold mt-3" style="color: var(--ctta-green-dark);">¿Cómo vas a cotizar?</h1>
+        <button onclick="volverSeleccionPerfil()" class="text-sm mt-2" style="color: var(--aba-gray);">← Cambiar perfil</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div class="selector-card" onclick="iniciarModoContratista('cotizacion_contratista')">
+            <span class="sc-icon">📋</span>
+            <div class="sc-title">Cotización Libre</div>
+            <div class="sc-desc">Arma tu cotización desde cero: selecciona productos Renova de tu zona, agrega tus precios e ítems adicionales.</div>
+        </div>
+        <div class="selector-card" onclick="iniciarModoContratista('cotizacion_sobre_dc')">
+            <span class="sc-icon">📄</span>
+            <div class="sc-title">Cotizar sobre DC</div>
+            <div class="sc-desc">Carga el PDF del Detalle Comercial que te envió Abastible. Los ítems se importan automáticamente para que agregues tus precios y completes la cotización.</div>
+        </div>
+    </div>
+</div>
+
 <div id="pasoModoAbastible" class="max-w-screen-2xl mx-auto px-5 py-10 hidden">
     <div class="text-center mb-10">
         <span class="perfil-badge pb-abastible mb-3">🏢 Perfil Abastible</span>
@@ -557,6 +577,7 @@
             </div>
             <input type="file" id="cargarCotizacionDirectaInput" accept=".json,.xlsx,.xls" style="display:none;" onchange="cargarCotizacionDirecta(event)">
             <input type="file" id="importarPptoInput" accept=".xlsx,.xls" style="display:none;" onchange="importarPptoContratista(event)">
+            <input type="file" id="cargarDCContratistaInput" accept=".pdf" style="display:none;" onchange="procesarDCContratista(event)">
         </div>
         <div id="formularioPaso1" class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
@@ -1148,9 +1169,10 @@ function confirmarDatosContratista() {
         zona
     };
     perfilActivo = 'contratista';
-    modoActivo = 'cotizacion_contratista';
     $('modalDatosContratista').classList.remove('active');
-    iniciarAppConModo();
+    // Mostrar selector de modo contratista
+    $('badgeModoContratista').textContent = '🛠️ ' + datosContratista.razonSocial;
+    $('pasoModoContratista').classList.remove('hidden');
 }
 
 function volverSeleccionPerfil() {
@@ -1162,8 +1184,25 @@ function volverSeleccionPerfil() {
     $('warningBaseExcel').classList.add('hidden');
     $('modalDatosContratista').classList.remove('active');
     $('pasoModoAbastible').classList.add('hidden');
+    $('pasoModoContratista').classList.add('hidden');
     $('pasoPerfil').classList.remove('hidden');
     nuevaNota();
+}
+
+function iniciarModoContratista(modo) {
+    perfilActivo = 'contratista';
+    modoActivo = modo;
+    $('pasoModoContratista').classList.add('hidden');
+    if (modo === 'cotizacion_sobre_dc') {
+        modoActivo = 'cotizacion_contratista';
+        iniciarAppConModo();
+        // Abrir selector de DC PDF después de inicializar
+        setTimeout(() => {
+            $('cargarDCContratistaInput').click();
+        }, 300);
+    } else {
+        iniciarAppConModo();
+    }
 }
 
 function iniciarModoAbastible(modo) {
@@ -4327,11 +4366,74 @@ function confirmarDC() {
     mostrarToast(`DC cargado: ${itemsNota.length} ítems listos — ingrese precios contratista`, 'ok');
 }
 
-document.addEventListener('DOMContentLoaded', () => { 
-    $("fecha").value = new Date().toISOString().split("T")[0]; 
-    if($("buscarProducto")) $("buscarProducto").addEventListener("input", cargarProductos); 
-    const excelInput = document.getElementById('excelFile'); 
-    if(excelInput) excelInput.addEventListener('change', cargarExcel); 
+// Contratista: cargar DC PDF — reutiliza la extracción AI y luego carga
+// los ítems en modo cotización para que el contratista ponga sus precios.
+function procesarDCContratista(event) {
+    // Guardar referencia al flag para que confirmarDC sepa que es contratista
+    window._dcParaContratista = true;
+    procesarDetalleComercial(event);
+}
+
+// Override de confirmarDC para modo contratista
+const _confirmarDCOriginal = confirmarDC;
+confirmarDC = function() {
+    if (!window._dcParaContratista) {
+        return _confirmarDCOriginal();
+    }
+
+    if (!dcDatosExtraidos) return;
+    const d = dcDatosExtraidos;
+    window._dcParaContratista = false;
+
+    $('nombreProyecto').value = d.proyecto || '';
+    $('nombreCliente').value = d.cliente || '';
+    $('direccion').value = d.direccion || '';
+    $('ciudad').value = d.ciudad || '';
+    $('fecha').value = new Date().toISOString().split('T')[0];
+
+    // Contratista: usar centro activo de la zona, no "DETALLE COMERCIAL"
+    // Si no hay centro seleccionado, usar el primero disponible
+    if (!centroActivo || centroActivo === 'DETALLE COMERCIAL') {
+        centroActivo = centros[0] || '';
+    }
+
+    const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+
+    itemsNota = d.items.map(item => ({
+        id: generarUUID(),
+        codigo: 'DC-' + generarUUID().slice(0, 8),
+        descripcion: item.descripcion || '',
+        categoria: item.categoria || '',
+        unidad: item.unidad || 'ST',
+        cantidad: Number(item.cantidad) || 1,
+        precioBase: Number(item.precioBase) || 0,
+        precioCTTA: null,
+        centro: centroActivo,
+        tieneCotizacion: false,
+        desdeDetalle: true
+    }));
+
+    cerrarModalDC();
+
+    // Agregar materiales Impovar para cañerías
+    itemsNota = migrarItemsLegacy(itemsNota);
+
+    // Marcar que el contratista está cotizando sobre un proyecto DC
+    contratistaSobreProyectoCargado = true;
+
+    // Ir al paso 2 para que el contratista edite precios y agregue ítems
+    inicializarCategorias();
+    cargarProductos();
+    renderizarNotaFinal();
+    mostrarSolo('paso2');
+    mostrarToast(`DC cargado: ${itemsNota.length} ítems del Detalle Comercial — ingrese sus precios`, 'ok');
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+    $("fecha").value = new Date().toISOString().split("T")[0];
+    if($("buscarProducto")) $("buscarProducto").addEventListener("input", cargarProductos);
+    const excelInput = document.getElementById('excelFile');
+    if(excelInput) excelInput.addEventListener('change', cargarExcel);
     categoriaActiva = "";
 
     // Indicador de zona fija en la pantalla inicial de selección de perfil
