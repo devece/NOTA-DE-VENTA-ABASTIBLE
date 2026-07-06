@@ -1729,8 +1729,14 @@ function renderizarNotaFinal() {
                 if (item.esMaterialImpovar) continue;
 
                 const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
+                const esCertificador = item.esCertificador
+                    || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                    || /sello\s*verde/i.test(item.descripcion)
+                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+                const moiNoSuma = itemEsMOI && esCertificador;
                 const totalBase = item.precioBase * item.cantidad;
-                if (!itemEsMOI) subtotalBase += totalBase;
+                if (!moiNoSuma) subtotalBase += totalBase;
 
                 const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
                 const esCategoriaSinEditable = categoriasSinCttaEditable.includes(item.categoria);
@@ -1757,19 +1763,16 @@ function renderizarNotaFinal() {
                     tieneCotizacion = false;
                 }
 
-                if (!itemEsMOI) subtotalContratista += totalContratista;
+                if (!moiNoSuma) subtotalContratista += totalContratista;
                 const diferencia = esCompraDirecta ? 0 : (totalContratista - totalBase);
 
-                const esCertificador = item.esCertificador
-                    || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
-                    || /sello\s*verde/i.test(item.descripcion)
-                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-                const rowStyle = itemEsMOI ? ' style="background:#FFF7ED; opacity:0.7;"'
-                    : esCertificador ? ' style="background:#ECFDF5;"' : '';
+                const rowStyle = moiNoSuma ? ' style="background:#FFF7ED; opacity:0.7;"'
+                    : esCertificador ? ' style="background:#ECFDF5;"'
+                    : itemEsMOI ? ' style="background:#FFF7ED;"' : '';
                 html += `<tr class="item-row"${rowStyle}>`;
                 html += `<td>${escapeHTML(item.categoria)}</td>`;
                 html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
-                html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
+                html += `<td>${escapeHTML(item.descripcion)}${moiNoSuma ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">MOI</span>' : ''}</td>`;
                 if (hayCompraDirecta) {
                     html += `<td class="text-center text-xs" style="color:var(--aba-gray);">${escapeHTML(item.proveedor || '-')}</td>`;
                 }
@@ -1781,7 +1784,7 @@ function renderizarNotaFinal() {
                     html += `<td class="text-right"><span class="ctta-fixed">PRECIO BASE</span></td>`;
                     html += `<td>${fmtMoney(totalBase)}</td>`;
                     html += `<td class="text-right"><span class="ctta-fixed">$0</span></td>`;
-                } else if (itemEsMOI) {
+                } else if (moiNoSuma) {
                     html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">NO SUMA</span></td>`;
                     html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">SUPUESTO DC</span></td>`;
                     html += `<td></td>`;
@@ -1984,7 +1987,8 @@ function cambiarPrecioCotizacion(idx, val) {
 // (NdV o DC) ya armado por Abastible y debe rellenar SUS valores.
 // A diferencia de renderizarNotaFinal (Abastible), esta vista:
 //   - Excluye EQUIPO/SERVICIO COMPRA DIRECTA (el contratista no las ve)
-//   - NO calcula ni muestra MOI ni bloque de cuadre (eso lo hace Abastible después)
+//   - NO calcula ni muestra el cuadre de MOI implícito (eso lo hace Abastible después);
+//     el MOI explícito del DC en SCD sí se suma al contratista, salvo que sea del certificador
 //   - Sí conserva el precio Renova original como referencia (precioBase intacto)
 // ============================================================
 function renderizarComparativaContratista() {
@@ -2019,30 +2023,33 @@ function renderizarComparativaContratista() {
 
         for (const item of items) {
             const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
+            const esCertificador = item.esCertificador
+                || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                || /sello\s*verde/i.test(item.descripcion)
+                || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+            // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+            const moiNoSuma = itemEsMOI && esCertificador;
             const totalRenova = item.precioBase * item.cantidad;
-            if (!itemEsMOI) subtotalRenova += totalRenova;
+            if (!moiNoSuma) subtotalRenova += totalRenova;
 
             const precioCtta = esCañeriaPrecioFijo
                 ? item.precioBase
                 : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
             const totalContratista = precioCtta * item.cantidad;
-            if (!itemEsMOI) subtotalContratista += totalContratista;
+            if (!moiNoSuma) subtotalContratista += totalContratista;
             const diferencia = totalContratista - totalRenova;
 
-            const esCertificador = item.esCertificador
-                || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
-                || /sello\s*verde/i.test(item.descripcion)
-                || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-            const rowStyleC = itemEsMOI ? ' style="background:#FFF7ED; opacity:0.7;"'
-                : esCertificador ? ' style="background:#ECFDF5;"' : '';
+            const rowStyleC = moiNoSuma ? ' style="background:#FFF7ED; opacity:0.7;"'
+                : esCertificador ? ' style="background:#ECFDF5;"'
+                : itemEsMOI ? ' style="background:#FFF7ED;"' : '';
             html += `<tr class="item-row"${rowStyleC}>`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
             html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
-            html += `<td>${escapeHTML(item.descripcion)}${itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : ''}</td>`;
+            html += `<td>${escapeHTML(item.descripcion)}${moiNoSuma ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">MOI</span>' : ''}</td>`;
             html += `<td class="text-center"><input type="number" value="${item.cantidad}" min="0.01" step="0.5" class="input-cant" style="width:70px" onchange="cambiarCantidadComparativa(${item.globalIdx}, this.value)"></td>`;
             html += `<td>${item.precioBase > 0 ? fmtMoney(item.precioBase) : '<span style="color:var(--aba-gray)">-</span>'}</td>`;
             html += `<td>${fmtMoney(totalRenova)}</td>`;
-            if (itemEsMOI) {
+            if (moiNoSuma) {
                 html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">NO SUMA</span></td>`;
                 html += `<td class="text-right"><span style="font-size:11px;color:#9A3412;">SUPUESTO DC</span></td>`;
                 html += `<td></td>`;
@@ -2051,7 +2058,7 @@ function renderizarComparativaContratista() {
             } else {
                 html += `<td class="text-right"><input type="text" value="${fmt(precioCtta)}" class="input-ctta" onchange="cambiarPrecioComparativa(${item.globalIdx}, this.value)"></td>`;
             }
-            if (!itemEsMOI) {
+            if (!moiNoSuma) {
                 html += `<td>${fmtMoney(totalContratista)}</td>`;
                 html += `<td>${fmtMoneyColor(diferencia)}</td>`;
             }
@@ -2429,7 +2436,8 @@ async function exportarCotizacionExcel() {
 // ============================================================
 // EXCEL - COMPARATIVA CONTRATISTA (proyecto cargado de Abastible)
 // Incluye columna Renova de referencia + columna Contratista + diferencia.
-// NO incluye MOI ni bloque de cuadre — eso lo calcula Abastible al recibir este archivo.
+// NO incluye el bloque de cuadre de MOI implícito — eso lo calcula Abastible al recibir este archivo.
+// El MOI explícito de SCD sí se suma al contratista, salvo que sea del certificador (referencial).
 // ============================================================
 async function exportarComparativaContratistaExcel() {
     if (itemsNota.length === 0) {
@@ -2559,34 +2567,37 @@ async function exportarComparativaContratistaExcel() {
             let subtotalContratista = 0;
 
             for (const item of items) {
-                // MOI del DC: referencial, se muestra pero NO suma (regla de negocio)
                 const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
-                    || /sello\s*verde/i.test(item.descripcion || '');
+                    || /sello\s*verde/i.test(item.descripcion || '')
+                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+                const moiNoSuma = itemEsMOI && esCertificador;
                 const totalRenova = money(item.precioBase) * money(item.cantidad);
-                if (!itemEsMOI) subtotalRenova += totalRenova;
+                if (!moiNoSuma) subtotalRenova += totalRenova;
                 const precioCtta = esCañeriaPrecioFijo
                     ? item.precioBase
                     : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
                 const totalContratista = money(precioCtta) * money(item.cantidad);
-                if (!itemEsMOI) subtotalContratista += totalContratista;
+                if (!moiNoSuma) subtotalContratista += totalContratista;
                 const diferencia = totalContratista - totalRenova;
 
                 const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
-                const fila = itemEsMOI
+                const fila = moiNoSuma
                     ? [cat, codigoLimpio, item.descripcion + ' (REFERENCIAL DC)', item.cantidad, money(item.precioBase), money(totalRenova), 'NO SUMA', 'SUPUESTO DC', '-']
-                    : [cat, codigoLimpio, item.descripcion, item.cantidad, money(item.precioBase), money(totalRenova), money(precioCtta), money(totalContratista), money(diferencia)];
+                    : [cat, codigoLimpio, item.descripcion + (itemEsMOI ? ' (MOI)' : ''), item.cantidad, money(item.precioBase), money(totalRenova), money(precioCtta), money(totalContratista), money(diferencia)];
                 fila.forEach((v, i) => {
                     const col = i + 1;
                     const cell = sheet.getCell(r, col);
                     cell.value = v;
                     cell.border = gridBorder();
-                    cell.font = itemEsMOI
+                    cell.font = moiNoSuma
                         ? { name: 'Arial', size: 8, italic: true, color: { argb: 'FF9A3412' } }
                         : { name: 'Arial', size: 8 };
-                    if (itemEsMOI) cell.fill = fillSolid('FFFFF7ED');
+                    if (moiNoSuma) cell.fill = fillSolid('FFFFF7ED');
                     else if (esCertificador) cell.fill = fillSolid('FFECFDF5');
+                    else if (itemEsMOI) cell.fill = fillSolid('FFFFF7ED');
                     if ([5, 6, 7, 8, 9].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                     else if ([7, 8, 9].includes(col)) cell.alignment = { horizontal: 'right', vertical: 'middle' };
                     else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -2902,13 +2913,15 @@ async function exportarAExcel() {
                 if (item.esMaterialImpovar) continue;
 
                 const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
-                // MOI del DC: referencial, se muestra pero NO suma (igual que en pantalla)
                 const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
-                    || /sello\s*verde/i.test(item.descripcion || '');
+                    || /sello\s*verde/i.test(item.descripcion || '')
+                    || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+                const moiNoSuma = itemEsMOI && esCertificador;
                 const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
-                if (!itemEsMOI) subtotalRenova += totalRenova;
+                if (!moiNoSuma) subtotalRenova += totalRenova;
 
                 const esSinCTTA = catsSinCTTA.includes(item.categoria);
                 let precioCTTA = null, totalCTTA = 0, tieneCot = false;
@@ -2920,16 +2933,16 @@ async function exportarAExcel() {
                 } else if (item.precioCTTA !== null && item.precioCTTA > 0) {
                     tieneCot = true; precioCTTA = item.precioCTTA; totalCTTA = precioCTTA * item.cantidad;
                 }
-                if (!itemEsMOI) subtotalContratista += totalCTTA;
+                if (!moiNoSuma) subtotalContratista += totalCTTA;
 
                 const diff = tieneCot ? (totalCTTA - totalRenova) : null;
-                const bg = itemEsMOI ? 'FFFFF7ED' : (esCertificador ? 'FFECFDF5' : (alt ? C.silverAlt : C.white));
+                const bg = moiNoSuma ? 'FFFFF7ED' : (esCertificador ? 'FFECFDF5' : (alt ? C.silverAlt : C.white));
                 alt = !alt;
 
                 const row = sheet.getRow(currentDataRow);
                 row.height = 15;
 
-                const vals = itemEsMOI ? [
+                const vals = moiNoSuma ? [
                     item.categoria,
                     codigoLimpio,
                     item.descripcion + ' (REFERENCIAL DC)',
@@ -2942,7 +2955,7 @@ async function exportarAExcel() {
                 ] : [
                     item.categoria,
                     codigoLimpio,
-                    item.descripcion,
+                    item.descripcion + (itemEsMOI ? ' (MOI)' : ''),
                     money(item.precioBase),
                     item.cantidad,
                     tieneCot ? money(precioCTTA) : (esSinCTTA ? 'PRECIO BASE' : 'SIN COTIZAR'),
