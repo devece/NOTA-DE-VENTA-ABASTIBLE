@@ -350,7 +350,7 @@
 </div>
 
 <!-- Botones superiores -->
-<div id="barraSuperior" class="hidden" style="padding:15px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
+<div id="barraSuperior" class="hidden" style="padding:8px 25px; background:white; border-bottom:1px solid #E5E7EB; position:sticky; top:0; z-index:999;" class="no-print">
     <div class="flex flex-wrap gap-3 items-center">
         <span id="badgePerfilActivo" class="perfil-badge pb-abastible"></span>
         <span id="badgeZonaFija" class="hidden text-xs px-3 py-1.5 rounded-full font-semibold" style="background: var(--aba-blue-light); color: var(--aba-blue);"></span>
@@ -418,11 +418,11 @@
 
 <!-- HEADER -->
 <div id="headerApp" class="sticky-header shadow-sm no-print hidden">
-    <div class="max-w-screen-2xl mx-auto px-6 py-4 flex items-center justify-between flex-wrap gap-4">
-        <div class="flex items-center gap-4">
-            <img src="logos/logo-abastible.png" alt="Abastible" class="h-14 w-auto object-contain" onerror="this.style.display='none'">
+    <div class="max-w-screen-2xl mx-auto px-6 py-2 flex items-center justify-between flex-wrap gap-3">
+        <div class="flex items-center gap-3">
+            <img src="logos/logo-abastible.png" alt="Abastible" class="h-10 w-auto object-contain" onerror="this.style.display='none'">
             <div>
-                <div class="text-3xl font-bold" id="tituloApp" style="color: var(--aba-orange);">
+                <div class="text-xl font-bold" id="tituloApp" style="color: var(--aba-orange);">
                     Nota de Venta · Instalaciones de Gas
                 </div>
             </div>
@@ -778,6 +778,10 @@ function parsePrecio(valor) {
         if (puntos > 1) {
             let sinPuntos = str.replace(/\./g, '');
             number = parseInt(sinPuntos, 10);
+        } else if (/^\d{1,3}\.\d{3}$/.test(str)) {
+            // Un solo punto seguido de exactamente 3 dígitos = separador de miles chileno
+            // ("1.500" → 1500, no 1.5). Los precios de la app no usan decimales.
+            number = parseInt(str.replace('.', ''), 10);
         } else {
             number = parseFloat(str);
         }
@@ -1066,7 +1070,7 @@ let datosContratista = null; // { razonSocial, rut, representante, telefono, ema
 // sus valores, en vez de armar una Cotización libre desde cero. Cambia qué vista/export usa.
 let contratistaSobreProyectoCargado = false;
 
-const CATS_EXCLUIDAS_CONTRATISTA = ['EQUIPO COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
+const CATS_EXCLUIDAS_CONTRATISTA = ['EQUIPOS COMPRA DIRECTA', 'EQUIPO COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
 
 const ZONA_CENTROS = {
     'Norte': ['Arica', 'Iquique', 'Antofagasta', 'Calama', 'Copiapó'],
@@ -1246,7 +1250,8 @@ function iniciarAppConModo() {
         nota_venta: 'Nota de Venta · Instalaciones de Gas',
         cargar_dc: 'Cargar Detalle Comercial',
         dc_cotizacion: 'Análisis DC + Cotización Contratista',
-        cotizacion_contratista: 'Cotización · Instalaciones de Gas'
+        cotizacion_contratista: 'Cotización · Instalaciones de Gas',
+        cotizacion_sobre_dc: 'Cotización sobre DC · Instalaciones de Gas'
     };
     $('tituloApp').textContent = titulos[modoActivo] || 'Nota de Venta';
     $('tituloPaso1').textContent = esContratista ? '📋 Datos del Proyecto a Cotizar' : '📋 Datos del Proyecto';
@@ -1584,7 +1589,16 @@ function actualizarMaterialVinculado(itemInstalacion) {
     }
 }
 
-function eliminarItemPaso2(index) { itemsNota.splice(index, 1); actualizarItemsAgregadosPaso2(); cargarProductos(); actualizarBadge(); }
+function eliminarItemPaso2(index) {
+    const item = itemsNota[index];
+    itemsNota.splice(index, 1);
+    // Si era instalación de cañería, eliminar también su material Impovar vinculado
+    if (item && !item.esMaterialImpovar) {
+        const idxMat = itemsNota.findIndex(i => i.esMaterialImpovar && i.idInstalacion === item.id);
+        if (idxMat >= 0) itemsNota.splice(idxMat, 1);
+    }
+    actualizarItemsAgregadosPaso2(); cargarProductos(); actualizarBadge();
+}
 
 // Agrega un ítem libre que no existe en la base de datos.
 // En modo Contratista, el precio ingresado es directamente el precio cotizado (precioCTTA = precioBase, sin comparativa Renova).
@@ -2223,12 +2237,12 @@ async function exportarCotizacionExcel() {
         function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
 
         sheet.columns = [
-            { width: 16 }, { width: 36 }, { width: 8 }, { width: 8 }, { width: 13 }, { width: 13 }
+            { width: 16 }, { width: 10 }, { width: 32 }, { width: 8 }, { width: 8 }, { width: 13 }, { width: 13 }
         ];
 
         // Banner
         sheet.getRow(1).height = 32;
-        sheet.mergeCells('A1:F1');
+        sheet.mergeCells('A1:G1');
         const banner = sheet.getCell('A1');
         banner.value = 'COTIZACIÓN · INSTALACIONES DE GAS';
         banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
@@ -2288,14 +2302,14 @@ async function exportarCotizacionExcel() {
         // Separador
         const filaSep = r;
         sheet.getRow(filaSep).height = 4;
-        sheet.mergeCells(`A${filaSep}:F${filaSep}`);
+        sheet.mergeCells(`A${filaSep}:G${filaSep}`);
         sheet.getCell(`A${filaSep}`).fill = fillSolid(C.green);
         r++;
 
         // Header tabla
         const filaHeader = r;
         sheet.getRow(filaHeader).height = 24;
-        ['CATEGORÍA', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO UNIT.', 'TOTAL'].forEach((h, i) => {
+        ['CATEGORÍA', 'CÓDIGO', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO UNIT.', 'TOTAL'].forEach((h, i) => {
             const c = sheet.getCell(filaHeader, i + 1);
             c.value = h;
             c.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.white } };
@@ -2319,15 +2333,16 @@ async function exportarCotizacionExcel() {
                 const precio = (item.precioCTTA !== null && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase;
                 const total = precio * item.cantidad;
                 subtotal += total;
-                const fila = [cat, item.descripcion, item.unidad, item.cantidad, money(precio), money(total)];
+                const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
+                const fila = [cat, codigoLimpio, item.descripcion, item.unidad, item.cantidad, money(precio), money(total)];
                 fila.forEach((v, i) => {
                     const col = i + 1;
                     const cell = sheet.getCell(r, col);
                     cell.value = v;
                     cell.border = gridBorder();
                     cell.font = { name: 'Arial', size: 9 };
-                    if (col === 5 || col === 6) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
-                    else if (col === 3 || col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if (col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 });
                 r++;
@@ -2337,7 +2352,8 @@ async function exportarCotizacionExcel() {
                 if (matImpovar) {
                     const totalMat = matImpovar.precioBase * matImpovar.cantidad;
                     subtotal += totalMat;
-                    const filaMat = ['↳ Material', '🏭 ' + matImpovar.descripcion, 'ML', matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat)];
+                    const codMat = String(matImpovar.codigo || '').replace(/^0+/, '') || '-';
+                    const filaMat = ['↳ Material', codMat, matImpovar.descripcion, 'ML', matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat)];
                     filaMat.forEach((v, i) => {
                         const col = i + 1;
                         const cell = sheet.getCell(r, col);
@@ -2345,20 +2361,20 @@ async function exportarCotizacionExcel() {
                         cell.fill = fillSolid('FFFFFBF0');
                         cell.border = gridBorder();
                         cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } };
-                        if (col === 5 || col === 6) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
-                        else if (col === 3 || col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                        else if (col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                         else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                     });
                     r++;
                 }
             }
-            sheet.mergeCells(r, 1, r, 5);
+            sheet.mergeCells(r, 1, r, 6);
             const subCell = sheet.getCell(r, 1);
             subCell.value = 'SUBTOTAL ' + cat;
             subCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
             subCell.fill = fillSolid(C.greenL);
             subCell.alignment = { horizontal: 'right', vertical: 'middle' };
-            const subVal = sheet.getCell(r, 6);
+            const subVal = sheet.getCell(r, 7);
             subVal.value = money(subtotal);
             subVal.numFmt = MONEY;
             subVal.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
@@ -2369,13 +2385,13 @@ async function exportarCotizacionExcel() {
         }
 
         // Total general
-        sheet.mergeCells(r, 1, r, 5);
+        sheet.mergeCells(r, 1, r, 6);
         const totLbl = sheet.getCell(r, 1);
         totLbl.value = 'TOTAL COTIZACIÓN';
         totLbl.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
         totLbl.fill = fillSolid(C.green);
         totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-        const totVal = sheet.getCell(r, 6);
+        const totVal = sheet.getCell(r, 7);
         totVal.value = money(totalGeneral);
         totVal.numFmt = MONEY;
         totVal.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
@@ -2447,13 +2463,13 @@ async function exportarComparativaContratistaExcel() {
         function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
 
         sheet.columns = [
-            { width: 14 }, { width: 30 }, { width: 7 },
+            { width: 14 }, { width: 10 }, { width: 28 }, { width: 7 },
             { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 11 }
         ];
 
         // Banner
         sheet.getRow(1).height = 32;
-        sheet.mergeCells('A1:H1');
+        sheet.mergeCells('A1:I1');
         const banner = sheet.getCell('A1');
         banner.value = 'COMPARATIVA CONTRATISTA · INSTALACIONES DE GAS';
         banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
@@ -2495,7 +2511,7 @@ async function exportarComparativaContratistaExcel() {
             lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
             lbl.fill = fillSolid(C.silver);
             lbl.alignment = { horizontal: 'right', vertical: 'middle' };
-            sheet.mergeCells(r, 5, r, 8);
+            sheet.mergeCells(r, 5, r, 9);
             const val = sheet.getCell(r, 5);
             val.value = v;
             val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
@@ -2507,14 +2523,14 @@ async function exportarComparativaContratistaExcel() {
         // Separador
         const filaSep = r;
         sheet.getRow(filaSep).height = 4;
-        sheet.mergeCells(`A${filaSep}:H${filaSep}`);
+        sheet.mergeCells(`A${filaSep}:I${filaSep}`);
         sheet.getCell(`A${filaSep}`).fill = fillSolid(C.green);
         r++;
 
         // Header tabla
         const filaHeader = r;
         sheet.getRow(filaHeader).height = 26;
-        ['CATEGORÍA', 'DESCRIPCIÓN', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'DIFERENCIA'].forEach((h, i) => {
+        ['CATEGORÍA', 'CÓDIGO', 'DESCRIPCIÓN', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'DIFERENCIA'].forEach((h, i) => {
             const c = sheet.getCell(filaHeader, i + 1);
             c.value = h;
             c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.white } };
@@ -2541,24 +2557,37 @@ async function exportarComparativaContratistaExcel() {
             let subtotalContratista = 0;
 
             for (const item of items) {
+                // MOI del DC: referencial, se muestra pero NO suma (regla de negocio)
+                const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
+                const esCertificador = item.esCertificador
+                    || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                    || /sello\s*verde/i.test(item.descripcion || '');
                 const totalRenova = money(item.precioBase) * money(item.cantidad);
-                subtotalRenova += totalRenova;
+                if (!itemEsMOI) subtotalRenova += totalRenova;
                 const precioCtta = esCañeriaPrecioFijo
                     ? item.precioBase
                     : ((item.precioCTTA !== null && item.precioCTTA !== undefined && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
                 const totalContratista = money(precioCtta) * money(item.cantidad);
-                subtotalContratista += totalContratista;
+                if (!itemEsMOI) subtotalContratista += totalContratista;
                 const diferencia = totalContratista - totalRenova;
 
-                const fila = [cat, item.descripcion, item.cantidad, money(item.precioBase), money(totalRenova), money(precioCtta), money(totalContratista), money(diferencia)];
+                const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
+                const fila = itemEsMOI
+                    ? [cat, codigoLimpio, item.descripcion + ' (REFERENCIAL DC)', item.cantidad, money(item.precioBase), money(totalRenova), 'NO SUMA', 'SUPUESTO DC', '-']
+                    : [cat, codigoLimpio, item.descripcion, item.cantidad, money(item.precioBase), money(totalRenova), money(precioCtta), money(totalContratista), money(diferencia)];
                 fila.forEach((v, i) => {
                     const col = i + 1;
                     const cell = sheet.getCell(r, col);
                     cell.value = v;
                     cell.border = gridBorder();
-                    cell.font = { name: 'Arial', size: 8 };
-                    if ([4, 5, 6, 7, 8].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
-                    else if (col === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cell.font = itemEsMOI
+                        ? { name: 'Arial', size: 8, italic: true, color: { argb: 'FF9A3412' } }
+                        : { name: 'Arial', size: 8 };
+                    if (itemEsMOI) cell.fill = fillSolid('FFFFF7ED');
+                    else if (esCertificador) cell.fill = fillSolid('FFECFDF5');
+                    if ([5, 6, 7, 8, 9].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if ([7, 8, 9].includes(col)) cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                    else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 });
                 r++;
@@ -2569,7 +2598,8 @@ async function exportarComparativaContratistaExcel() {
                     const totalMat = money(matImpovar.precioBase) * money(matImpovar.cantidad);
                     subtotalRenova += totalMat;
                     subtotalContratista += totalMat;
-                    const filaMat = ['↳ Material', '🏭 ' + matImpovar.descripcion, matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat), 'IMPOVAR', money(totalMat), 0];
+                    const codigoMatLimpio = String(matImpovar.codigo || '').replace(/^0+/, '') || '-';
+                    const filaMat = ['↳ Material', codigoMatLimpio, '🏭 ' + matImpovar.descripcion, matImpovar.cantidad, money(matImpovar.precioBase), money(totalMat), 'IMPOVAR', money(totalMat), 0];
                     filaMat.forEach((v, i) => {
                         const col = i + 1;
                         const cell = sheet.getCell(r, col);
@@ -2577,9 +2607,9 @@ async function exportarComparativaContratistaExcel() {
                         cell.fill = fillSolid('FFFFFBF0');
                         cell.border = gridBorder();
                         cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } };
-                        if ([4, 5, 7, 8].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
-                        else if (col === 3) cell.alignment = { horizontal: 'center', vertical: 'middle' };
-                        else if (col === 6) cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                        if ([5, 6, 8, 9].includes(col) && typeof v === 'number') { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                        else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                        else if (col === 7) cell.alignment = { horizontal: 'right', vertical: 'middle' };
                         else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                     });
                     r++;
@@ -2587,20 +2617,20 @@ async function exportarComparativaContratistaExcel() {
             }
 
             const diferenciaCat = subtotalContratista - subtotalRenova;
-            sheet.mergeCells(r, 1, r, 3);
+            sheet.mergeCells(r, 1, r, 4);
             const subLbl = sheet.getCell(r, 1);
             subLbl.value = 'SUBTOTAL ' + cat;
             subLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
             subLbl.fill = fillSolid(C.greenL);
             subLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-            [4, 5, 6, 7, 8].forEach(col => {
+            [5, 6, 7, 8, 9].forEach(col => {
                 const cell = sheet.getCell(r, col);
                 cell.fill = fillSolid(C.greenL);
                 cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                if (col === 5) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
-                else if (col === 7) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
-                else if (col === 8) { cell.value = money(diferenciaCat); cell.numFmt = MONEY; }
+                if (col === 6) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
+                else if (col === 8) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
+                else if (col === 9) { cell.value = money(diferenciaCat); cell.numFmt = MONEY; }
             });
             r++;
 
@@ -2610,27 +2640,27 @@ async function exportarComparativaContratistaExcel() {
 
         // Total general (sin cuadre, sin MOI — solo referencia y comparación)
         const diferenciaGeneral = totalContratistaGeneral - totalRenovaGeneral;
-        sheet.mergeCells(r, 1, r, 3);
+        sheet.mergeCells(r, 1, r, 4);
         const totLbl = sheet.getCell(r, 1);
         totLbl.value = 'TOTAL COMPARATIVA';
         totLbl.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
         totLbl.fill = fillSolid(C.green);
         totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-        [4, 5, 6, 7, 8].forEach(col => {
+        [5, 6, 7, 8, 9].forEach(col => {
             const cell = sheet.getCell(r, col);
             cell.fill = fillSolid(C.green);
             cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            if (col === 5) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
-            else if (col === 7) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
-            else if (col === 8) { cell.value = money(diferenciaGeneral); cell.numFmt = MONEY; }
+            if (col === 6) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
+            else if (col === 8) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
+            else if (col === 9) { cell.value = money(diferenciaGeneral); cell.numFmt = MONEY; }
         });
         sheet.getRow(r).height = 20;
         r++;
 
         // Nota aclaratoria (sin cuadre MOI — lo hace Abastible)
         const filaNota = r;
-        sheet.mergeCells(`A${filaNota}:H${filaNota}`);
+        sheet.mergeCells(`A${filaNota}:I${filaNota}`);
         const notaCell = sheet.getCell(`A${filaNota}`);
         notaCell.value = 'El cuadre de Mano de Obra Industrial (MOI) lo realiza Abastible al recibir este archivo.';
         notaCell.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
@@ -2870,8 +2900,13 @@ async function exportarAExcel() {
                 if (item.esMaterialImpovar) continue;
 
                 const codigoLimpio = String(item.codigo || '').replace(/^0+/, '') || '-';
+                // MOI del DC: referencial, se muestra pero NO suma (igual que en pantalla)
+                const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
+                const esCertificador = item.esCertificador
+                    || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
+                    || /sello\s*verde/i.test(item.descripcion || '');
                 const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
-                subtotalRenova += totalRenova;
+                if (!itemEsMOI) subtotalRenova += totalRenova;
 
                 const esSinCTTA = catsSinCTTA.includes(item.categoria);
                 let precioCTTA = null, totalCTTA = 0, tieneCot = false;
@@ -2883,16 +2918,26 @@ async function exportarAExcel() {
                 } else if (item.precioCTTA !== null && item.precioCTTA > 0) {
                     tieneCot = true; precioCTTA = item.precioCTTA; totalCTTA = precioCTTA * item.cantidad;
                 }
-                subtotalContratista += totalCTTA;
+                if (!itemEsMOI) subtotalContratista += totalCTTA;
 
                 const diff = tieneCot ? (totalCTTA - totalRenova) : null;
-                const bg = alt ? C.silverAlt : C.white;
+                const bg = itemEsMOI ? 'FFFFF7ED' : (esCertificador ? 'FFECFDF5' : (alt ? C.silverAlt : C.white));
                 alt = !alt;
 
                 const row = sheet.getRow(currentDataRow);
                 row.height = 15;
 
-                const vals = [
+                const vals = itemEsMOI ? [
+                    item.categoria,
+                    codigoLimpio,
+                    item.descripcion + ' (REFERENCIAL DC)',
+                    money(item.precioBase),
+                    item.cantidad,
+                    'NO SUMA',
+                    money(totalRenova),
+                    'SUPUESTO DC',
+                    '-'
+                ] : [
                     item.categoria,
                     codigoLimpio,
                     item.descripcion,
@@ -3104,6 +3149,8 @@ function imprimirNota() {
     
     const printContent = document.getElementById('printArea').cloneNode(true);
     const proyecto = $("nombreProyecto").value || 'SIN PROYECTO';
+    const docTitulo = perfilActivo === 'contratista' ? 'COTIZACIÓN' : 'NOTA DE VENTA';
+    const docSubtitulo = perfilActivo === 'contratista' ? 'Cotización · Instalaciones de Gas' : 'Nota de Venta · Instalaciones de Gas';
     
     const style = document.createElement('style');
     style.textContent = `
@@ -3131,14 +3178,14 @@ function imprimirNota() {
         @media print { body { padding: 0; margin: 0; } .no-print { display: none; } table { page-break-inside: avoid; } tr { page-break-inside: avoid; } }
     `;
     
-    printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Nota de Venta - ' + proyecto + '</title></head><body>');
+    printWindow.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + docTitulo + ' - ' + proyecto + '</title></head><body>');
     printWindow.document.head.appendChild(style);
     
     printWindow.document.write(`
         <div class="header">
             <div class="logo">
                 <h1>abastible</h1>
-                <p>Nota de Venta · Instalaciones de Gas</p>
+                <p>${docSubtitulo}</p>
             </div>
             <div style="text-align: right;">
                 <div style="font-weight: bold; color: #001489;">Corporativo Abastible</div>
@@ -3147,7 +3194,7 @@ function imprimirNota() {
         </div>
         
         <div class="title">
-            <h2>NOTA DE VENTA</h2>
+            <h2>${docTitulo}</h2>
         </div>
         
         <div class="datos">
@@ -3204,9 +3251,10 @@ function guardarNota() {
     notasGuardadas = saved ? JSON.parse(saved) : [];
     notasGuardadas.unshift(nota); 
     if(notasGuardadas.length > 100) notasGuardadas = notasGuardadas.slice(0, 100);
-    localStorage.setItem("notasGas", JSON.stringify(notasGuardadas)); 
-    mostrarToast('Nota guardada correctamente', 'ok'); 
-    verHistorial();
+    localStorage.setItem("notasGas", JSON.stringify(notasGuardadas));
+    mostrarToast('Nota guardada correctamente', 'ok');
+    // El contratista no tiene panel Historial (botón oculto): se queda en su vista actual
+    if (perfilActivo !== 'contratista') verHistorial();
 }
 
 function verHistorial() {
@@ -4230,7 +4278,7 @@ Analiza este PDF de Detalle Comercial y extrae TODOS los ítems en formato JSON.
 
 REGLAS IMPORTANTES:
 1. Extrae SOLO los ítems que pertenecen al Sub-Total SOLPED. Las categorías SOLPED son: Cañerías AP/MP/BP, Servicio Cañerías, Conexiones, Obras Civiles, Normalización SEC, Equipos Compra Directa, Servicios Compra Directa
-2. NO incluyas nada del Sub-Total RESERVA (Equipos de bodega, Estanques/Tanques) ni Sub-Total OTROS
+2. NO incluyas nada del Sub-Total RESERVA ni Sub-Total OTROS. En RESERVA aparecen categorías como "EQUIPO" (reguladores, válvulas, etc. de bodega) y "TANQUES"/"ESTANQUES" — esas NO van. IMPORTANTE: "EQUIPOS COMPRA DIRECTA" es una categoría del Sub-Total SOLPED (distinta de "EQUIPO" de reserva) y SÍ debe incluirse SIEMPRE con todos sus ítems y su proveedor
 3. SERVICIOS COMPRA DIRECTA: incluye TODOS los ítems, incluyendo MANO OBRA INDUSTRIAL, inspecciones periódicas, y cualquier otro. Cada uno con su campo "proveedor". Para ítems de MANO OBRA INDUSTRIAL, agrega el campo "esMOI": true
 4. Los ítems con operación/código 0400 en NORMALIZACIÓN SEC corresponden al certificador (Sello Verde) — márcalos con "esCertificador": true
 5. Usa los precios unitarios Renova exactamente como aparecen en el DC
@@ -4247,6 +4295,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:
   "direccion": "dirección de la obra",
   "items": [
     {
+      "codigo": "código u operación del ítem tal como aparece en el DC (ej: 380, 390, 400, 420), sino omitir",
       "descripcion": "descripción exacta del ítem",
       "categoria": "categoría según el mapeo",
       "unidad": "unidad de medida",
@@ -4311,7 +4360,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:
 
         const cats = [...new Set(parsed.items.map(i => i.categoria))];
         document.getElementById('dcResumenTexto').innerHTML =
-            `✅ <strong>${parsed.items.length} ítems</strong> extraídos en ${cats.length} categorías · Proyecto: <strong>${parsed.proyecto || 'Sin nombre'}</strong>`;
+            `✅ <strong>${parsed.items.length} ítems</strong> extraídos en ${cats.length} categorías · Proyecto: <strong>${escapeHTML(parsed.proyecto || 'Sin nombre')}</strong>`;
 
         // Preview de las primeras categorías
         const porCat = {};
@@ -4321,7 +4370,7 @@ Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:
         });
         document.getElementById('dcPreviewItems').innerHTML = Object.entries(porCat)
             .map(([cat, n]) => `<div style="padding:4px 0; border-bottom:1px solid #F3F4F6; display:flex; justify-content:space-between;">
-                <span>${cat}</span><span style="font-weight:600; color:#7C3AED;">${n} ítem(s)</span>
+                <span>${escapeHTML(cat)}</span><span style="font-weight:600; color:#7C3AED;">${n} ítem(s)</span>
             </div>`).join('');
 
     } catch (err) {
@@ -4338,6 +4387,9 @@ function cerrarModalDC() {
     document.getElementById('modalDC').classList.remove('active');
     document.getElementById('btnConfirmarDC').style.display = '';
     dcDatosExtraidos = null;
+    // Limpiar el flag contratista: si se canceló, no debe afectar una carga
+    // posterior de DC desde el perfil Abastible.
+    window._dcParaContratista = false;
     if (itemsNota.length === 0) {
         if (perfilActivo === 'contratista') {
             // Volver al selector de modo contratista
@@ -4382,7 +4434,7 @@ function confirmarDC() {
 
     itemsNota = d.items.map(item => ({
         id: generarUUID(),
-        codigo: 'DC-' + generarUUID().slice(0, 8),
+        codigo: item.codigo || ('DC-' + generarUUID().slice(0, 8)),
         descripcion: item.descripcion || '',
         proveedor: item.proveedor || undefined,
         esCertificador: !!item.esCertificador,
