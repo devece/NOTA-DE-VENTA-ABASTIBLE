@@ -3968,6 +3968,9 @@ function importarPptoContratista(event) {
                     libre++;
                     // Intentar detectar categoría por descripción
                     let catDetectada = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
+                    // Sin match en Renova: precioBase queda en 0 (no hay precio oficial para
+                    // comparar). Así el cuadre de la categoría suma todo el precio del
+                    // contratista como MOI, en vez de anularlo igualándolo al precio Renova.
                     itemsNota.push({
                         id,
                         codigo: 'PPTO-' + id.slice(0, 6),
@@ -3975,7 +3978,7 @@ function importarPptoContratista(event) {
                         categoria: catDetectada,
                         unidad: pItem.unidad || 'ST',
                         cantidad: pItem.cantidad,
-                        precioBase: pItem.precio,
+                        precioBase: 0,
                         precioCTTA: pItem.precio,
                         centro: centroActivo,
                         tieneCotizacion: true,
