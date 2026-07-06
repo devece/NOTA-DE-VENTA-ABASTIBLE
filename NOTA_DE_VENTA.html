@@ -3706,9 +3706,13 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
         centroActivo              = datosProyecto.centroActivo || "";
     }
 
-    const itemsFiltrados = modoActivo === 'cotizacion_sobre_dc'
-        ? itemsCotizados.filter(i => i)
-        : itemsCotizados.filter(i => i && !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria));
+    // Solo se filtran categorías de compra directa cuando quien abre es el propio
+    // Contratista (y no está cotizando sobre DC). Abastible siempre debe ver todo
+    // el proyecto completo, incluyendo Servicio/Equipos Compra Directa.
+    const debeFiltrar = perfilActivo === 'contratista' && modoActivo !== 'cotizacion_sobre_dc';
+    const itemsFiltrados = debeFiltrar
+        ? itemsCotizados.filter(i => i && !CATS_EXCLUIDAS_CONTRATISTA.includes(i.categoria))
+        : itemsCotizados.filter(i => i);
 
     // Reconstruir itemsNota recuperando precio Renova SIEMPRE desde la base de datos,
     // sin confiar en el precioBase del JSON (puede haber sido sobreescrito por el precio
@@ -3732,8 +3736,12 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
                 if (prodBase.diametro) diametroBase = prodBase.diametro;
             }
         }
-        // Si no encontró en la base (ítem libre, o base no cargada), usar el precioCTTA como referencia
-        if (!precioRenova) precioRenova = precioCtta;
+        // Si no encontró en la base: los ítems que vienen de un DC (desdeDetalle) usan códigos
+        // de operación SAP (0290, 0340...) que no existen en el catálogo Renova, pero su
+        // precioBase original YA es el precio Renova correcto (nunca lo pisa el contratista,
+        // ver cambiarPrecioComparativa). Para esos, se respeta ese valor en vez de colapsar
+        // al precio del contratista. Solo un ítem libre real (sin origen DC) usa precioCtta.
+        if (!precioRenova) precioRenova = item.desdeDetalle ? (item.precioBase || precioCtta) : precioCtta;
 
         return {
             ...item,
@@ -4544,7 +4552,8 @@ confirmarDC = function() {
 
     inicializarCategorias();
     cargarProductos();
-    renderizarNotaFinal();
+    // Vista de comparativa del contratista: NO expone el bloque de cuadre/MOI interno de Abastible
+    renderizarComparativaContratista();
     mostrarSolo('paso3');
     mostrarToast(`DC cargado: ${itemsNota.length} ítems del Detalle Comercial`, 'ok');
 };
