@@ -829,7 +829,9 @@ const CATS_SIN_CTTA = ["CAÑERIAS AP", "CAÑERIAS MP", "CAÑERIAS BP"];
 function tieneCTTA(categoria) { return !CATS_SIN_CTTA.includes(categoria); }
 
 // Categorías de compra directa — van al final de la tabla, con columna Proveedor
-const CATS_COMPRA_DIRECTA = ["EQUIPOS COMPRA DIRECTA", "SERVICIO COMPRA DIRECTA"];
+// La base real (base_datos.xlsx) usa el singular "EQUIPO COMPRA DIRECTA" como nombre de hoja;
+// se aceptan ambas formas para no perder la detección de compra directa por un desajuste de nombre.
+const CATS_COMPRA_DIRECTA = ["EQUIPOS COMPRA DIRECTA", "EQUIPO COMPRA DIRECTA", "SERVICIO COMPRA DIRECTA"];
 
 // ============================================================
 // MATERIALES CAÑERÍA — se leen desde dbProductos (base_datos.xlsx)
@@ -3147,7 +3149,10 @@ function imprimirNota() {
     const printWindow = window.open('', '_blank');
     if(!printWindow) { mostrarToast('Permita ventanas emergentes para imprimir', 'warn'); return; }
     
-    const printContent = document.getElementById('printArea').cloneNode(true);
+    // Solo se clona la tabla + resumen: el bloque de datos del proyecto (Proyecto/Cliente/RUT/etc.)
+    // ya se reconstruye a mano más abajo con su propio CSS. Clonar #printArea completo lo
+    // duplicaría, además con clases de Tailwind que no existen en esta ventana nueva.
+    const printContent = document.getElementById('printArea').querySelector('.p-4.overflow-x-auto').cloneNode(true);
     const proyecto = $("nombreProyecto").value || 'SIN PROYECTO';
     const docTitulo = perfilActivo === 'contratista' ? 'COTIZACIÓN' : 'NOTA DE VENTA';
     const docSubtitulo = perfilActivo === 'contratista' ? 'Cotización · Instalaciones de Gas' : 'Nota de Venta · Instalaciones de Gas';
@@ -4438,7 +4443,7 @@ function confirmarDC() {
     if (sel) sel.value = CENTRO_DC;
 
     // Convertir ítems al formato de itemsNota
-    const catsCompraDirecta = ['EQUIPOS COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
+    const catsCompraDirecta = CATS_COMPRA_DIRECTA;
 
     itemsNota = d.items.map(item => ({
         id: generarUUID(),
@@ -4517,7 +4522,7 @@ confirmarDC = function() {
     }
     if (sel) sel.value = centroActivo;
 
-    const catsCD = ['EQUIPOS COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
+    const catsCD = CATS_COMPRA_DIRECTA;
     itemsNota = d.items.map(item => ({
         id: generarUUID(),
         codigo: item.codigo || ('DC-' + generarUUID().slice(0, 8)),
