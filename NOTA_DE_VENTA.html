@@ -3646,6 +3646,22 @@ function aplicarCotizacionAItems(itemsCotizados) {
 // Renova desde la base de datos actual, aplica los precios del
 // contratista, y genera la vista NdV completa con MOI y cuadre.
 // ============================================================
+
+// Cuando se importa una cotización/presupuesto de contratista que no trae
+// datos de proyecto (Excel suelto, sin DC cargado antes), Proyecto/Cliente/Centro
+// quedan vacíos. Sin esto no habría forma de editarlos ni de guardar la nota
+// con un nombre, porque el Paso 1 permanece oculto en el modo "Análisis DC + Cotización".
+function requiereCompletarDatosProyecto() {
+    return !$("nombreProyecto").value.trim() || !$("nombreCliente").value.trim() || !centroActivo;
+}
+
+function mostrarFormularioCompletarProyecto(mensaje) {
+    $('panelDcCotizacion').classList.add('hidden');
+    $('formularioPaso1').classList.remove('hidden');
+    mostrarSolo('paso1');
+    mostrarToast(mensaje, 'warn');
+}
+
 function cargarCotizacionDirecta(event) {
     const file = event.target.files[0];
     event.target.value = '';
@@ -3778,21 +3794,23 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
         itemsNota = migrarItemsLegacy(itemsNota);
     }
 
-    $('panelDcCotizacion').classList.add('hidden');
     contratistaSobreProyectoCargado = false;
-    renderizarNotaFinal();
-    mostrarSolo("paso3");
 
     const sinPrecio = itemsNota.filter(i =>
         !i.esMaterialImpovar && !CATS_SIN_CTTA.includes(i.categoria) &&
         (!i.precioCTTA || i.precioCTTA <= 0)
     ).length;
+    const mensajeResultado = `Cotización cargada: ${itemsNota.length} ítems` +
+        (sinPrecio > 0 ? ` · ${sinPrecio} sin precio contratista` : ' · precios completos ✅');
 
-    mostrarToast(
-        `Cotización cargada: ${itemsNota.length} ítems` +
-        (sinPrecio > 0 ? ` · ${sinPrecio} sin precio contratista` : ' · precios completos ✅'),
-        sinPrecio > 0 ? 'warn' : 'ok'
-    );
+    if (requiereCompletarDatosProyecto()) {
+        mostrarFormularioCompletarProyecto(`${mensajeResultado}. Complete los datos del proyecto para continuar.`);
+    } else {
+        $('panelDcCotizacion').classList.add('hidden');
+        renderizarNotaFinal();
+        mostrarSolo("paso3");
+        mostrarToast(mensajeResultado, sinPrecio > 0 ? 'warn' : 'ok');
+    }
 }
 
 
@@ -3968,13 +3986,20 @@ function importarPptoContratista(event) {
 
             hideLoader();
 
-            // Mostrar paso 3 con los resultados
-            renderizarNotaFinal();
-            mostrarSolo("paso3");
-            mostrarToast(
-                `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} coincidieron con Renova, ${libre} como ítem libre`,
-                libre > matched ? 'warn' : 'ok'
-            );
+            const mensajeResultado = `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} coincidieron con Renova, ${libre} como ítem libre`;
+
+            if (requiereCompletarDatosProyecto()) {
+                // El Excel de presupuesto no trae nombre de proyecto: se propone el nombre
+                // del archivo como punto de partida, editable por el usuario en el Paso 1.
+                if (!$("nombreProyecto").value.trim()) {
+                    $("nombreProyecto").value = file.name.replace(/\.(xlsx|xls)$/i, '');
+                }
+                mostrarFormularioCompletarProyecto(`${mensajeResultado}. Complete los datos del proyecto para continuar.`);
+            } else {
+                renderizarNotaFinal();
+                mostrarSolo("paso3");
+                mostrarToast(mensajeResultado, libre > matched ? 'warn' : 'ok');
+            }
         } catch(err) {
             hideLoader();
             console.error('Error importando ppto:', err);
@@ -4213,6 +4238,9 @@ function irPaso2() {
     const centro = $("centro").value;
     const ciudad = $("ciudad").value.trim();
     centroActivo = centro;
+    // Ítems importados antes de conocer el centro (p.ej. desde un presupuesto de
+    // contratista) quedan sin centro asignado; se completan ahora que ya está definido.
+    itemsNota.forEach(it => { if (!it.centro) it.centro = centroActivo; });
     $("resumenProyecto").textContent = proyecto;
     $("resumenCliente").textContent = cliente;
     $("resumenCentro").textContent = centro;
@@ -4221,6 +4249,7 @@ function irPaso2() {
     inicializarCategorias();
     cargarProductos();
     actualizarItemsAgregadosPaso2();
+    actualizarBadge();
 }
 
 function volverPaso1() { mostrarSolo("paso1"); }
