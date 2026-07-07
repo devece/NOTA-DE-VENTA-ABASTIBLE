@@ -45,12 +45,15 @@ presupuesto en PDF, primero copiar la tabla a Excel con estas columnas mínimas:
 
 ### Qué filas se ingresan en el sistema que genera el DC
 
-| Fila del Excel exportado | ¿Se ingresa al DC? | Cómo |
+El Excel exportado trae la columna **"DIGITAR EN DC"** que marca cada fila, y una
+leyenda al pie. Las filas que NO se digitan van además atenuadas en gris:
+
+| Marca en columna "DIGITAR EN DC" | Fila | Cómo proceder |
 |---|---|---|
-| Ítems con **código Renova real** (matcheados) | ✅ Sí | Ingresar código + cantidad en su categoría/operación correspondiente |
-| Subfilas de **material Impovar** (códigos 248xx, fondo crema) | ✅ Verificar | El sistema DC las agrega al ingresar el servicio de cañería; confirmar que el metraje coincida con el del Excel (misma regla: +5% redondeado a tira de 6 ML) |
-| Filas naranjas **"MANO DE OBRA INDUSTRIAL"** (una por categoría) | ✅ Sí | Ingresar ese monto como MOI de la categoría, con su código de operación (0290/0200/0210 según categoría) |
-| Ítems con código **"PPTO-…"** (libres, precio Renova $0) | ❌ **No** | Su valor ya está sumado **dentro del MOI** de su categoría — ingresarlos además lo duplicaría |
+| **✓ SÍ** (verde) | Ítems con código Renova real (matcheados) | Ingresar código + cantidad en su categoría/operación correspondiente |
+| **✓ SÍ** (fila naranja) | "MANO DE OBRA INDUSTRIAL" (una por categoría) | Ingresar ese monto como MOI de la categoría, con su código de operación |
+| **VERIFICAR** (fondo crema) | Subfilas de material Impovar (códigos 248xx) | El sistema DC las agrega al ingresar el servicio de cañería; confirmar que el metraje coincida con el del Excel (misma regla: +5% redondeado a tira de 6 ML) |
+| **✗ EN MOI** (fila gris) | Ítems con código "PPTO-…" (libres, Renova $0) | ❌ **NO digitar**: su valor ya está sumado dentro del MOI de su categoría — ingresarlos además lo duplicaría |
 
 **Resultado esperado:** el DC generado en el sistema suma Renova + MOI = total del
 presupuesto del contratista → **cuadra exactamente con la oferta inicial**.

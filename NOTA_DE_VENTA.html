@@ -2810,7 +2810,8 @@ async function exportarAExcel() {
             { width: 11 }, // G TOTAL RENOVA — fijo
             { width: 11 }, // H TOTAL CONTRATISTA — fijo
             { width: 10 }, // I DIFERENCIA — fijo
-        ]; // ~115 unidades → cabe en carta vertical
+            { width: 10 }, // J DIGITAR EN DC — guía de digitación
+        ]; // ~125 unidades → cabe en carta vertical
 
         // ── FILA 1: LOGO + BANNER ─────────────────────
         sheet.getRow(1).height = 36;
@@ -2835,8 +2836,8 @@ async function exportarAExcel() {
             }
         } catch(e) { /* logo opcional */ }
 
-        // B1:I1 banner naranja
-        sheet.mergeCells('B1:I1');
+        // B1:J1 banner naranja
+        sheet.mergeCells('B1:J1');
         const banner = sheet.getCell('B1');
         banner.value = 'NOTA DE VENTA  ·  INSTALACIONES DE GAS  ·  ABASTIBLE';
         banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
@@ -2887,7 +2888,7 @@ async function exportarAExcel() {
                 lblR.alignment = { horizontal: 'right', vertical: 'middle' };
                 lblR.border = noBorder();
 
-                sheet.mergeCells(r, 6, r, 9);
+                sheet.mergeCells(r, 6, r, 10);
                 const valR = sheet.getCell(r, 6);
                 valR.value = vR;
                 valR.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
@@ -2899,7 +2900,7 @@ async function exportarAExcel() {
 
         // ── FILA 7: SEPARADOR NARANJA ──────────────────
         sheet.getRow(7).height = 4;
-        sheet.mergeCells('A7:I7');
+        sheet.mergeCells('A7:J7');
         const sep = sheet.getCell('A7');
         sep.fill = fillSolid(C.orange);
         sep.border = noBorder();
@@ -2908,7 +2909,7 @@ async function exportarAExcel() {
         sheet.getRow(8).height = 30;
         const headerVals = ['CATEGORÍA','CÓD.\nRENOVA','DESCRIPCIÓN',
             'PRECIO\nRENOVA','CANT.','PRECIO\nCONTRATISTA',
-            'TOTAL\nRENOVA','TOTAL\nCONTRATISTA','DIFERENCIA'];
+            'TOTAL\nRENOVA','TOTAL\nCONTRATISTA','DIFERENCIA','DIGITAR\nEN DC'];
         headerVals.forEach((h, i) => {
             const c = sheet.getCell(8, i + 1);
             c.value = h;
@@ -3036,6 +3037,29 @@ async function exportarAExcel() {
                     }
                 });
 
+                // Columna J — guía de digitación del DC:
+                //   ✓ SÍ     = ítem con código Renova real → se digita código + cantidad
+                //   ✗ EN MOI = ítem libre (PPTO-) sin match → NO se digita: su valor ya
+                //              está sumado en la fila MANO DE OBRA INDUSTRIAL de su categoría
+                //   —        = referencial del DC (no aplica digitación)
+                const esLibrePpto = item.esItemLibre || /^PPTO-/.test(String(item.codigo || ''));
+                const marcaDC = moiNoSuma ? '—' : (esLibrePpto ? '✗ EN MOI' : '✓ SÍ');
+                const cellDC = sheet.getCell(currentDataRow, 10);
+                cellDC.value = marcaDC;
+                cellDC.fill = fillSolid(esLibrePpto ? 'FFF3F4F6' : bg);
+                cellDC.border = gridBorder();
+                cellDC.alignment = { horizontal: 'center', vertical: 'middle' };
+                cellDC.font = { name: 'Arial', bold: true, size: 8,
+                    color: { argb: esLibrePpto ? 'FF6B7280' : (moiNoSuma ? 'FF9A3412' : 'FF15803D') } };
+                // Fila PPTO- atenuada en gris para que se distinga de un vistazo
+                if (esLibrePpto) {
+                    for (let cGris = 1; cGris <= 9; cGris++) {
+                        const cc = sheet.getCell(currentDataRow, cGris);
+                        cc.fill = fillSolid('FFF3F4F6');
+                        cc.font = { name: 'Arial', size: 9, italic: true, color: { argb: 'FF6B7280' } };
+                    }
+                }
+
                 // Subfila material Impovar
                 const matImpovar = items.find(i2 => i2.esMaterialImpovar && i2.idInstalacion === item.id);
                 if (matImpovar) {
@@ -3072,6 +3096,14 @@ async function exportarAExcel() {
                             cell.alignment = { horizontal: 'left', vertical: 'middle' };
                         }
                     });
+                    // Columna J: el sistema DC agrega el material al digitar la cañería;
+                    // solo verificar que el metraje coincida.
+                    const cellDCMat = sheet.getCell(currentDataRow, 10);
+                    cellDCMat.value = 'VERIFICAR';
+                    cellDCMat.fill = fillSolid(matBg);
+                    cellDCMat.border = gridBorder();
+                    cellDCMat.alignment = { horizontal: 'center', vertical: 'middle' };
+                    cellDCMat.font = { name: 'Arial', bold: true, size: 8, italic: true, color: { argb: 'FF92400E' } };
                 }
 
                 currentDataRow++;
@@ -3084,14 +3116,15 @@ async function exportarAExcel() {
                 const moiRow = sheet.getRow(currentDataRow);
                 moiRow.height = 16;
                 sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
-                [1,2,3,4,5,6,7,8,9].forEach(col => {
+                [1,2,3,4,5,6,7,8,9,10].forEach(col => {
                     const cell = sheet.getCell(currentDataRow, col);
                     if (col === 1) cell.value = 'MANO DE OBRA INDUSTRIAL';
                     else if (col === 7) { cell.value = money(moi); cell.numFmt = MONEY; }
+                    else if (col === 10) cell.value = '✓ SÍ';
                     cell.fill = fillSolid(C.orangeL);
                     cell.border = gridBorder();
                     cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'FFC2410C' } };
-                    cell.alignment = { horizontal: col === 1 ? 'center' : 'right', vertical: 'middle' };
+                    cell.alignment = { horizontal: (col === 1 || col === 10) ? 'center' : 'right', vertical: 'middle' };
                 });
                 currentDataRow++;
             }
@@ -3101,7 +3134,7 @@ async function exportarAExcel() {
             const subRow = sheet.getRow(currentDataRow);
             subRow.height = 17;
             sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
-            [1,2,3,4,5,6,7,8,9].forEach(col => {
+            [1,2,3,4,5,6,7,8,9,10].forEach(col => {
                 const cell = sheet.getCell(currentDataRow, col);
                 if (col === 1) cell.value = 'SUBTOTAL ' + cat;
                 else if (col === 7) { cell.value = money(totalCat); cell.numFmt = MONEY; }
@@ -3121,7 +3154,7 @@ async function exportarAExcel() {
         const totalRow = sheet.getRow(currentDataRow);
         totalRow.height = 18;
         sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
-        [1,2,3,4,5,6,7,8,9].forEach(col => {
+        [1,2,3,4,5,6,7,8,9,10].forEach(col => {
             const cell = sheet.getCell(currentDataRow, col);
             if (col === 1) cell.value = 'TOTAL DETALLE COMERCIAL';
             else if (col === 7) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
@@ -3137,7 +3170,7 @@ async function exportarAExcel() {
         const cuadreOk = Math.abs(totalRenovaGeneral - totalContratistaGeneral) < 5;
         const cuadreRow = sheet.getRow(currentDataRow);
         cuadreRow.height = 17;
-        sheet.mergeCells(currentDataRow, 1, currentDataRow, 9);
+        sheet.mergeCells(currentDataRow, 1, currentDataRow, 10);
         const cuadreCell = sheet.getCell(currentDataRow, 1);
         cuadreCell.value = cuadreOk ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO';
         cuadreCell.font = { name: 'Arial', bold: true, size: 10,
@@ -3147,9 +3180,19 @@ async function exportarAExcel() {
         cuadreCell.border = noBorder();
         currentDataRow++;
 
+        // ── LEYENDA COLUMNA "DIGITAR EN DC" ────────────
+        sheet.getRow(currentDataRow).height = 26;
+        sheet.mergeCells(currentDataRow, 1, currentDataRow, 10);
+        const leyCell = sheet.getCell(currentDataRow, 1);
+        leyCell.value = 'Guía DC — ✓ SÍ: digitar código y cantidad en el sistema DC · ✗ EN MOI: NO digitar, su valor ya está sumado en la fila MANO DE OBRA INDUSTRIAL de su categoría · VERIFICAR: material Impovar que el sistema agrega junto con la cañería (confirmar metraje).';
+        leyCell.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
+        leyCell.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        leyCell.border = noBorder();
+        currentDataRow++;
+
         // ── FRANJA NARANJA FINAL ───────────────────────
         sheet.getRow(currentDataRow).height = 4;
-        sheet.mergeCells(`A${currentDataRow}:I${currentDataRow}`);
+        sheet.mergeCells(`A${currentDataRow}:J${currentDataRow}`);
         sheet.getCell(`A${currentDataRow}`).fill = fillSolid(C.orange);
         sheet.getCell(`A${currentDataRow}`).border = noBorder();
 
@@ -3162,9 +3205,10 @@ async function exportarAExcel() {
                 ? Math.min(maxLen * 1.1 + 1, 32)
                 : Math.min(maxLen * 1.2 + 1.5, 20);
         });
-        // Fijos D,F,G,H,I = 11 (I=10)
+        // Fijos D,F,G,H = 11; I y J = 10
         [4,6,7,8].forEach(col => { sheet.getColumn(col).width = 11; });
         sheet.getColumn(9).width = 10;
+        sheet.getColumn(10).width = 10;
 
         // ── PÁGINA VERTICAL ───────────────────────────
         sheet.pageSetup.orientation = 'portrait';
@@ -3175,7 +3219,7 @@ async function exportarAExcel() {
             left: 0.4, right: 0.4, top: 0.4, bottom: 0.4,
             header: 0.1, footer: 0.1
         };
-        sheet.pageSetup.printArea = `A1:I${currentDataRow}`;
+        sheet.pageSetup.printArea = `A1:J${currentDataRow}`;
         sheet.views = [{ state: 'frozen', ySplit: 8 }];
         sheet.showGridLines = false;
 
