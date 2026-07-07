@@ -1771,7 +1771,7 @@ function renderizarNotaFinal() {
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion)
-                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
                 // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
                 const moiNoSuma = itemEsMOI && esCertificador;
                 const totalBase = item.precioBase * item.cantidad;
@@ -2065,7 +2065,7 @@ function renderizarComparativaContratista() {
             const esCertificador = item.esCertificador
                 || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                 || /sello\s*verde/i.test(item.descripcion)
-                || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
             // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
             const moiNoSuma = itemEsMOI && esCertificador;
             const totalRenova = item.precioBase * item.cantidad;
@@ -2610,7 +2610,7 @@ async function exportarComparativaContratistaExcel() {
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion || '')
-                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                    || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
                 // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
                 const moiNoSuma = itemEsMOI && esCertificador;
                 const totalRenova = money(item.precioBase) * money(item.cantidad);
@@ -2956,7 +2956,7 @@ async function exportarAExcel() {
                 const esCertificador = item.esCertificador
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion || '')
-                    || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
+                    || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
                 // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
                 const moiNoSuma = itemEsMOI && esCertificador;
                 const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
