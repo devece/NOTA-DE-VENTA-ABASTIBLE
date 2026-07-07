@@ -845,21 +845,23 @@ const CATS_COMPRA_DIRECTA = ["EQUIPOS COMPRA DIRECTA", "EQUIPO COMPRA DIRECTA", 
 // ============================================================
 
 // Extrae el diámetro normalizado de cualquier descripción de cañería.
-// Cubre todos los formatos presentes en la base de datos:
+// Cubre todos los formatos presentes en la base de datos y en presupuestos de
+// contratistas: comillas rectas/tipográficas ("), apóstrofes simples o dobles
+// ('' — común en Excel de contratistas, ej: 1 1/4''), o sin nada al final.
 //   Con comillas: "1/2\"", "1 1/4\"" / Sin comillas: "TIPO L 1", "Presión 1 1/2"
 function extraerDiametro(desc) {
     const patrones = [
-        { re: /2\s*1\/2[""\s]|2\s*1\/2$/i,  norm: '2 1/2"' },
-        { re: /1\s*1\/2[""\s]|1\s*1\/2$/i,  norm: '1 1/2"' },
-        { re: /1\s*1\/4[""\s]|1\s*1\/4$/i,  norm: '1 1/4"' },
-        { re: /3\/8[""\s]|3\/8$/i,           norm: '3/8"'   },
-        { re: /1\/2[""\s]|1\/2$/i,           norm: '1/2"'   },
-        { re: /3\/4[""\s]|3\/4$/i,           norm: '3/4"'   },
-        { re: /\b4[""\s]|\s4$/i,             norm: '4"'     },
-        { re: /\b3[""\s]|\s3$/i,             norm: '3"'     },
-        { re: /\b2[""\s]|\s2$/i,             norm: '2"'     },
-        { re: /\bL\s*1[""\s]|\bL\s*1$/i,     norm: '1"'     },
-        { re: /\b1[""\s]|\s1$/i,             norm: '1"'     },
+        { re: /2\s*1\/2[""''´′\s]|2\s*1\/2$/i,  norm: '2 1/2"' },
+        { re: /1\s*1\/2[""''´′\s]|1\s*1\/2$/i,  norm: '1 1/2"' },
+        { re: /1\s*1\/4[""''´′\s]|1\s*1\/4$/i,  norm: '1 1/4"' },
+        { re: /3\/8[""''´′\s]|3\/8$/i,           norm: '3/8"'   },
+        { re: /1\/2[""''´′\s]|1\/2$/i,           norm: '1/2"'   },
+        { re: /3\/4[""''´′\s]|3\/4$/i,           norm: '3/4"'   },
+        { re: /\b4[""''´′\s]|\s4$/i,             norm: '4"'     },
+        { re: /\b3[""''´′\s]|\s3$/i,             norm: '3"'     },
+        { re: /\b2[""''´′\s]|\s2$/i,             norm: '2"'     },
+        { re: /\bL\s*1[""''´′\s]|\bL\s*1$/i,     norm: '1"'     },
+        { re: /\b1[""''´′\s]|\s1$/i,             norm: '1"'     },
     ];
     for (const p of patrones) {
         if (p.re.test(desc)) return p.norm;
@@ -3609,7 +3611,9 @@ function _normalizarDescripcion(texto) {
 function _extraerPalabrasClave(textoNormalizado) {
     const stopwords = new Set(['de','del','en','para','con','por','la','el','los','las','un','una','y','a','e','o']);
     return textoNormalizado.split(' ')
-        .filter(p => p.length > 1 && !stopwords.has(p))
+        // Tokens numéricos de 1 carácter se conservan: un diámetro ("1") discrimina
+        // entre productos que de otro modo puntuarían igual.
+        .filter(p => (p.length > 1 || /\d/.test(p)) && !stopwords.has(p))
         .map(p => p.replace(/e?s$/, ''));
 }
 
@@ -3969,7 +3973,8 @@ function importarPptoContratista(event) {
                 // diámetro. El match es por diámetro + presión, no por texto literal, porque
                 // cada contratista escribe la descripción a su manera.
                 const diametro = extraerDiametro(pItem.descripcion);
-                const hablaDeCañeria = /CA[ÑN]ER[IÍ]A|INSTALACI[OÓ]N/.test(descUp);
+                // "Red GLP BP", "M.O red de gas", etc. también son instalación de cañería
+                const hablaDeCañeria = /CA[ÑN]ER[IÍ]A|INSTALACI[OÓ]N|RED\s+(DE\s+)?(GAS|GLP?\b|BP|MP|AP)/.test(descUp);
                 if (hablaDeCañeria && diametro) {
                     const matchCañeria = buscarInstalacionCañeriaPorDiametro(descUp, pItem.categoriaOrigen, diametro);
                     if (matchCañeria) {
@@ -4091,7 +4096,8 @@ function detectarCategoriaPpto(descUp, catOrigen) {
         return 'CONEXIONES';
     if (descUp.includes('NORMALI') || descUp.includes('CERTIFICAC') || descUp.includes('DECLARACI') || /\bSEC\b/.test(descUp))
         return 'NORMALIZACIONES';
-    if (descUp.includes('OBRA') || descUp.includes('BASE') || descUp.includes('RADIER') || descUp.includes('MURO') || descUp.includes('REJA'))
+    if (descUp.includes('OBRA') || descUp.includes('BASE') || descUp.includes('RADIER') || descUp.includes('MURO') || descUp.includes('REJA')
+        || descUp.includes('ESTANQUE') || descUp.includes('TANQUE') || descUp.includes('SUPERBALON') || descUp.includes('EXCAV') || descUp.includes('CELOS'))
         return 'OBRAS CIVILES';
     if (descUp.includes('DETEC') || descUp.includes('ANCLAJE') || descUp.includes('PROTECC') || descUp.includes('PINTURA') || descUp.includes('SOPORTE'))
         return 'SERVICIO CAÑERIAS';
@@ -4170,9 +4176,19 @@ function buscarInstalacionCañeriaPorDiametro(descUp, catOrigen, diametro) {
 // Match exacto (descripción normalizada idéntica) o difuso (similitud de
 // palabras clave, misma métrica que aplicarCotizacionAItems) contra los
 // productos Renova NO-cañería. Las cañerías solo se matchean por diámetro.
+// Cuenta cuántas palabras clave de desc1 aparecen en desc2 (misma lógica de
+// comparación que _similitudDescripciones, pero devolviendo el conteo).
+function _coincidenciasClave(desc1, desc2) {
+    const palabras1 = _extraerPalabrasClave(_normalizarDescripcion(desc1));
+    const palabras2 = _extraerPalabrasClave(_normalizarDescripcion(desc2));
+    const set2 = new Set(palabras2);
+    return palabras1.filter(p => set2.has(p) || [...set2].some(p2 => p.length >= 3 && p2.length >= 3 && (p.startsWith(p2) || p2.startsWith(p)))).length;
+}
+
 function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
     const UMBRAL = 0.55;
     const descNorm = _normalizarDescripcion(descripcion);
+    const diamItem = extraerDiametro(descripcion);
     let mejor = null;
     let mejorScore = 0;
 
@@ -4188,6 +4204,13 @@ function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
             if (_normalizarDescripcion(p.desc) === descNorm) {
                 return { prod: p, cat, score: 1, exacto: true };
             }
+            // Si ambos lados declaran diámetro, deben coincidir: evita que una
+            // "Válvula de corte 1''" matchee la válvula de 3/4" o 1/2".
+            const diamProd = p.diametro || extraerDiametro(p.desc);
+            if (diamItem && diamProd && diamItem !== diamProd) continue;
+            // Al menos 2 palabras clave en común: una sola palabra compartida
+            // ("Declaración..." / "DECLARACION TIPO A") no es evidencia de match.
+            if (_coincidenciasClave(descripcion, p.desc) < 2) continue;
             let score = _similitudDescripciones(descripcion, p.desc);
             if (cat === catPreferida) score += 0.1; // leve preferencia por la categoría detectada
             if (score > mejorScore) { mejorScore = score; mejor = { prod: p, cat, score }; }
