@@ -465,7 +465,7 @@
         <h1 class="text-2xl font-bold mt-3" style="color: var(--ctta-green-dark);">¿Cómo vas a cotizar?</h1>
         <button onclick="volverSeleccionPerfil()" class="text-sm mt-2" style="color: var(--aba-gray);">← Cambiar perfil</button>
     </div>
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
         <div class="selector-card" onclick="iniciarModoContratista('cotizacion_contratista')">
             <span class="sc-icon">📋</span>
             <div class="sc-title">Cotización Libre</div>
@@ -476,7 +476,13 @@
             <div class="sc-title">Cotizar sobre DC</div>
             <div class="sc-desc">Carga el PDF del Detalle Comercial que te envió Abastible. Los ítems se importan automáticamente para que agregues tus precios y completes la cotización.</div>
         </div>
+        <div class="selector-card" onclick="document.getElementById('importarPptoContratistaInput').click()">
+            <span class="sc-icon">📊</span>
+            <div class="sc-title">Convertir Ppto. a Nota de Venta</div>
+            <div class="sc-desc">Sube tu presupuesto Excel (.xls/.xlsx). Se importan los ítems vinculando automáticamente material Impovar y precios Renova de tu zona.</div>
+        </div>
     </div>
+    <input type="file" id="importarPptoContratistaInput" accept=".xlsx,.xls" style="display:none;" onchange="iniciarPptoContratista(event)">
 </div>
 
 <div id="pasoModoAbastible" class="max-w-screen-2xl mx-auto px-5 py-10 hidden">
@@ -1205,6 +1211,38 @@ function iniciarModoContratista(modo) {
     }
 }
 
+// Contratista sube su propio presupuesto Excel y lo convierte en Nota de Venta,
+// reutilizando importarPptoContratista (que ya vincula material Impovar y precios
+// Renova). A diferencia de "Cotizar sobre DC", acá no hay proyecto previo de
+// Abastible: los datos del proyecto se completan en el Paso 1 si faltan.
+function iniciarPptoContratista(event) {
+    const file = event.target.files[0];
+    event.target.value = '';
+    if (!file) return;
+
+    perfilActivo = 'contratista';
+    modoActivo = 'importar_ppto_contratista';
+    $('pasoModoContratista').classList.add('hidden');
+    iniciarAppConModo();
+
+    const procesarConBase = () => importarPptoContratista({ target: { files: [file], value: '' } });
+    if (Object.keys(dbProductos).length > 0) {
+        procesarConBase();
+        return;
+    }
+    showLoader("Cargando base de productos...");
+    cargarBaseDesdeServidor().then(ok => {
+        hideLoader();
+        if (perfilActivo !== 'contratista') return; // el usuario cambió de perfil mientras cargaba
+        if (ok && Object.keys(dbProductosMaestro).length > 0) {
+            aplicarFiltroContratista();
+            procesarConBase();
+        } else {
+            mostrarToast('No se pudo cargar la base de productos. Verifique que base_datos.xlsx esté en el sitio.', 'error');
+        }
+    });
+}
+
 function iniciarModoAbastible(modo) {
     perfilActivo = 'abastible';
     modoActivo = modo;
@@ -1253,7 +1291,8 @@ function iniciarAppConModo() {
         cargar_dc: 'Cargar Detalle Comercial',
         dc_cotizacion: 'Análisis DC + Cotización Contratista',
         cotizacion_contratista: 'Cotización · Instalaciones de Gas',
-        cotizacion_sobre_dc: 'Cotización sobre DC · Instalaciones de Gas'
+        cotizacion_sobre_dc: 'Cotización sobre DC · Instalaciones de Gas',
+        importar_ppto_contratista: 'Convertir Presupuesto · Instalaciones de Gas'
     };
     $('tituloApp').textContent = titulos[modoActivo] || 'Nota de Venta';
     $('tituloPaso1').textContent = esContratista ? '📋 Datos del Proyecto a Cotizar' : '📋 Datos del Proyecto';
@@ -3999,7 +4038,14 @@ function importarPptoContratista(event) {
                 }
                 mostrarFormularioCompletarProyecto(`${mensajeResultado}. Complete los datos del proyecto para continuar.`);
             } else {
-                renderizarNotaFinal();
+                // Abastible ve su vista interna con MOI/cuadre; el Contratista (importando
+                // su propio presupuesto) ve la vista limpia de Cotización, sin ese bloque.
+                if (perfilActivo === 'contratista') {
+                    contratistaSobreProyectoCargado = false;
+                    renderizarCotizacionContratista();
+                } else {
+                    renderizarNotaFinal();
+                }
                 mostrarSolo("paso3");
                 mostrarToast(mensajeResultado, libre > matched ? 'warn' : 'ok');
             }
@@ -4033,7 +4079,11 @@ function detectarCategoriaPpto(descUp, catOrigen) {
     if (catOrigenUp.includes('SERVICIO') || catOrigenUp.includes('MANO DE OBRA'))
         return 'SERVICIO COMPRA DIRECTA';
 
-    return categoriasList[0] || 'SERVICIO COMPRA DIRECTA';
+    // Fallback: nunca una categoría de precio fijo (CATS_SIN_CTTA/cañerías), porque ahí el
+    // precio del ítem se fuerza a precioBase (0 para un ítem sin match Renova) y el valor
+    // que cotizó el contratista quedaría silenciosamente en $0.
+    const primeraNoFija = categoriasList.find(c => !CATS_SIN_CTTA.includes(c));
+    return primeraNoFija || 'SERVICIO COMPRA DIRECTA';
 }
 
 // ============================================================
