@@ -3430,19 +3430,30 @@ function nuevaNota() {
 
 function guardarProyecto() {
     if(!$("nombreProyecto").value.trim()) { mostrarToast("Ingrese un nombre de proyecto", "warn"); return; }
-    const data = { 
-        proyecto: $("nombreProyecto").value, 
-        cliente: $("nombreCliente").value, 
-        rut: $("rutCliente").value, 
-        direccion: $("direccion").value, 
-        ciudad: $("ciudad").value, 
-        telefono: $("telefono").value, 
-        fecha: $("fecha").value, 
-        vencimiento: $("vencimiento").value, 
-        centroActivo: centroActivo, 
-        itemsNota: itemsNota, 
-        fechaGuardado: new Date().toISOString(), 
-        version: "1.0" 
+    // Cliente y Centro son obligatorios para guardar: un JSON sin estos datos obliga
+    // a quien lo abra después (p.ej. Abastible al analizar la cotización) a
+    // completarlos a mano antes de ver el análisis. Exigirlos acá garantiza que el
+    // JSON siempre cargue directo al Paso 3.
+    // Nota: en Paso 1 el usuario puede haber elegido centro en el selector sin haber
+    // presionado Continuar aún (centroActivo se asigna en irPaso2) — se acepta ese valor.
+    const centroParaGuardar = centroActivo || $("centro").value;
+    if (!$("nombreCliente").value.trim() || !centroParaGuardar) {
+        mostrarFormularioCompletarProyecto("Complete Cliente y Centro antes de guardar: así el archivo abrirá directo en el análisis.");
+        return;
+    }
+    const data = {
+        proyecto: $("nombreProyecto").value,
+        cliente: $("nombreCliente").value,
+        rut: $("rutCliente").value,
+        direccion: $("direccion").value,
+        ciudad: $("ciudad").value,
+        telefono: $("telefono").value,
+        fecha: $("fecha").value,
+        vencimiento: $("vencimiento").value,
+        centroActivo: centroParaGuardar,
+        itemsNota: itemsNota,
+        fechaGuardado: new Date().toISOString(),
+        version: "1.0"
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }); 
     const link = document.createElement("a"); 
@@ -3907,8 +3918,12 @@ function importarPptoContratista(event) {
             const idxDesc   = header.findIndex(h => h.includes('DESCRIP'));
             const idxCant   = header.findIndex(h => h.includes('CANT') || h.includes('QTY'));
             const idxUn     = header.findIndex(h => h.includes('UNID') || h.includes('U.M') || h === 'UN' || h === 'UM');
-            const idxPUnit  = header.findIndex(h => h.includes('UNIT') || h.includes('P.U') || h.includes('VR. UNIT'));
             const idxPTotal = header.findIndex(h => h.includes('TOTAL') || h.includes('SUBTOTAL'));
+            // Precio unitario: primero encabezados explícitos (UNIT/P.U); si no hay,
+            // aceptar "PRECIO" o "VALOR" a secas siempre que no sea la columna de total.
+            let idxPUnit = header.findIndex(h => h.includes('UNIT') || h.includes('P.U') || h.includes('VR. UNIT'));
+            if (idxPUnit === -1) idxPUnit = header.findIndex((h, i) => h.includes('PRECIO') && i !== idxPTotal);
+            if (idxPUnit === -1) idxPUnit = header.findIndex((h, i) => h.includes('VALOR') && i !== idxPTotal);
             const idxCat    = header.findIndex(h => h.includes('CATEG') || h.includes('PARTIDA') || h.includes('ACTIVIDAD'));
 
             if (idxDesc === -1) {
