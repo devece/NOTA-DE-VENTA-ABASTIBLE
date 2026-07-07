@@ -3809,12 +3809,17 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
                 if (prodBase.diametro) diametroBase = prodBase.diametro;
             }
         }
-        // Si no encontró en la base: los ítems que vienen de un DC (desdeDetalle) usan códigos
-        // de operación SAP (0290, 0340...) que no existen en el catálogo Renova, pero su
-        // precioBase original YA es el precio Renova correcto (nunca lo pisa el contratista,
-        // ver cambiarPrecioComparativa). Para esos, se respeta ese valor en vez de colapsar
-        // al precio del contratista. Solo un ítem libre real (sin origen DC) usa precioCtta.
-        if (!precioRenova) precioRenova = item.desdeDetalle ? (item.precioBase || precioCtta) : precioCtta;
+        // Si no encontró en la base:
+        // - Ítem libre (esItemLibre): se respeta su precioBase original. Para los que
+        //   vienen de "Convertir Ppto." ese valor es 0 a propósito — así su precio
+        //   contratista completo queda como diferencia y lo absorbe el MOI al cuadrar.
+        //   Para los creados en Cotización Libre, precioBase ya es el precio ingresado.
+        // - Ítem de DC (desdeDetalle): su precioBase original YA es el Renova del DC.
+        // - Otro caso: usar precioCtta como referencia (comportamiento histórico).
+        if (!precioRenova) {
+            if (item.esItemLibre) precioRenova = item.precioBase || 0;
+            else precioRenova = item.desdeDetalle ? (item.precioBase || precioCtta) : precioCtta;
+        }
 
         return {
             ...item,
@@ -3953,82 +3958,93 @@ function importarPptoContratista(event) {
 
             // Matchear con base de datos
             itemsNota = [];
-            const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
-            let matched = 0, libre = 0;
+            let matchedCañeria = 0, matchedExacto = 0, matchedFuzzy = 0, libre = 0;
 
             itemsPpto.forEach(pItem => {
                 const descUp = pItem.descripcion.toUpperCase();
-                let productoEncontrado = null;
-                let categoriaMatch = '';
+                const id = generarUUID();
 
-                // Buscar en todas las categorías de dbProductos
-                for (const [cat, productos] of Object.entries(dbProductos)) {
-                    const prod = productos.find(p =>
-                        !p.esImpovar &&
-                        (!p.centro || p.centro === centroActivo) &&
-                        (p.desc.toUpperCase() === descUp ||
-                         descUp.includes(p.desc.toUpperCase()) ||
-                         p.desc.toUpperCase().includes(descUp))
-                    );
-                    if (prod) {
-                        productoEncontrado = prod;
-                        categoriaMatch = cat;
-                        break;
+                // ── ETAPA 1: ¿Es una instalación de cañería? Solo entra a las categorías
+                // CAÑERIAS AP/MP/BP si la descripción habla de cañería/instalación Y trae
+                // diámetro. El match es por diámetro + presión, no por texto literal, porque
+                // cada contratista escribe la descripción a su manera.
+                const diametro = extraerDiametro(pItem.descripcion);
+                const hablaDeCañeria = /CA[ÑN]ER[IÍ]A|INSTALACI[OÓ]N/.test(descUp);
+                if (hablaDeCañeria && diametro) {
+                    const matchCañeria = buscarInstalacionCañeriaPorDiametro(descUp, pItem.categoriaOrigen, diametro);
+                    if (matchCañeria) {
+                        matchedCañeria++;
+                        const precioRenova = obtenerPrecioBase(matchCañeria.prod, centroActivo);
+                        const nuevoItem = {
+                            id,
+                            codigo: matchCañeria.prod.cod,
+                            descripcion: matchCañeria.prod.desc,
+                            categoria: matchCañeria.cat,
+                            unidad: matchCañeria.prod.um,
+                            diametro: matchCañeria.prod.diametro || diametro,
+                            cantidad: pItem.cantidad,
+                            precioBase: precioRenova,
+                            precioCTTA: precioRenova, // cañerías siempre a precio Renova (precio fijo)
+                            centro: centroActivo,
+                            tieneCotizacion: true,
+                            descripcionOriginalPpto: pItem.descripcion
+                        };
+                        itemsNota.push(nuevoItem);
+                        const material = obtenerMaterialCañeria(nuevoItem);
+                        if (material) itemsNota.push(material);
+                        return;
                     }
+                    // Habla de cañería pero no hay match por diámetro: ítem libre en
+                    // SERVICIO CAÑERIAS (nunca en CAÑERIAS AP/MP/BP, que son de precio fijo
+                    // y anularían el precio del contratista).
+                    libre++;
+                    itemsNota.push(crearItemLibrePpto(id, pItem, 'SERVICIO CAÑERIAS'));
+                    return;
                 }
 
-                const id = generarUUID();
-                if (productoEncontrado) {
-                    matched++;
-                    const precioRenova = productoEncontrado.precios?.default || 0;
-                    const nuevoItem = {
+                // ── ETAPA 2: match exacto (descripción normalizada idéntica) o difuso
+                // (similitud de palabras clave) contra productos Renova NO-cañería.
+                const catObjetivo = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
+                const match = buscarProductoRenovaFuzzy(pItem.descripcion, catObjetivo);
+                if (match) {
+                    if (match.exacto) matchedExacto++; else matchedFuzzy++;
+                    const precioRenova = obtenerPrecioBase(match.prod, centroActivo);
+                    itemsNota.push({
                         id,
-                        codigo: productoEncontrado.cod,
-                        descripcion: productoEncontrado.desc,
-                        categoria: categoriaMatch,
-                        unidad: productoEncontrado.um,
-                        diametro: productoEncontrado.diametro || null,
+                        codigo: match.prod.cod,
+                        descripcion: match.prod.desc,
+                        categoria: match.cat,
+                        unidad: match.prod.um,
+                        diametro: match.prod.diametro || null,
                         cantidad: pItem.cantidad,
                         precioBase: precioRenova,
                         precioCTTA: pItem.precio || precioRenova,
                         centro: centroActivo,
-                        tieneCotizacion: pItem.precio > 0
-                    };
-                    itemsNota.push(nuevoItem);
-
-                    // Si es cañería, agregar material Impovar
-                    if (catsCañeria.includes(categoriaMatch)) {
-                        const material = obtenerMaterialCañeria(nuevoItem);
-                        if (material) {
-                            itemsNota.push(material);
-                        }
-                    }
-                } else {
-                    libre++;
-                    // Intentar detectar categoría por descripción
-                    let catDetectada = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
-                    // Sin match en Renova: precioBase queda en 0 (no hay precio oficial para
-                    // comparar). Así el cuadre de la categoría suma todo el precio del
-                    // contratista como MOI, en vez de anularlo igualándolo al precio Renova.
-                    itemsNota.push({
-                        id,
-                        codigo: 'PPTO-' + id.slice(0, 6),
-                        descripcion: pItem.descripcion,
-                        categoria: catDetectada,
-                        unidad: pItem.unidad || 'ST',
-                        cantidad: pItem.cantidad,
-                        precioBase: 0,
-                        precioCTTA: pItem.precio,
-                        centro: centroActivo,
-                        tieneCotizacion: true,
-                        esItemLibre: true
+                        tieneCotizacion: pItem.precio > 0,
+                        matchFuzzy: !match.exacto,
+                        matchScore: Math.round(match.score * 100),
+                        descripcionOriginalPpto: pItem.descripcion
                     });
+                    return;
                 }
+
+                // ── ETAPA 3: sin match → ítem libre con precioBase 0. Su valor completo
+                // queda como diferencia de la categoría (la absorbe el MOI al cuadrar).
+                libre++;
+                const catLibre = CATS_SIN_CTTA.includes(catObjetivo) ? 'SERVICIO CAÑERIAS' : catObjetivo;
+                itemsNota.push(crearItemLibrePpto(id, pItem, catLibre));
             });
 
             hideLoader();
 
-            const mensajeResultado = `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} coincidieron con Renova, ${libre} como ítem libre`;
+            const matched = matchedCañeria + matchedExacto + matchedFuzzy;
+            const detalleMatch = [];
+            if (matchedCañeria) detalleMatch.push(`${matchedCañeria} cañerías por diámetro`);
+            if (matchedExacto) detalleMatch.push(`${matchedExacto} exactos`);
+            if (matchedFuzzy) detalleMatch.push(`${matchedFuzzy} por similitud`);
+            const mensajeResultado = `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} con Renova` +
+                (detalleMatch.length ? ` (${detalleMatch.join(' + ')})` : '') +
+                `, ${libre} sin match (quedan en $0 Renova y cuadran vía MOI)`;
 
             if (requiereCompletarDatosProyecto()) {
                 // El Excel de presupuesto no trae nombre de proyecto: se propone el nombre
@@ -4062,19 +4078,22 @@ function importarPptoContratista(event) {
 function detectarCategoriaPpto(descUp, catOrigen) {
     const catOrigenUp = (catOrigen || '').toUpperCase();
 
-    if (descUp.includes('ALTA PRESI') || catOrigenUp.includes('ALTA PRESI') || catOrigenUp.includes('AP'))
+    // AP/MP/BP con límite de palabra (\b): antes se usaba includes('MP')/includes('AP'),
+    // que hacía caer "LIMPIEZA" en CAÑERIAS MP o "CAPITULO" en CAÑERIAS AP — categorías
+    // de precio fijo donde el precio del contratista se anula.
+    if (/ALTA\s*PRESI/.test(descUp) || /ALTA\s*PRESI|\bAP\b/.test(catOrigenUp))
         return 'CAÑERIAS AP';
-    if (descUp.includes('MEDIA') || descUp.includes('BAJA PRESI') || catOrigenUp.includes('MEDIA') || catOrigenUp.includes('MP'))
+    if (/MEDIA\s*PRESI|BAJA\s*PRESI/.test(descUp) || /MEDIA|\bMP\b/.test(catOrigenUp))
         return 'CAÑERIAS MP';
-    if (catOrigenUp.includes('BP'))
+    if (/BAJA|\bBP\b/.test(catOrigenUp))
         return 'CAÑERIAS BP';
-    if (descUp.includes('CONEXI') || descUp.includes('COCINA') || descUp.includes('CALEFONT') || descUp.includes('LLAVE'))
+    if (descUp.includes('CONEXI') || descUp.includes('COCINA') || descUp.includes('CALEFONT') || descUp.includes('LLAVE') || descUp.includes('VALV'))
         return 'CONEXIONES';
-    if (descUp.includes('NORMALI') || descUp.includes('CERTIFICAC') || descUp.includes('DECLARACI') || descUp.includes('SEC'))
+    if (descUp.includes('NORMALI') || descUp.includes('CERTIFICAC') || descUp.includes('DECLARACI') || /\bSEC\b/.test(descUp))
         return 'NORMALIZACIONES';
-    if (descUp.includes('OBRA') || descUp.includes('BASE') || descUp.includes('RADIER') || descUp.includes('MURO'))
+    if (descUp.includes('OBRA') || descUp.includes('BASE') || descUp.includes('RADIER') || descUp.includes('MURO') || descUp.includes('REJA'))
         return 'OBRAS CIVILES';
-    if (descUp.includes('DETEC') || descUp.includes('ANCLAJE') || descUp.includes('PROTECC') || descUp.includes('PINTURA'))
+    if (descUp.includes('DETEC') || descUp.includes('ANCLAJE') || descUp.includes('PROTECC') || descUp.includes('PINTURA') || descUp.includes('SOPORTE'))
         return 'SERVICIO CAÑERIAS';
     if (catOrigenUp.includes('SERVICIO') || catOrigenUp.includes('MANO DE OBRA'))
         return 'SERVICIO COMPRA DIRECTA';
@@ -4084,6 +4103,97 @@ function detectarCategoriaPpto(descUp, catOrigen) {
     // que cotizó el contratista quedaría silenciosamente en $0.
     const primeraNoFija = categoriasList.find(c => !CATS_SIN_CTTA.includes(c));
     return primeraNoFija || 'SERVICIO COMPRA DIRECTA';
+}
+
+// ── Auxiliares del matching de "Convertir Ppto. Contratista" ──────────────
+
+// Ítem libre de presupuesto sin match Renova: precioBase 0 para que su valor
+// completo aparezca como diferencia (MOI) al cuadrar la categoría.
+function crearItemLibrePpto(id, pItem, categoria) {
+    return {
+        id,
+        codigo: 'PPTO-' + id.slice(0, 6),
+        descripcion: pItem.descripcion,
+        categoria,
+        unidad: pItem.unidad || 'ST',
+        cantidad: pItem.cantidad,
+        precioBase: 0,
+        precioCTTA: pItem.precio,
+        centro: centroActivo,
+        tieneCotizacion: pItem.precio > 0,
+        esItemLibre: true
+    };
+}
+
+// Busca la instalación de cañería Renova por DIÁMETRO + familia de presión.
+// El texto del contratista solo orienta la presión (AP / MP / BP); el match
+// real es el diámetro, porque las descripciones nunca coinciden literal.
+// Nota de centro: si aún no hay centro elegido (flujo contratista convierte
+// antes del Paso 1), se acepta cualquier centro y el precio se refresca en
+// irPaso2 cuando el centro quede definido.
+function buscarInstalacionCañeriaPorDiametro(descUp, catOrigen, diametro) {
+    const texto = descUp + ' ' + String(catOrigen || '').toUpperCase();
+    const preferidas = [];
+    if (/ALTA\s*PRESI|\bAP\b/.test(texto)) preferidas.push('CAÑERIAS AP');
+    if (/MEDIA|\bMP\b/.test(texto)) preferidas.push('CAÑERIAS MP');
+    if (/BAJA|\bBP\b/.test(texto)) preferidas.push('CAÑERIAS BP');
+    const cats = [...preferidas, ...CATS_SIN_CTTA.filter(c => !preferidas.includes(c))];
+    // Líneas de producto especiales (Protegida, Rollo): solo son candidatas si el
+    // contratista las menciona; si no, se prefiere la línea estándar Media/Baja/Alta.
+    const pideProtegida = /PROTEGID/.test(descUp);
+    const pideRollo = /ROLLO/.test(descUp);
+
+    for (const cat of cats) {
+        // Todos los candidatos del diámetro en esta categoría; se elige el de mejor
+        // similitud de texto con lo que escribió el contratista.
+        const candidatos = (dbProductos[cat] || []).filter(p =>
+            !p.esImpovar &&
+            (!centroActivo || !p.centro || p.centro === centroActivo) &&
+            (p.diametro || extraerDiametro(p.desc)) === diametro &&
+            (pideProtegida || !/PROTEGID/i.test(p.desc)) &&
+            (pideRollo || !/ROLLO/i.test(p.desc))
+        );
+        if (candidatos.length === 1) return { prod: candidatos[0], cat };
+        if (candidatos.length > 1) {
+            let mejor = candidatos[0];
+            let mejorScore = -1;
+            candidatos.forEach(p => {
+                const s = _similitudDescripciones(descUp, p.desc);
+                if (s > mejorScore) { mejorScore = s; mejor = p; }
+            });
+            return { prod: mejor, cat };
+        }
+    }
+    return null;
+}
+
+// Match exacto (descripción normalizada idéntica) o difuso (similitud de
+// palabras clave, misma métrica que aplicarCotizacionAItems) contra los
+// productos Renova NO-cañería. Las cañerías solo se matchean por diámetro.
+function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
+    const UMBRAL = 0.55;
+    const descNorm = _normalizarDescripcion(descripcion);
+    let mejor = null;
+    let mejorScore = 0;
+
+    for (const [cat, productos] of Object.entries(dbProductos)) {
+        if (CATS_SIN_CTTA.includes(cat)) continue;
+        for (const p of productos) {
+            if (p.esImpovar) continue;
+            if (centroActivo && p.centro && p.centro !== centroActivo) continue;
+            // MANO OBRA INDUSTRIAL nunca es blanco de matching difuso: un ítem del
+            // contratista que sea pura mano de obra debe quedar libre (base $0) para
+            // que su valor cuadre vía MOI, no colgarse del precio/hora del catálogo.
+            if (/^MANO\s+(DE\s+)?OBRA\s+INDUSTRIAL/i.test(p.desc)) continue;
+            if (_normalizarDescripcion(p.desc) === descNorm) {
+                return { prod: p, cat, score: 1, exacto: true };
+            }
+            let score = _similitudDescripciones(descripcion, p.desc);
+            if (cat === catPreferida) score += 0.1; // leve preferencia por la categoría detectada
+            if (score > mejorScore) { mejorScore = score; mejor = { prod: p, cat, score }; }
+        }
+    }
+    return (mejor && mejorScore >= UMBRAL) ? { ...mejor, score: Math.min(mejor.score, 1), exacto: false } : null;
 }
 
 // ============================================================
@@ -4292,8 +4402,21 @@ function irPaso2() {
     const ciudad = $("ciudad").value.trim();
     centroActivo = centro;
     // Ítems importados antes de conocer el centro (p.ej. desde un presupuesto de
-    // contratista) quedan sin centro asignado; se completan ahora que ya está definido.
-    itemsNota.forEach(it => { if (!it.centro) it.centro = centroActivo; });
+    // contratista) quedan sin centro asignado; se completan ahora que ya está definido,
+    // y su precio Renova se refresca al del centro elegido (el match inicial pudo
+    // haber tomado el precio de otro centro al no haber ninguno seleccionado).
+    itemsNota.forEach(it => {
+        if (it.centro) return;
+        it.centro = centroActivo;
+        if (it.esMaterialImpovar || it.esItemLibre || !it.codigo) return;
+        const prod = (dbProductos[it.categoria] || []).find(p =>
+            !p.esImpovar && p.cod === it.codigo && (!p.centro || p.centro === centroActivo)
+        );
+        if (prod) {
+            it.precioBase = obtenerPrecioBase(prod, centroActivo);
+            if (CATS_SIN_CTTA.includes(it.categoria)) it.precioCTTA = it.precioBase;
+        }
+    });
     $("resumenProyecto").textContent = proyecto;
     $("resumenCliente").textContent = cliente;
     $("resumenCentro").textContent = centro;
