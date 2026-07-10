@@ -730,6 +730,7 @@
                 <button onclick="volverPaso2()" class="px-5 py-2.5 rounded-lg text-sm font-semibold" style="background: var(--aba-silver); color: var(--aba-gray);">← Volver a productos</button>
                 <div class="flex gap-3">
                     <button onclick="exportarAExcel()" class="btn-secondary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">📊 Exportar a Excel</button>
+                    <button onclick="exportarDCFinalExcel()" id="btnGenerarDC" class="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style="background:#7C3AED; color:white;">📄 Generar DC</button>
                     <button onclick="guardarNota()" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">💾 Guardar Nota</button>
                     <button onclick="imprimirNota()" class="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style="background: var(--aba-blue); color: white;">🖨️ Imprimir</button>
                 </div>
@@ -1283,6 +1284,8 @@ function iniciarAppConModo() {
     $('labelCargarDC').style.display = (modoActivo === 'cargar_dc') ? 'inline-block' : 'none';
     $('labelCargarCotizacionContratista').style.display = (modoActivo === 'dc_cotizacion') ? 'inline-block' : 'none';
     $('btnCargarExcel').style.display = esContratista ? 'none' : '';
+    // El DC final solo lo genera Abastible (contiene MOI y estructura SAP interna)
+    if ($('btnGenerarDC')) $('btnGenerarDC').style.display = esContratista ? 'none' : '';
     $('estadoBaseExcel').classList.toggle('hidden', true);
     $('accionesProyecto').style.display = (modoActivo === 'nota_venta' || modoActivo === 'dc_cotizacion') ? 'flex' : (esContratista ? 'flex' : 'none');
     $('btnHistorialHeader').style.display = esContratista ? 'none' : '';
@@ -1874,7 +1877,7 @@ function renderizarNotaFinal() {
             html += `<tr class="subtotal-row"><td colspan="${colspan}" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td class="text-right"></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${moi !== 0 ? fmtMoneyColor(moi) : fmtMoney(0)}</strong></td><td></tr>`;
             
             if (moi !== 0) {
-                html += `<tr class="moi-row"><td colspan="${colspan}" class="text-right"><strong>🛠️ MANO DE OBRA INDUSTRIAL</strong></td><td></td><td></td><td></td><td><strong>${fmtMoney(moi, '+$')}</strong></td><td></tr>`;
+                html += `<tr class="moi-row"><td colspan="${colspan}" class="text-right"><strong>🛠️ MANO DE OBRA INDUSTRIAL</strong></td><td></td><td></td><td></td><td><strong>${fmtMoneyColor(moi)}</strong></td><td></tr>`;
             }
             
             html += `<tr class="total-cat-row"><td colspan="${colspan}" class="text-right"><strong>TOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td></td><td><strong>${fmtMoney(totalCat)}</strong></td><td></td><td></tr>`;
@@ -3241,6 +3244,315 @@ async function exportarAExcel() {
 }
 
 // ============================================================
+// EXCEL - DC FINAL (Paso A)
+// Genera el Detalle Comercial como documento de salida con estructura
+// SAP, desde el análisis actual. Reglas:
+//  - Ítems con código Renova real → líneas del DC con operación sugerida
+//  - Ítems libres (PPTO-) NO se listan: su valor queda dentro de la línea
+//    MANO OBRA INDUSTRIAL de su categoría (así el DC cuadra con el ppto)
+//  - Material Impovar como subfila de su cañería, con proveedor IMPOVAR
+//  - Certificador: solo si viene en los ítems; si no, se deja indicado
+//    para agregarlo manualmente (regla de negocio: nunca automático)
+// ============================================================
+
+// Operación SAP sugerida según categoría + descripción. Se deja vacía
+// cuando no es inequívoca — el comercial la completa en el sistema DC.
+function operacionSAPParaItem(cat, descUp, esMOI) {
+    if (cat === 'SERVICIO CAÑERIAS') {
+        if (esMOI) return '0290';
+        if (descUp.includes('DETECC')) return '0280';
+        return '0300';
+    }
+    if (cat === 'CONEXIONES') {
+        if (descUp.includes('REGULADOR')) return '0330';
+        return '0340';
+    }
+    if (cat === 'OBRAS CIVILES') {
+        if (esMOI) return '0210';
+        if (descUp.includes('BASE')) return '0170';
+        if (descUp.includes('CELOS')) return '0180';
+        if (descUp.includes('ANCLAJE')) return '0190';
+        if (descUp.includes('REJA')) return '0210';
+        return '';
+    }
+    if (cat === 'NORMALIZACIONES') {
+        if (/INSPECCI[OÓ]N\s+REDUCIDA/.test(descUp)) return '0380';
+        if (/INSPECCI[OÓ]N\s+PERI|SELLO\s*VERDE/.test(descUp)) return '0400';
+        if (descUp.includes('PLANO') || descUp.includes('CERTIFIC')) return '0390';
+        return '';
+    }
+    return '';
+}
+
+async function exportarDCFinalExcel() {
+    if (perfilActivo === 'contratista') { mostrarToast('El DC final se genera desde el perfil Abastible', 'warn'); return; }
+    if (itemsNota.length === 0) { mostrarToast('No hay ítems para generar el DC', 'warn'); return; }
+    if (typeof ExcelJS === 'undefined') { mostrarToast('Librería ExcelJS no cargada', 'error'); return; }
+
+    showLoader('Generando DC...');
+    try {
+        const workbook = new ExcelJS.Workbook();
+        const sheet = workbook.addWorksheet('DC');
+
+        const C = {
+            morado: 'FF5B21B6', moradoL: 'FFEDE9FE',
+            blue: 'FF001489', blueL: 'FFEBEEF9',
+            orange: 'FFFE5100', orangeL: 'FFFFF3EE',
+            white: 'FFFFFFFF', silver: 'FFF5F5F5', gray: 'FF54585A',
+            gridLine: 'FFD9D9D9', green: 'FF16A34A', greenL: 'FFE8F5E9', red: 'FFDC2626'
+        };
+        const MONEY = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+        const money = v => { const n = Number(v); return isNaN(n) ? 0 : n; };
+        const gridBorder = () => { const s = { style: 'thin', color: { argb: C.gridLine } }; return { top: s, bottom: s, left: s, right: s }; };
+        const fillSolid = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+
+        sheet.columns = [
+            { width: 10 }, { width: 12 }, { width: 38 }, { width: 7 },
+            { width: 9 }, { width: 13 }, { width: 14 }, { width: 20 }
+        ];
+
+        let r = 1;
+        // ── TÍTULO ──
+        sheet.getRow(r).height = 30;
+        sheet.mergeCells(r, 1, r, 8);
+        const tit = sheet.getCell(r, 1);
+        tit.value = 'DETALLE COMERCIAL (GENERADO DESDE ANÁLISIS)';
+        tit.font = { name: 'Arial', bold: true, size: 13, color: { argb: C.white } };
+        tit.fill = fillSolid(C.morado);
+        tit.alignment = { horizontal: 'center', vertical: 'middle' };
+        r++;
+
+        // ── IDENTIFICACIÓN OBRA ──
+        const datosObra = [
+            ['PROYECTO', $('nombreProyecto').value || '-', 'CLIENTE', $('nombreCliente').value || '-'],
+            ['DIRECCIÓN', $('direccion').value || '-', 'CIUDAD', $('ciudad').value || '-'],
+            ['CENTRO', centroActivo || '-', 'FECHA', $('fecha').value || '-']
+        ];
+        datosObra.forEach(([k1, v1, k2, v2]) => {
+            sheet.getRow(r).height = 16;
+            const l1 = sheet.getCell(r, 1); l1.value = k1;
+            l1.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            l1.fill = fillSolid(C.silver); l1.alignment = { horizontal: 'right', vertical: 'middle' };
+            sheet.mergeCells(r, 2, r, 4);
+            const c1 = sheet.getCell(r, 2); c1.value = v1;
+            c1.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            const l2 = sheet.getCell(r, 5); l2.value = k2;
+            l2.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            l2.fill = fillSolid(C.silver); l2.alignment = { horizontal: 'right', vertical: 'middle' };
+            sheet.mergeCells(r, 6, r, 8);
+            const c2 = sheet.getCell(r, 6); c2.value = v2;
+            c2.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            r++;
+        });
+        r++;
+
+        // ── AGRUPAR Y CALCULAR ──
+        const esLibrePpto = it => it.esItemLibre || /^PPTO-/.test(String(it.codigo || ''));
+        const grupos = {};
+        itemsNota.forEach(it => {
+            if (it.esMaterialImpovar) return;
+            if (!grupos[it.categoria]) grupos[it.categoria] = [];
+            grupos[it.categoria].push(it);
+        });
+        const ordenDC = ['CAÑERIAS MP', 'CAÑERIAS BP', 'SERVICIO CAÑERIAS', 'CAÑERIAS AP', 'CONEXIONES',
+            'OBRAS CIVILES', 'NORMALIZACIONES', 'EQUIPOS COMPRA DIRECTA', 'EQUIPO COMPRA DIRECTA', 'SERVICIO COMPRA DIRECTA'];
+        const catsPresentes = [
+            ...ordenDC.filter(c => grupos[c] && grupos[c].length),
+            ...Object.keys(grupos).filter(c => !ordenDC.includes(c))
+        ];
+
+        // Cálculo por categoría: líneas (código real) + material + MOI que absorbe libres/diferencias
+        const resumenCats = [];
+        for (const cat of catsPresentes) {
+            const items = grupos[cat];
+            const esSCD = CATS_COMPRA_DIRECTA.includes(cat);
+            const esCañeria = CATS_SIN_CTTA.includes(cat);
+            let renovaLineas = 0, contratistaCat = 0;
+            const lineas = [];
+            for (const it of items) {
+                const itEsMOI = it.esMOI || /mano.*obra.*industrial/i.test(it.descripcion || '');
+                const vfRenova = money(it.precioBase) * money(it.cantidad);
+                const precioCtta = esCañeria ? it.precioBase
+                    : ((it.precioCTTA !== null && it.precioCTTA !== undefined && it.precioCTTA > 0) ? it.precioCTTA : it.precioBase);
+                const vfContratista = money(precioCtta) * money(it.cantidad);
+                contratistaCat += esSCD ? vfRenova || vfContratista : vfContratista;
+                if (esLibrePpto(it)) continue; // va dentro del MOI
+                renovaLineas += vfRenova;
+                lineas.push({ it, itEsMOI, vfRenova });
+                const mat = itemsNota.find(m => m.esMaterialImpovar && m.idInstalacion === it.id);
+                if (mat) {
+                    const vfMat = money(mat.precioBase) * money(mat.cantidad);
+                    renovaLineas += vfMat; contratistaCat += vfMat;
+                    lineas.push({ it: mat, esMaterial: true, vfRenova: vfMat });
+                }
+            }
+            const moi = esSCD || esCañeria ? 0 : Math.round(contratistaCat - renovaLineas);
+            resumenCats.push({ cat, lineas, moi, total: renovaLineas + moi, esSCD });
+        }
+        const subTotalSOLPED = resumenCats.reduce((s, c) => s + c.total, 0);
+
+        // ── VALORES TOTALES ──
+        sheet.getRow(r).height = 18;
+        sheet.mergeCells(r, 1, r, 8);
+        const vtT = sheet.getCell(r, 1);
+        vtT.value = 'VALORES TOTALES';
+        vtT.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
+        vtT.fill = fillSolid(C.gray); vtT.alignment = { horizontal: 'center', vertical: 'middle' };
+        r++;
+        resumenCats.forEach(rc => {
+            sheet.mergeCells(r, 1, r, 5);
+            const lbl = sheet.getCell(r, 1); lbl.value = rc.cat;
+            lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            lbl.font = { name: 'Arial', size: 9 }; lbl.border = gridBorder();
+            sheet.mergeCells(r, 6, r, 8);
+            const val = sheet.getCell(r, 6); val.value = money(rc.total);
+            val.numFmt = MONEY; val.alignment = { horizontal: 'right', vertical: 'middle' };
+            val.font = { name: 'Arial', size: 9 }; val.border = gridBorder();
+            r++;
+        });
+        sheet.mergeCells(r, 1, r, 5);
+        const stL = sheet.getCell(r, 1); stL.value = 'SUB-TOTAL SOLPED';
+        stL.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
+        stL.fill = fillSolid(C.blueL); stL.alignment = { horizontal: 'right', vertical: 'middle' }; stL.border = gridBorder();
+        sheet.mergeCells(r, 6, r, 8);
+        const stV = sheet.getCell(r, 6); stV.value = money(subTotalSOLPED);
+        stV.numFmt = MONEY; stV.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
+        stV.fill = fillSolid(C.blueL); stV.alignment = { horizontal: 'right', vertical: 'middle' }; stV.border = gridBorder();
+        r += 2;
+
+        // ── TABLAS POR CATEGORÍA ──
+        for (const rc of resumenCats) {
+            sheet.getRow(r).height = 17;
+            sheet.mergeCells(r, 1, r, 8);
+            const catT = sheet.getCell(r, 1);
+            catT.value = rc.cat;
+            catT.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
+            catT.fill = fillSolid(C.blue); catT.alignment = { horizontal: 'center', vertical: 'middle' };
+            r++;
+            const heads = ['OPERACIÓN', 'CÓDIGO', 'DESCRIPCIÓN', 'UN', 'CANT.', 'VALOR UNIT.', 'VALOR FINAL', rc.esSCD ? 'PROVEEDOR' : ''];
+            heads.forEach((h, i) => {
+                const c = sheet.getCell(r, i + 1); c.value = h;
+                c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+                c.fill = fillSolid(C.silver); c.border = gridBorder();
+                c.alignment = { horizontal: 'center', vertical: 'middle' };
+            });
+            r++;
+            for (const ln of rc.lineas) {
+                const it = ln.it;
+                const descUp = String(it.descripcion || '').toUpperCase();
+                const oper = ln.esMaterial ? '' : operacionSAPParaItem(rc.cat, descUp, !!ln.itEsMOI);
+                const fila = [
+                    oper,
+                    String(it.codigo || '').replace(/^0+/, '') || '-',
+                    (ln.esMaterial ? '↳ MATERIAL — ' : '') + it.descripcion,
+                    it.unidad || (ln.esMaterial ? 'ML' : 'ST'),
+                    it.cantidad,
+                    money(it.precioBase),
+                    money(ln.vfRenova),
+                    ln.esMaterial ? 'IMPOVAR' : (rc.esSCD ? (it.proveedor || '') : '')
+                ];
+                fila.forEach((v, i) => {
+                    const col = i + 1;
+                    const cell = sheet.getCell(r, col);
+                    cell.value = v; cell.border = gridBorder();
+                    cell.font = ln.esMaterial
+                        ? { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } }
+                        : { name: 'Arial', size: 9 };
+                    if (ln.esMaterial) cell.fill = fillSolid('FFFFFBF0');
+                    if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if (col === 4 || col === 5 || col === 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                    else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+                });
+                r++;
+            }
+            if (rc.moi !== 0) {
+                const filaMOI = [operacionSAPParaItem(rc.cat, 'MANO OBRA INDUSTRIAL', true), '', 'MANO OBRA INDUSTRIAL (absorbe ítems sin código Renova y diferencias)', 'ST', 1, money(rc.moi), money(rc.moi), ''];
+                filaMOI.forEach((v, i) => {
+                    const col = i + 1;
+                    const cell = sheet.getCell(r, col);
+                    cell.value = v; cell.border = gridBorder();
+                    cell.fill = fillSolid(C.orangeL);
+                    cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'FFC2410C' } };
+                    if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                    else if (col <= 1 || col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                });
+                r++;
+            }
+            sheet.mergeCells(r, 1, r, 6);
+            const sc = sheet.getCell(r, 1); sc.value = 'SUBTOTAL ' + rc.cat;
+            sc.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            sc.fill = fillSolid(C.blueL); sc.alignment = { horizontal: 'right', vertical: 'middle' }; sc.border = gridBorder();
+            const sv = sheet.getCell(r, 7); sv.value = money(rc.total);
+            sv.numFmt = MONEY; sv.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+            sv.fill = fillSolid(C.blueL); sv.alignment = { horizontal: 'right', vertical: 'middle' }; sv.border = gridBorder();
+            const sx = sheet.getCell(r, 8); sx.fill = fillSolid(C.blueL); sx.border = gridBorder();
+            r += 2;
+        }
+
+        // ── RESUMEN DE PROVEEDORES ──
+        sheet.getRow(r).height = 17;
+        sheet.mergeCells(r, 1, r, 8);
+        const provT = sheet.getCell(r, 1);
+        provT.value = 'RESUMEN DE PROVEEDORES';
+        provT.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
+        provT.fill = fillSolid(C.gray); provT.alignment = { horizontal: 'center', vertical: 'middle' };
+        r++;
+        const hayMaterial = itemsNota.some(i => i.esMaterialImpovar);
+        const itemCert = itemsNota.find(i => i.esCertificador
+            || (i.codigo && String(i.codigo).replace(/\D/g, '') === '400')
+            || /sello\s*verde|inspecci[oó]n.*peri[oó]dica/i.test(i.descripcion || ''));
+        const provsSCD = [...new Set(itemsNota.filter(i => CATS_COMPRA_DIRECTA.includes(i.categoria) && i.proveedor).map(i => i.proveedor))];
+        const filasProv = [];
+        filasProv.push(['CONTRATISTA (instalación / M.O.)', (datosContratista && datosContratista.razonSocial) || '(completar)']);
+        if (hayMaterial) filasProv.push(['MATERIAL CAÑERÍA', 'IMPOVAR']);
+        if (itemCert) filasProv.push(['CERTIFICADOR (Sello Verde / 0400)', itemCert.proveedor || itemCert.descripcion]);
+        else filasProv.push(['CERTIFICADOR (Sello Verde / 0400)', '⚠ AGREGAR MANUALMENTE — no viene en el presupuesto']);
+        provsSCD.filter(p => !itemCert || p !== itemCert.proveedor).forEach(p => filasProv.push(['COMPRA DIRECTA', p]));
+        filasProv.forEach(([k, v]) => {
+            sheet.mergeCells(r, 1, r, 3);
+            const lk = sheet.getCell(r, 1); lk.value = k;
+            lk.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+            lk.fill = fillSolid(C.silver); lk.alignment = { horizontal: 'right', vertical: 'middle' }; lk.border = gridBorder();
+            sheet.mergeCells(r, 4, r, 8);
+            const lv = sheet.getCell(r, 4); lv.value = v;
+            const esAviso = String(v).startsWith('⚠');
+            lv.font = { name: 'Arial', bold: true, size: 9, color: { argb: esAviso ? C.red : C.blue } };
+            lv.alignment = { horizontal: 'left', vertical: 'middle' }; lv.border = gridBorder();
+            r++;
+        });
+        r++;
+
+        // ── NOTA FINAL ──
+        sheet.mergeCells(r, 1, r, 8);
+        const nota = sheet.getCell(r, 1);
+        nota.value = 'Documento generado desde el análisis. La columna OPERACIÓN es sugerida según categoría/descripción — verificar al digitar en el sistema DC. El SUB-TOTAL SOLPED cuadra con el presupuesto del contratista.';
+        nota.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
+        nota.alignment = { horizontal: 'left', vertical: 'middle', wrapText: true };
+        sheet.getRow(r).height = 26;
+
+        sheet.pageSetup.orientation = 'portrait';
+        sheet.pageSetup.fitToPage = true;
+        sheet.pageSetup.fitToWidth = 1;
+        sheet.pageSetup.fitToHeight = 0;
+        sheet.showGridLines = false;
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+        const link = document.createElement('a');
+        const proyecto = $('nombreProyecto').value || 'SIN_PROYECTO';
+        link.href = URL.createObjectURL(blob);
+        link.download = `DC_${proyecto.replace(/\s+/g, '_')}.xlsx`;
+        link.click();
+        mostrarToast('DC generado correctamente', 'ok');
+    } catch (error) {
+        console.error('Error generando DC:', error);
+        mostrarToast('Error generando el DC', 'error');
+    } finally {
+        hideLoader();
+    }
+}
+
+// ============================================================
 // IMPRESIÓN
 // ============================================================
 function imprimirNota() {
@@ -3561,6 +3873,8 @@ function cargarProyecto(event) {
                 itemsNota = migrarItemsLegacy(itemsNota);
                 if (esContratista) renderizarComparativaContratista();
                 else renderizarNotaFinal();
+                actualizarItemsAgregadosPaso2();
+                actualizarBadge();
                 mostrarSolo("paso3");
             };
 
