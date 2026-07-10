@@ -4008,7 +4008,11 @@ function aplicarCotizacionAItems(itemsCotizados) {
     let matchesFuzzy = 0;
     const UMBRAL_SIMILITUD = 0.5;
     itemsNota.forEach(item => {
-        if (item.esMaterialImpovar) return;
+        // Los materiales Impovar y los ítems de Compra Directa (Equipos/Servicios) ya
+        // traen su precio correcto asignado por Renova/Abastible — no son parte del
+        // alcance cotizado por el contratista, así que nunca deben sobrescribirse con
+        // un match (exacto o difuso) contra la cotización del contratista.
+        if (item.esMaterialImpovar || item.esCompraDirecta) return;
         const descItem = String(item.descripcion || '').trim().toLowerCase();
         const exacto = itemsCotizados.find(ic =>
             String(ic.descripcion || '').trim().toLowerCase() === descItem
