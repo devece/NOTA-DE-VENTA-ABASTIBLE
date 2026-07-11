@@ -430,6 +430,7 @@
         <div class="flex items-center gap-3">
             <span id="badgeItems" class="hidden bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full">0</span>
             <button id="btnHistorialHeader" onclick="verHistorial()" class="px-4 py-2 border rounded-xl transition font-medium text-sm" style="border-color: var(--aba-blue); color: var(--aba-blue);">📋 Historial</button>
+            <button onclick="volverSeleccionModo()" class="px-4 py-2 rounded-xl font-medium text-sm" style="background: var(--aba-silver); color: var(--aba-gray);">🏠 Home</button>
             <button onclick="volverSeleccionPerfil()" class="px-4 py-2 rounded-xl font-medium text-sm" style="background: var(--aba-silver); color: var(--aba-gray);">🔄 Cambiar perfil</button>
             <button id="btnNuevaNotaHeader" onclick="nuevaNota()" class="btn-primary px-4 py-2 rounded-xl font-semibold text-sm">+ Nueva Nota</button>
         </div>
@@ -1204,6 +1205,23 @@ function volverSeleccionPerfil() {
     nuevaNota();
 }
 
+// Vuelve a la pantalla de selección de acciones del perfil activo (sin pasar por
+// la selección de perfil de nuevo). Útil para salir de cualquier paso del flujo
+// (Nota de Venta, Cargar DC, Cotización, etc.) sin perder el perfil/datos ya elegidos.
+function volverSeleccionModo() {
+    modoActivo = null;
+    $('headerApp').classList.add('hidden');
+    $('barraSuperior').classList.add('hidden');
+    $('appContainer').classList.add('hidden');
+    $('warningBaseExcel').classList.add('hidden');
+    if (perfilActivo === 'contratista') {
+        $('pasoModoContratista').classList.remove('hidden');
+    } else {
+        $('pasoModoAbastible').classList.remove('hidden');
+    }
+    nuevaNota();
+}
+
 function iniciarModoContratista(modo) {
     perfilActivo = 'contratista';
     modoActivo = modo;
@@ -1283,7 +1301,9 @@ function iniciarAppConModo() {
     // Botones de barra superior según modo
     $('labelCargarDC').style.display = (modoActivo === 'cargar_dc') ? 'inline-block' : 'none';
     $('labelCargarCotizacionContratista').style.display = (modoActivo === 'dc_cotizacion') ? 'inline-block' : 'none';
-    $('btnCargarExcel').style.display = esContratista ? 'none' : '';
+    // En la web (https) la base se auto-carga sola al abrir el sitio (ver cargarBaseDesdeServidor),
+    // así que el botón manual sobra ahí; se muestra solo si ese auto-fetch falla (ver más abajo).
+    $('btnCargarExcel').style.display = (esContratista || window.location.protocol === 'https:') ? 'none' : '';
     // El DC final solo lo genera Abastible (contiene MOI y estructura SAP interna)
     if ($('btnGenerarDC')) $('btnGenerarDC').style.display = esContratista ? 'none' : '';
     $('estadoBaseExcel').classList.toggle('hidden', true);
@@ -5203,6 +5223,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// En la web el botón "Cargar Base Excel" queda oculto (la base se auto-carga sola).
+// Si el auto-fetch falla o no trae productos, lo mostramos de nuevo como respaldo
+// manual (no aplica a perfil Contratista, que nunca lo usa).
+function mostrarBotonCargaManualComoRespaldo() {
+    const btn = document.getElementById('btnCargarExcel');
+    if (btn && perfilActivo !== 'contratista') btn.style.display = '';
+}
+
 // Descarga y procesa base_datos.xlsx + impovar.xlsx desde el mismo directorio del sitio.
 // Reutilizable: se llama automáticamente al cargar la página (https) y también bajo demanda
 // si el perfil Contratista la necesita y aún no se cargó (por ejemplo si el usuario eligió
@@ -5248,6 +5276,7 @@ function cargarBaseDesdeServidor() {
             console.warn('Auto-fetch base_datos:', resBase.reason?.message);
             hideLoader();
             promesaCargaBase = null; // permitir reintentar más adelante
+            mostrarBotonCargaManualComoRespaldo();
             return false;
         }
 
@@ -5274,6 +5303,7 @@ function cargarBaseDesdeServidor() {
             mostrarToast(`✅ Base cargada: ${total} productos${msgImpovar}`, 'ok');
             return true;
         }
+        mostrarBotonCargaManualComoRespaldo();
         return false;
     });
 
