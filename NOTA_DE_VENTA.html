@@ -719,7 +719,7 @@
     <div id="paso3" class="hidden">
         <div class="bg-white rounded-xl shadow-sm border overflow-hidden" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 flex items-center justify-between" style="background: var(--aba-blue);">
-                <h2 class="text-white font-bold text-lg">📄 Nota de Venta</h2>
+                <h2 class="text-white font-bold text-lg" id="tituloPaso3Doc">📄 Nota de Venta</h2>
                 <div class="flex items-center gap-3">
                     <span class="text-white/70 text-xs bg-white/10 px-3 py-1 rounded-full">Paso 3 de 3</span>
                     <button onclick="volverPaso2()" class="text-white/80 text-sm hover:text-white">← Volver</button>
@@ -1337,9 +1337,13 @@ function iniciarAppConModo() {
         dc_cotizacion: 'Análisis DC + Cotización Contratista',
         cotizacion_contratista: 'Cotización · Instalaciones de Gas',
         cotizacion_sobre_dc: 'Cotización sobre DC · Instalaciones de Gas',
-        importar_ppto_contratista: 'Convertir Presupuesto · Instalaciones de Gas'
+        // importar_ppto_contratista usa obtenerTituloDocumento() más abajo: el nombre
+        // depende del perfil (Abastible ve "Nota de Venta Contratista", el Contratista
+        // ve "Cotización", igual que el resto del documento).
     };
-    $('tituloApp').textContent = titulos[modoActivo] || 'Nota de Venta';
+    $('tituloApp').textContent = (modoActivo === 'importar_ppto_contratista')
+        ? obtenerTituloDocumento() + ' · Instalaciones de Gas'
+        : (titulos[modoActivo] || 'Nota de Venta');
     $('tituloPaso1').textContent = esContratista ? '📋 Datos del Proyecto a Cotizar' : '📋 Datos del Proyecto';
 
     // Banner de empresa contratista en paso1
@@ -1757,6 +1761,16 @@ function actualizarBadge() {
     if (cont) cont.textContent = `${itemsNota.length} ítem(s) — ${total} unidades`;
 }
 
+// Nombre del documento según el momento del flujo: recién convertido desde un
+// presupuesto (crudo, sin pasar por el análisis) vs. ya analizado en "Análisis DC
+// + Cotización" (con el cuadre Base Renova + MOI = Contratista ya verificado).
+function obtenerTituloDocumento() {
+    if (perfilActivo === 'contratista') return 'Cotización';
+    if (modoActivo === 'importar_ppto_contratista') return 'Nota de Venta Contratista';
+    if (modoActivo === 'dc_cotizacion') return 'Análisis de Cuadre';
+    return 'Nota de Venta';
+}
+
 // ============================================================
 // RENDER NOTA (con lógica simplificada)
 // ============================================================
@@ -1764,6 +1778,7 @@ let renderTimeout = null;
 function renderizarNotaFinal() {
     if (renderTimeout) clearTimeout(renderTimeout);
     renderTimeout = setTimeout(() => {
+        if ($("tituloPaso3Doc")) $("tituloPaso3Doc").textContent = '📄 ' + obtenerTituloDocumento();
         $("notaProyecto").textContent = $("nombreProyecto").value;
         $("notaCliente").textContent = $("nombreCliente").value;
         $("notaRut").textContent = $("rutCliente").value || "-";
@@ -1800,6 +1815,12 @@ function renderizarNotaFinal() {
         let totalGeneralBase = 0;
         let totalGeneralMOI = 0;
         let totalGeneralContratista = 0;
+        // Desglose de qué compone el Total Contratista, para que el resumen final
+        // explique por qué el total visual no calza 1:1 con el presupuesto crudo
+        // del contratista (que no trae Impovar ni certificador como líneas propias).
+        let totalGeneralCttaPuro = 0;
+        let totalGeneralCertificador = 0;
+        let totalGeneralImpovar = 0;
 
         for (const cat of ordenCats) {
             const items = grupos[cat];
@@ -1847,7 +1868,11 @@ function renderizarNotaFinal() {
                     tieneCotizacion = false;
                 }
 
-                if (!moiNoSuma) subtotalContratista += totalContratista;
+                if (!moiNoSuma) {
+                    subtotalContratista += totalContratista;
+                    if (esCertificador) totalGeneralCertificador += totalContratista;
+                    else totalGeneralCttaPuro += totalContratista;
+                }
                 const diferencia = esCompraDirecta ? 0 : (totalContratista - totalBase);
 
                 const rowStyle = moiNoSuma ? ' style="background:#FFF7ED; opacity:0.7;"'
@@ -1894,6 +1919,7 @@ function renderizarNotaFinal() {
                     const totalMat = matImpovar.precioBase * matImpovar.cantidad;
                     subtotalBase += totalMat;
                     subtotalContratista += totalMat;
+                    totalGeneralImpovar += totalMat;
                     html += `<tr style="background:#FFFBF0; font-size:13px;">`;
                     html += `<td style="padding-left:24px; color:#92400E; font-style:italic; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">↳ Material</td>`;
                     html += `<td class="text-xs" style="color:#92400E;">${escapeHTML(String(matImpovar.codigo || '').replace(/^0+/, '') || '-')}</td>`;
@@ -1910,22 +1936,23 @@ function renderizarNotaFinal() {
             }
             
             const moi = esCompraDirecta ? 0 : (subtotalContratista - subtotalBase);
-            const totalCat = esCompraDirecta ? subtotalContratista : (subtotalBase + moi);
+            // subtotalBase + moi == subtotalContratista siempre (moi se define como la resta
+            // de ambos), así que un total de categoría aparte sería idéntico al SUBTOTAL de
+            // arriba — se usa subtotalContratista directo, sin fila "TOTAL" redundante.
             const colspan = hayCompraDirecta ? 6 : 5;
             const colspanTotal = hayCompraDirecta ? 11 : 10;
-            
+
             html += `<tr class="subtotal-row"><td colspan="${colspan}" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td class="text-right"></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${moi !== 0 ? fmtMoneyColor(moi) : fmtMoney(0)}</strong></td><td></tr>`;
-            
+
             if (moi !== 0) {
                 html += `<tr class="moi-row"><td colspan="${colspan}" class="text-right"><strong>🛠️ MANO DE OBRA INDUSTRIAL</strong></td><td></td><td></td><td></td><td><strong>${fmtMoneyColor(moi)}</strong></td><td></tr>`;
             }
-            
-            html += `<tr class="total-cat-row"><td colspan="${colspan}" class="text-right"><strong>TOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td></td><td><strong>${fmtMoney(totalCat)}</strong></td><td></td><td></tr>`;
+
             html += `<tr style="height:8px"><td colspan="${colspanTotal}" style="border:none"></tr></tr>`;
-            
+
             totalGeneralBase += subtotalBase;
             totalGeneralMOI += moi;
-            totalGeneralContratista += totalCat;
+            totalGeneralContratista += subtotalContratista;
         }
         html += `</tbody></table>`;
         $("tablaNotaContainer").innerHTML = html;
@@ -1949,6 +1976,24 @@ function renderizarNotaFinal() {
                         <div class="text-2xl font-bold mt-1" style="color: #2E7D32;">$${fmt(totalGeneralContratista)}</div>
                     </div>
                 </div>
+                <div class="text-xs font-semibold uppercase mt-4 mb-2 text-center" style="color: var(--aba-gray);">Desglose del Total Contratista</div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="text-center p-3 rounded-lg" style="background: #E8F5E9;">
+                        <div class="text-xs font-semibold uppercase" style="color: #2E7D32;">Contratista</div>
+                        <div class="text-xl font-bold mt-1" style="color: #2E7D32;">$${fmt(totalGeneralCttaPuro)}</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg" style="background: #ECFDF5;">
+                        <div class="text-xs font-semibold uppercase" style="color: #047857;">Certificador</div>
+                        <div class="text-xl font-bold mt-1" style="color: #047857;">$${fmt(totalGeneralCertificador)}</div>
+                    </div>
+                    <div class="text-center p-3 rounded-lg" style="background: #FEF3C7;">
+                        <div class="text-xs font-semibold uppercase" style="color: #92400E;">Impovar</div>
+                        <div class="text-xl font-bold mt-1" style="color: #92400E;">$${fmt(totalGeneralImpovar)}</div>
+                    </div>
+                </div>
+                <div class="text-xs text-center mt-2" style="color: var(--aba-gray);">
+                    El presupuesto original del contratista suele no traer Impovar ni certificador como líneas propias — por eso el Total Contratista de arriba puede verse más alto: incluye esos ${totalGeneralImpovar > 0 || totalGeneralCertificador > 0 ? `$${fmt(totalGeneralImpovar + totalGeneralCertificador)} ` : ''}adicionales.
+                </div>
                 <div class="mt-4 p-3 text-center rounded-lg ${verificacionOK ? 'bg-green-100 border border-green-300' : 'bg-red-100 border border-red-300'}">
                     <div class="font-bold text-sm ${verificacionOK ? 'text-green-700' : 'text-red-700'}">
                         ${verificacionOK ? '✅ CUADRE VALIDADO' : '⚠️ CUADRE NO VALIDADO'}
@@ -1967,6 +2012,7 @@ function renderizarNotaFinal() {
 // RENDER COTIZACIÓN CONTRATISTA — formato limpio sin Renova/MOI
 // ============================================================
 function renderizarCotizacionContratista() {
+    if ($("tituloPaso3Doc")) $("tituloPaso3Doc").textContent = '📄 ' + obtenerTituloDocumento();
     $("notaProyecto").textContent = $("nombreProyecto").value;
     $("notaCliente").textContent = $("nombreCliente").value;
     $("notaRut").textContent = $("rutCliente").value || "-";
@@ -2076,6 +2122,7 @@ function cambiarPrecioCotizacion(idx, val) {
 //   - Sí conserva el precio Renova original como referencia (precioBase intacto)
 // ============================================================
 function renderizarComparativaContratista() {
+    if ($("tituloPaso3Doc")) $("tituloPaso3Doc").textContent = '📄 ' + obtenerTituloDocumento();
     $("notaProyecto").textContent = $("nombreProyecto").value;
     $("notaCliente").textContent = $("nombreCliente").value;
     $("notaRut").textContent = $("rutCliente").value || "-";
@@ -2806,7 +2853,7 @@ async function exportarAExcel() {
     
     try {
         const workbook = new ExcelJS.Workbook();
-        const sheet = workbook.addWorksheet('NOTA DE VENTA');
+        const sheet = workbook.addWorksheet(obtenerTituloDocumento().toUpperCase());
         
         // ── COLORES ──────────────────────────────────
         const C = {
@@ -2882,7 +2929,7 @@ async function exportarAExcel() {
         // B1:J1 banner naranja
         sheet.mergeCells('B1:J1');
         const banner = sheet.getCell('B1');
-        banner.value = 'NOTA DE VENTA  ·  INSTALACIONES DE GAS  ·  ABASTIBLE';
+        banner.value = obtenerTituloDocumento().toUpperCase() + '  ·  INSTALACIONES DE GAS  ·  ABASTIBLE';
         banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
         banner.fill = fillSolid(C.orange);
         banner.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -3604,8 +3651,8 @@ function imprimirNota() {
     // duplicaría, además con clases de Tailwind que no existen en esta ventana nueva.
     const printContent = document.getElementById('printArea').querySelector('.p-4.overflow-x-auto').cloneNode(true);
     const proyecto = $("nombreProyecto").value || 'SIN PROYECTO';
-    const docTitulo = perfilActivo === 'contratista' ? 'COTIZACIÓN' : 'NOTA DE VENTA';
-    const docSubtitulo = perfilActivo === 'contratista' ? 'Cotización · Instalaciones de Gas' : 'Nota de Venta · Instalaciones de Gas';
+    const docTitulo = obtenerTituloDocumento().toUpperCase();
+    const docSubtitulo = obtenerTituloDocumento() + ' · Instalaciones de Gas';
     
     const style = document.createElement('style');
     style.textContent = `
