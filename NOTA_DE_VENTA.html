@@ -110,7 +110,27 @@
         }
         .btn-secondary:hover { background: var(--aba-blue-dark); }
         .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-        
+
+        /* Versión suave de btn-primary/btn-secondary para acciones frecuentes de la
+           barra superior (Guardar/Cargar Proyecto), que no necesitan tanto peso visual
+           como las acciones principales (Nueva Nota, Cargar Base Excel). */
+        .btn-muted-blue {
+            background: var(--aba-blue-light);
+            color: var(--aba-blue);
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-muted-blue:hover { background: #DCE1F5; }
+        .btn-muted-orange {
+            background: var(--aba-orange-light);
+            color: var(--aba-orange-dark);
+            transition: all 0.2s ease;
+            border: none;
+            cursor: pointer;
+        }
+        .btn-muted-orange:hover { background: #FBE4D2; }
+
         .cat-btn {
             transition: all 0.2s ease;
             border: 1px solid transparent;
@@ -367,10 +387,10 @@
         </div>
         
         <div id="accionesProyecto" style="display:flex; gap:10px;">
-            <button onclick="guardarProyecto()" class="btn-secondary" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
+            <button onclick="guardarProyecto()" class="btn-muted-blue" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
                 💾 Guardar Proyecto
             </button>
-            <label class="btn-primary" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
+            <label class="btn-muted-orange" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
                 📂 Cargar Proyecto
                 <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
             </label>
