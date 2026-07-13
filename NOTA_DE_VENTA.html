@@ -2127,6 +2127,10 @@ function renderizarCotizacionContratista() {
 
     let html = `<table class="nota-table"><thead><th>Categoría</th><th>Código</th><th>Descripción</th><th>Unidad</th><th>Cant.</th><th>Precio Unit.</th><th>Total</th><th></th></thead><tbody>`;
     let totalGeneral = 0;
+    // Desglose del total, igual que en la vista Abastible: Contratista puro / Certificación / Impovar
+    let totalGeneralCttaPuro = 0;
+    let totalGeneralCertificador = 0;
+    let totalGeneralImpovar = 0;
 
     for (const cat in grupos) {
         const items = grupos[cat];
@@ -2140,6 +2144,10 @@ function renderizarCotizacionContratista() {
                 : ((item.precioCTTA !== null && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase);
             const total = precio * item.cantidad;
             subtotal += total;
+
+            const esCertificador = esItemCertificador(item, item.categoria);
+            if (esCertificador) totalGeneralCertificador += total;
+            else totalGeneralCttaPuro += total;
 
             html += `<tr class="item-row">`;
             html += `<td>${escapeHTML(item.categoria)}</td>`;
@@ -2161,6 +2169,7 @@ function renderizarCotizacionContratista() {
             if (matImpovar) {
                 const totalMat = matImpovar.precioBase * matImpovar.cantidad;
                 subtotal += totalMat;
+                totalGeneralImpovar += totalMat;
                 html += `<tr style="background:#FFFBF0; font-size:13px;">`;
                 html += `<td style="padding-left:24px; color:#92400E; font-style:italic;">↳ Material</td>`;
                 html += `<td class="text-xs" style="color:#92400E;">${escapeHTML(String(matImpovar.codigo || '').replace(/^0+/, '') || '-')}</td>`;
@@ -2186,6 +2195,21 @@ function renderizarCotizacionContratista() {
             <div class="text-center p-3 rounded-lg" style="background: var(--ctta-green-light);">
                 <div class="text-xs font-semibold uppercase" style="color: var(--ctta-green-dark);">Total Cotización</div>
                 <div class="text-3xl font-bold mt-1" style="color: var(--ctta-green-dark);">$${fmt(totalGeneral)}</div>
+            </div>
+            <div class="text-xs font-semibold uppercase mt-4 mb-2 text-center" style="color: var(--aba-gray);">Desglose del Total Cotización</div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-center p-3 rounded-lg" style="background: var(--ctta-green-light);">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--ctta-green-dark);">Contratista</div>
+                    <div class="text-xl font-bold mt-1" style="color: var(--ctta-green-dark);">$${fmt(totalGeneralCttaPuro)}</div>
+                </div>
+                <div class="text-center p-3 rounded-lg" style="background: #ECFDF5;">
+                    <div class="text-xs font-semibold uppercase" style="color: #047857;">Certificación</div>
+                    <div class="text-xl font-bold mt-1" style="color: #047857;">$${fmt(totalGeneralCertificador)}</div>
+                </div>
+                <div class="text-center p-3 rounded-lg" style="background: #FEF3C7;">
+                    <div class="text-xs font-semibold uppercase" style="color: #92400E;">Impovar</div>
+                    <div class="text-xl font-bold mt-1" style="color: #92400E;">$${fmt(totalGeneralImpovar)}</div>
+                </div>
             </div>
         </div>
     </div>`;
