@@ -879,12 +879,19 @@ function calcularExtraCertificadorSCD(items) {
         .filter(i => i.categoria === 'SERVICIO COMPRA DIRECTA' && esItemMOIAsignado(i) && esItemCertificador(i, i.categoria))
         .reduce((s, i) => s + (i.precioBase || 0) * (i.cantidad || 0), 0);
 }
+// Precio por defecto del ítem código 400 generado automáticamente: no existe un producto de
+// catálogo único para "operación 400" (es un código de operación SAP, no un código de inventario
+// Renova — la base tiene varios ítems de inspección/certificación, cada uno con su propio precio),
+// así que se usa $50.000 (tarifa de Inspección Periódica Casa) como referencia razonable.
+const PRECIO_DEFAULT_ITEM_400 = 50000;
+
 // Si hay MOI de certificador en Servicio Compra Directa pero Normalizaciones no trae un ítem
-// código 400 real (no generado por esta misma función), lo crea al precio Renova de catálogo
-// (si la base lo tiene para el centro activo; si no, precio 0). El saldo — lo que exceda ese
-// precio de catálogo — no se mueve: se devuelve para que el llamador lo sume al MOI ya asignado
-// de Servicio Compra Directa (se resta igual que cualquier MOI ya asignado de esa categoría).
-// Idempotente: en renders sucesivos reutiliza el ítem ya creado en vez de duplicarlo.
+// código 400 real (no generado por esta misma función), lo crea con precio de referencia
+// PRECIO_DEFAULT_ITEM_400. Siempre debe existir un ítem código 400 en Normalizaciones si hay
+// certificación: el sistema exige Sello Verde al cerrar el proyecto. El saldo — lo que exceda
+// ese precio de referencia — no se mueve: se devuelve para que el llamador lo sume al MOI ya
+// asignado de Servicio Compra Directa (se resta igual que cualquier MOI ya asignado de esa
+// categoría). Idempotente: en renders sucesivos reutiliza el ítem ya creado en vez de duplicarlo.
 function asegurarItem400Normalizaciones(items, extraCertificadorSCD) {
     if (extraCertificadorSCD <= 0) return 0;
     const hayItem400Real = items.some(i => i.categoria === 'NORMALIZACIONES' && !i.esGeneradoAuto
@@ -893,17 +900,15 @@ function asegurarItem400Normalizaciones(items, extraCertificadorSCD) {
 
     let sintetico = items.find(i => i.categoria === 'NORMALIZACIONES' && i.esGeneradoAuto);
     if (!sintetico) {
-        const catalogo = (dbProductos['NORMALIZACIONES'] || []).find(p => String(p.cod || '').replace(/\D/g, '') === '400');
-        const precioCatalogo = catalogo ? obtenerPrecioBase(catalogo, centroActivo) : 0;
         sintetico = {
             id: generarUUID(),
-            codigo: catalogo ? catalogo.cod : '400',
-            descripcion: (catalogo ? catalogo.desc : 'Inspección periódica Sello Verde') + ' (generado automáticamente desde Servicio Compra Directa)',
+            codigo: '400',
+            descripcion: 'Inspección periódica Sello Verde (generado automáticamente desde Servicio Compra Directa)',
             categoria: 'NORMALIZACIONES',
-            unidad: catalogo ? catalogo.um : 'UN',
+            unidad: 'UN',
             cantidad: 1,
-            precioBase: precioCatalogo,
-            precioCTTA: precioCatalogo,
+            precioBase: PRECIO_DEFAULT_ITEM_400,
+            precioCTTA: PRECIO_DEFAULT_ITEM_400,
             centro: centroActivo,
             tieneCotizacion: true,
             esCertificador: true,
