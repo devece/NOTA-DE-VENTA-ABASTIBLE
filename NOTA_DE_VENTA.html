@@ -391,10 +391,10 @@
                  lo reemplaza el Historial (con respaldo en la nube). Ver toggle en actualizarBadge(). -->
             <span id="grupoProyectoContratista" style="display:none; gap:10px;">
                 <button onclick="guardarProyecto()" class="btn-muted-blue" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
-                    💾 Guardar Proyecto
+                    💾 Guardar Cotización
                 </button>
                 <label class="btn-muted-orange" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
-                    📂 Cargar Proyecto
+                    📂 Cargar Cotización
                     <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
                 </label>
             </span>
@@ -4260,7 +4260,7 @@ function guardarProyecto() {
     const nombre = data.proyecto ? data.proyecto.replace(/\s/g, "_") : "PROYECTO"; 
     link.download = `NV_${nombre}.json`; 
     link.click(); 
-    mostrarToast('Proyecto guardado correctamente', 'ok');
+    mostrarToast('Cotización guardada correctamente', 'ok');
 }
 
 function cargarProyecto(event) {
@@ -4337,7 +4337,7 @@ function cargarProyecto(event) {
                 mostrarSolo("paso1"); 
             } 
             actualizarVisibilidadWarningBase();
-            mostrarToast('Proyecto cargado correctamente', 'ok'); 
+            mostrarToast('Cotización cargada correctamente', 'ok'); 
         } catch(error) { 
             console.error(error); 
             mostrarToast("Error cargando proyecto", "error"); 
