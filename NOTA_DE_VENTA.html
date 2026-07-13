@@ -387,21 +387,28 @@
         </div>
         
         <div id="accionesProyecto" style="display:flex; gap:10px;">
-            <button onclick="guardarProyecto()" class="btn-muted-blue" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
-                💾 Guardar Proyecto
-            </button>
-            <label class="btn-muted-orange" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
-                📂 Cargar Proyecto
-                <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
-            </label>
+            <!-- Guardar/Cargar Proyecto (.json manual): solo para Contratista — a Abastible ya
+                 lo reemplaza el Historial (con respaldo en la nube). Ver toggle en actualizarBadge(). -->
+            <span id="grupoProyectoContratista" style="display:none; gap:10px;">
+                <button onclick="guardarProyecto()" class="btn-muted-blue" style="padding:10px 16px; border-radius:10px; font-weight:600; font-size:14px;">
+                    💾 Guardar Proyecto
+                </button>
+                <label class="btn-muted-orange" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block;">
+                    📂 Cargar Proyecto
+                    <input type="file" id="cargarProyectoInput" accept=".json" style="display:none;" onchange="cargarProyecto(event)">
+                </label>
+            </span>
             <label id="labelCargarDC" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:inline-block; background:#7C3AED; color:white; transition:background 0.2s;" onmouseover="this.style.background='#6D28D9'" onmouseout="this.style.background='#7C3AED'">
                 📄 Cargar DC
                 <input type="file" id="cargarDCInput" accept=".pdf" style="display:none;" onchange="procesarDetalleComercial(event)">
             </label>
-            <label id="labelCargarCotizacionContratista" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:none; background:#0E7490; color:white;">
+            <!-- Mismo archivo/acción que la tarjeta "Importar Cotización Contratista" del panel de
+                 inicio — se repite acá porque ese panel se oculta apenas se carga un DC, y esta
+                 acción justamente se usa DESPUÉS de tenerlo cargado (le pega los precios del
+                 contratista a los ítems ya en pantalla). -->
+            <button id="labelCargarCotizacionContratista" onclick="document.getElementById('cargarCotizacionInput').click()" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:none; background:#0E7490; color:white; border:none;">
                 📥 Importar Cotización Contratista
-                <input type="file" id="cargarCotizacionInput" accept=".xlsx,.xls,.json" style="display:none;" onchange="importarCotizacionContratista(event)">
-            </label>
+            </button>
         </div>
     </div>
 </div>
@@ -613,7 +620,7 @@
                 <h2 class="font-bold text-gray-800 text-lg">🔍 Análisis DC + Cotización Contratista</h2>
                 <p class="text-sm mt-1" style="color: var(--aba-gray);">Selecciona desde dónde quieres partir</p>
             </div>
-            <div class="p-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="p-6 grid grid-cols-1 md:grid-cols-4 gap-4">
                 <!-- Opción 1: cargar DC en PDF -->
                 <div class="selector-card" onclick="document.getElementById('cargarDCInput').click()">
                     <span class="sc-icon">📄</span>
@@ -632,10 +639,17 @@
                     <div class="sc-title">Convertir Ppto. Contratista</div>
                     <div class="sc-desc">Sube el presupuesto Excel (.xls/.xlsx) del contratista. Se importan los ítems al sistema, vinculando automáticamente material Impovar y precios Renova.</div>
                 </div>
+                <!-- Opción 4: importar cotización del contratista sobre un DC ya cargado en esta sesión -->
+                <div class="selector-card" onclick="document.getElementById('cargarCotizacionInput').click()">
+                    <span class="sc-icon">📥</span>
+                    <div class="sc-title">Importar Cotización Contratista</div>
+                    <div class="sc-desc">Con un DC ya cargado en esta sesión, sube el archivo (.xlsx o .json) que te mandó el contratista para volcarle sus precios y calcular el cuadre.</div>
+                </div>
             </div>
             <input type="file" id="cargarCotizacionDirectaInput" accept=".json,.xlsx,.xls" style="display:none;" onchange="cargarCotizacionDirecta(event)">
             <input type="file" id="importarPptoInput" accept=".xlsx,.xls" style="display:none;" onchange="importarPptoContratista(event)">
             <input type="file" id="cargarDCContratistaInput" accept=".pdf" style="display:none;" onchange="procesarDCContratista(event)">
+            <input type="file" id="cargarCotizacionInput" accept=".xlsx,.xls,.json" style="display:none;" onchange="importarCotizacionContratista(event)">
         </div>
         <div id="formularioPaso1" class="bg-white rounded-xl shadow-sm border overflow-hidden mb-5" style="border-color: var(--aba-border);">
             <div class="px-6 py-4 border-b flex items-center justify-between" style="border-color: var(--aba-border);">
@@ -1491,13 +1505,17 @@ function iniciarAppConModo() {
     // Botones de barra superior según modo
     $('labelCargarDC').style.display = (modoActivo === 'cargar_dc') ? 'inline-block' : 'none';
     $('labelCargarCotizacionContratista').style.display = (modoActivo === 'dc_cotizacion') ? 'inline-block' : 'none';
+    // Guardar/Cargar Proyecto (.json manual) solo le sirve al Contratista: no tiene acceso al
+    // Historial (más abajo), así que sigue necesitando el archivo para guardar y retomar su
+    // cotización, y para generarle a Abastible el .json con precisión exacta de precios.
+    // A Abastible ya lo reemplaza el Historial (con respaldo en la nube) — ver guardarNota().
+    $('grupoProyectoContratista').style.display = esContratista ? 'flex' : 'none';
     // En la web (https) la base se auto-carga sola al abrir el sitio (ver cargarBaseDesdeServidor),
     // así que el botón manual sobra ahí; se muestra solo si ese auto-fetch falla (ver más abajo).
     $('btnCargarExcel').style.display = (esContratista || window.location.protocol === 'https:') ? 'none' : '';
     // El DC final solo lo genera Abastible (contiene MOI y estructura SAP interna)
     if ($('btnGenerarDC')) $('btnGenerarDC').style.display = esContratista ? 'none' : '';
     $('estadoBaseExcel').classList.toggle('hidden', true);
-    $('accionesProyecto').style.display = (modoActivo === 'nota_venta' || modoActivo === 'dc_cotizacion') ? 'flex' : (esContratista ? 'flex' : 'none');
     $('btnHistorialHeader').style.display = esContratista ? 'none' : '';
 
     // Título de cabecera y de paso 1
@@ -4143,26 +4161,51 @@ function migrarItemsLegacy(items) {
     return [...items, ...materialesAgregar];
 }
 
+// Reemplaza a cargarProyecto() para Abastible (que ya tiene Historial con respaldo en la
+// nube): mismo cuidado con proyectos que vienen de un Detalle Comercial (no dependen de la
+// base Renova cargada) que tenía cargarProyecto(). No maneja el caso Contratista porque ese
+// perfil no tiene acceso al botón de Historial que llega hasta acá.
 function cargarNota(id) {
-    const nota = notasGuardadas.find(n => n.id === id); 
+    const nota = notasGuardadas.find(n => n.id === id);
     if (!nota) return;
-    $("nombreProyecto").value = nota.proyecto; 
-    $("nombreCliente").value = nota.cliente; 
-    $("rutCliente").value = nota.rut || ""; 
-    $("direccion").value = nota.direccion || ""; 
-    $("ciudad").value = nota.ciudad || ""; 
-    $("telefono").value = nota.telefono || ""; 
-    $("centro").value = nota.centro; 
-    $("fecha").value = nota.fecha; 
-    $("vencimiento").value = nota.vencimiento || ""; 
-    centroActivo = nota.centro; 
+    $("nombreProyecto").value = nota.proyecto;
+    $("nombreCliente").value = nota.cliente;
+    $("rutCliente").value = nota.rut || "";
+    $("direccion").value = nota.direccion || "";
+    $("ciudad").value = nota.ciudad || "";
+    $("telefono").value = nota.telefono || "";
+    $("centro").value = nota.centro;
+    $("fecha").value = nota.fecha;
+    $("vencimiento").value = nota.vencimiento || "";
+    centroActivo = nota.centro;
     itemsNota = JSON.parse(JSON.stringify(nota.items));
-    inicializarCategorias();
-    cargarProductos();
-    itemsNota = migrarItemsLegacy(itemsNota);
-    renderizarNotaFinal(); 
-    mostrarSolo("paso3"); 
-    mostrarToast("Nota cargada", "ok");
+
+    // Un proyecto generado desde Detalle Comercial no depende de la base Renova (sus precios
+    // ya vienen incluidos en cada ítem), así que no requiere centros cargados.
+    const esProyectoDC = centroActivo === 'DETALLE COMERCIAL' || itemsNota.some(i => i.desdeDetalle);
+
+    const renderizarYMostrar = () => {
+        itemsNota = migrarItemsLegacy(itemsNota);
+        renderizarNotaFinal();
+        mostrarSolo("paso3");
+        mostrarToast("Nota cargada", "ok");
+    };
+
+    if (esProyectoDC) {
+        if (modoActivo === 'dc_cotizacion') {
+            $('formularioPaso1').classList.add('hidden');
+            $('panelDcCotizacion').classList.add('hidden');
+        }
+        renderizarYMostrar();
+    } else if (centros.length > 0) {
+        inicializarCentros();
+        inicializarCategorias();
+        cargarProductos();
+        renderizarYMostrar();
+    } else {
+        mostrarToast("⚠️ Cargue la Base Excel para completar los materiales de cañería", "warn");
+        mostrarSolo("paso1");
+    }
 }
 
 function nuevaNota() { 
