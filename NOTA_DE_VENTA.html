@@ -861,6 +861,25 @@ function tieneCTTA(categoria) { return !CATS_SIN_CTTA.includes(categoria); }
 // se aceptan ambas formas para no perder la detección de compra directa por un desajuste de nombre.
 const CATS_COMPRA_DIRECTA = ["EQUIPOS COMPRA DIRECTA", "EQUIPO COMPRA DIRECTA", "SERVICIO COMPRA DIRECTA"];
 
+// Un ítem viene marcado como MOI (Mano de Obra Industrial) ya asignada en el DC cargado,
+// no la que la app calcula por diferencia.
+function esItemMOIAsignado(it) {
+    return !!(it.esMOI || /mano.*obra.*industrial/i.test(it.descripcion || ''));
+}
+function esItemCertificador(it, cat) {
+    return !!(it.esCertificador
+        || (it.codigo && String(it.codigo).replace(/\D/g, '') === '400')
+        || /sello\s*verde/i.test(it.descripcion || '')
+        || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((it.proveedor || '') + ' ' + (it.descripcion || ''))));
+}
+// Suma del MOI de Servicio Compra Directa asignado al certificador (Sello Verde): no se resta
+// del MOI de su propia categoría — se sube íntegro para sumarlo al ítem código 400 de Normalizaciones.
+function calcularExtraCertificadorSCD(items) {
+    return items
+        .filter(i => i.categoria === 'SERVICIO COMPRA DIRECTA' && esItemMOIAsignado(i) && esItemCertificador(i, i.categoria))
+        .reduce((s, i) => s + (i.precioBase || 0) * (i.cantidad || 0), 0);
+}
+
 // ============================================================
 // MATERIALES CAÑERÍA — se leen desde dbProductos (base_datos.xlsx)
 // Palabras clave para identificar ítems de material vs instalación
@@ -1821,6 +1840,9 @@ function renderizarNotaFinal() {
         let totalGeneralCttaPuro = 0;
         let totalGeneralCertificador = 0;
         let totalGeneralImpovar = 0;
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
 
         for (const cat of ordenCats) {
             const items = grupos[cat];
@@ -1828,7 +1850,9 @@ function renderizarNotaFinal() {
             const esCompraDirecta = CATS_COMPRA_DIRECTA.includes(cat);
             let subtotalBase = 0;
             let subtotalContratista = 0;
-            
+            let moiPreAsignado = 0; // MOI ya asignado en un DC cargado — se resta del MOI por diferencia
+            let extraCertAplicado = false;
+
             for (const item of items) {
                 // Saltar materiales Impovar — se renderizan como subfila del ítem de instalación
                 if (item.esMaterialImpovar) continue;
@@ -1838,9 +1862,21 @@ function renderizarNotaFinal() {
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion)
                     || (cat === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-                // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+                // MOI del certificador (SCD) es referencial acá (no suma) — su monto se suma
+                // aparte al ítem código 400 de Normalizaciones (ver extraCert más abajo).
                 const moiNoSuma = itemEsMOI && esCertificador;
-                const totalBase = item.precioBase * item.cantidad;
+                // MOI ya asignado a contratista (no certificador) en el DC cargado: no se
+                // renderiza como línea propia — su monto se resta del MOI que la app calcula
+                // por diferencia para esta categoría, en vez de sumarse aparte.
+                if (itemEsMOI && !esCertificador) {
+                    moiPreAsignado += item.precioBase * item.cantidad;
+                    continue;
+                }
+                // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
+                // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                if (extraCert > 0) extraCertAplicado = true;
+                const totalBase = item.precioBase * item.cantidad + extraCert;
                 if (!moiNoSuma) subtotalBase += totalBase;
 
                 const categoriasSinCttaEditable = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
@@ -1867,13 +1903,18 @@ function renderizarNotaFinal() {
                     totalContratista = 0;
                     tieneCotizacion = false;
                 }
+                totalContratista += extraCert;
+                // El monto fusionado del certificador SCD cuenta como "cotizado" aunque el
+                // ítem 400 todavía no tenga un precio contratista propio ingresado — si no,
+                // la fila mostraría "SIN COTIZAR" ocultando que ya suma al total contratista.
+                if (extraCert > 0 && !tieneCotizacion) { tieneCotizacion = true; precioCTTA = item.precioBase; }
 
                 if (!moiNoSuma) {
                     subtotalContratista += totalContratista;
                     if (esCertificador) totalGeneralCertificador += totalContratista;
                     else totalGeneralCttaPuro += totalContratista;
                 }
-                const diferencia = esCompraDirecta ? 0 : (totalContratista - totalBase);
+                const diferencia = totalContratista - totalBase;
 
                 const rowStyle = moiNoSuma ? ' style="background:#FFF7ED; opacity:0.7;"'
                     : esCertificador ? ' style="background:#ECFDF5;"'
@@ -1881,7 +1922,7 @@ function renderizarNotaFinal() {
                 html += `<tr class="item-row"${rowStyle}>`;
                 html += `<td>${escapeHTML(item.categoria)}</td>`;
                 html += `<td class="text-xs" style="color:var(--aba-gray);">${escapeHTML(String(item.codigo || '').replace(/^0+/, '') || '-')}</td>`;
-                html += `<td>${escapeHTML(item.descripcion)}${moiNoSuma ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">MOI</span>' : ''}</td>`;
+                html += `<td>${escapeHTML(item.descripcion)}${moiNoSuma ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">REFERENCIAL DC</span>' : itemEsMOI ? ' <span style="font-size:11px;color:#9A3412;font-weight:600;">MOI</span>' : ''}${extraCert ? ` <span style="font-size:11px;color:#9A3412;">(incl. ${fmtMoney(extraCert)} MOI certificador SCD)</span>` : ''}</td>`;
                 if (hayCompraDirecta) {
                     html += `<td class="text-center text-xs" style="color:var(--aba-gray);">${escapeHTML(item.proveedor || '-')}</td>`;
                 }
@@ -1900,7 +1941,7 @@ function renderizarNotaFinal() {
                 } else if (esCompraDirecta) {
                     html += `<td class="text-right"><input type="text" value="${fmt(precioCTTA)}" class="input-ctta" onchange="cambiarPrecioCTTA(${item.globalIdx}, this.value)"></td>`;
                     html += `<td>${fmtMoney(totalContratista)}</td>`;
-                    html += `<td class="text-right"><span class="ctta-fixed">$0</span></td>`;
+                    html += `<td>${fmtMoneyColor(diferencia)}</td>`;
                 } else if (tieneCotizacion) {
                     html += `<td class="text-right"><input type="text" value="${fmt(precioCTTA)}" class="input-ctta" onchange="cambiarPrecioCTTA(${item.globalIdx}, this.value)"></td>`;
                     html += `<td>${fmtMoney(totalContratista)}</td>`;
@@ -1935,17 +1976,24 @@ function renderizarNotaFinal() {
                 }
             }
             
-            const moi = esCompraDirecta ? 0 : (subtotalContratista - subtotalBase);
-            // subtotalBase + moi == subtotalContratista siempre (moi se define como la resta
-            // de ambos), así que un total de categoría aparte sería idéntico al SUBTOTAL de
-            // arriba — se usa subtotalContratista directo, sin fila "TOTAL" redundante.
+            // MOI por diferencia menos el MOI ya asignado en el DC cargado (puede quedar
+            // negativo: el DC anterior ya asignó más MOI del que hace falta — se muestra como
+            // crédito). Ya no se fuerza a 0 en compra directa: ese forzado rompía el cuadre
+            // apenas se editaba el precio contratista de un ítem de esa categoría.
+            const moi = (subtotalContratista - subtotalBase) - moiPreAsignado;
+            // subtotalBase + moi == subtotalContratista siempre: se descuenta moiPreAsignado
+            // de subtotalContratista para que la fila de esta categoría cuadre consigo misma.
+            subtotalContratista -= moiPreAsignado;
             const colspan = hayCompraDirecta ? 6 : 5;
             const colspanTotal = hayCompraDirecta ? 11 : 10;
 
             html += `<tr class="subtotal-row"><td colspan="${colspan}" class="text-right"><strong>SUBTOTAL ${escapeHTML(cat)}</strong></td><td><strong>${fmtMoney(subtotalBase)}</strong></td><td class="text-right"></td><td><strong>${fmtMoney(subtotalContratista)}</strong></td><td><strong>${moi !== 0 ? fmtMoneyColor(moi) : fmtMoney(0)}</strong></td><td></tr>`;
 
             if (moi !== 0) {
-                html += `<tr class="moi-row"><td colspan="${colspan}" class="text-right"><strong>🛠️ MANO DE OBRA INDUSTRIAL</strong></td><td></td><td></td><td></td><td><strong>${fmtMoneyColor(moi)}</strong></td><td></tr>`;
+                const labelMOI = moi < 0
+                    ? '🛠️ MANO DE OBRA INDUSTRIAL <span style="font-weight:400;font-size:11px;">(crédito — el DC cargado ya asignó más MOI del que hace falta)</span>'
+                    : '🛠️ MANO DE OBRA INDUSTRIAL';
+                html += `<tr class="moi-row"><td colspan="${colspan}" class="text-right"><strong>${labelMOI}</strong></td><td></td><td></td><td></td><td><strong>${fmtMoneyColor(moi)}</strong></td><td></tr>`;
             }
 
             html += `<tr style="height:8px"><td colspan="${colspanTotal}" style="border:none"></tr></tr>`;
@@ -3027,6 +3075,9 @@ async function exportarAExcel() {
         let totalContratistaGeneral = 0;
         let currentDataRow = 9;
         let alt = false;
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
 
         // Para cálculo de ancho automático cols A,B,C,E
         const autoMaxLen = { 1: 8, 2: 8, 3: 20, 5: 5 };
@@ -3040,6 +3091,8 @@ async function exportarAExcel() {
 
             let subtotalRenova = 0;
             let subtotalContratista = 0;
+            let moiPreAsignado = 0; // MOI ya asignado en un DC cargado — se resta del MOI por diferencia
+            let extraCertAplicado = false;
 
             for (const item of items) {
                 if (item.esMaterialImpovar) continue;
@@ -3050,9 +3103,21 @@ async function exportarAExcel() {
                     || (item.codigo && String(item.codigo).replace(/\D/g,'') === '400')
                     || /sello\s*verde/i.test(item.descripcion || '')
                     || (item.categoria === 'SERVICIO COMPRA DIRECTA' && /certificad|gasseguro|gastek|sello.*verde|inspecci[oó]n.*peri[oó]dica|devia.*y.*rozas|inspecciones.*gas.*seguro/i.test((item.proveedor || '') + ' ' + (item.descripcion || '')));
-                // MOI del certificador es referencial (no suma); MOI del contratista sí se le suma a él
+                // MOI del certificador (SCD) es referencial acá (no suma) — su monto se suma
+                // aparte al ítem código 400 de Normalizaciones (ver extraCert más abajo).
                 const moiNoSuma = itemEsMOI && esCertificador;
-                const totalRenova = (item.precioBase || 0) * (item.cantidad || 0);
+                // MOI ya asignado a contratista (no certificador) en el DC cargado: no se
+                // renderiza como línea propia — su monto se resta del MOI que se calcula por
+                // diferencia para esta categoría, en vez de sumarse aparte.
+                if (itemEsMOI && !esCertificador) {
+                    moiPreAsignado += (item.precioBase || 0) * (item.cantidad || 0);
+                    continue;
+                }
+                // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
+                // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                if (extraCert > 0) extraCertAplicado = true;
+                const totalRenova = (item.precioBase || 0) * (item.cantidad || 0) + extraCert;
                 if (!moiNoSuma) subtotalRenova += totalRenova;
 
                 const esSinCTTA = catsSinCTTA.includes(item.categoria);
@@ -3065,6 +3130,8 @@ async function exportarAExcel() {
                 } else if (item.precioCTTA !== null && item.precioCTTA > 0) {
                     tieneCot = true; precioCTTA = item.precioCTTA; totalCTTA = precioCTTA * item.cantidad;
                 }
+                if (!tieneCot && extraCert > 0) { tieneCot = true; precioCTTA = item.precioBase; totalCTTA = 0; }
+                totalCTTA += extraCert;
                 if (!moiNoSuma) subtotalContratista += totalCTTA;
 
                 const diff = tieneCot ? (totalCTTA - totalRenova) : null;
@@ -3087,7 +3154,7 @@ async function exportarAExcel() {
                 ] : [
                     item.categoria,
                     codigoLimpio,
-                    item.descripcion + (itemEsMOI ? ' (MOI)' : ''),
+                    item.descripcion + (itemEsMOI ? ' (MOI)' : '') + (extraCert ? ` (incl. $${fmt(extraCert)} MOI certificador SCD)` : ''),
                     money(item.precioBase),
                     item.cantidad,
                     tieneCot ? money(precioCTTA) : (esSinCTTA ? 'PRECIO BASE' : 'SIN COTIZAR'),
@@ -3199,7 +3266,12 @@ async function exportarAExcel() {
                 currentDataRow++;
             }
 
-            const moi = esCompraDirecta ? 0 : (subtotalContratista - subtotalRenova);
+            // MOI por diferencia menos el MOI ya asignado en el DC cargado (puede quedar
+            // negativo: el DC anterior ya asignó más MOI del que hace falta). Ya no se fuerza
+            // a 0 en compra directa: ese forzado rompía el cuadre apenas se editaba el precio
+            // contratista de un ítem de esa categoría.
+            const moi = (subtotalContratista - subtotalRenova) - moiPreAsignado;
+            subtotalContratista -= moiPreAsignado; // para que Renova + MOI = Contratista en esta fila
 
             // MOI row — va en columna G (Total Renova) para que cuadre con H
             if (moi !== 0) {
@@ -3208,7 +3280,7 @@ async function exportarAExcel() {
                 sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
                 [1,2,3,4,5,6,7,8,9,10].forEach(col => {
                     const cell = sheet.getCell(currentDataRow, col);
-                    if (col === 1) cell.value = 'MANO DE OBRA INDUSTRIAL';
+                    if (col === 1) cell.value = moi < 0 ? 'MANO DE OBRA INDUSTRIAL (crédito — DC ya asignó de más)' : 'MANO DE OBRA INDUSTRIAL';
                     else if (col === 7) { cell.value = money(moi); cell.numFmt = MONEY; }
                     else if (col === 10) cell.value = '✓ SÍ';
                     cell.fill = fillSolid(C.orangeL);
@@ -3448,24 +3520,41 @@ async function exportarDCFinalExcel() {
             ...Object.keys(grupos).filter(c => !ordenDC.includes(c))
         ];
 
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
+
         // Cálculo por categoría: líneas (código real) + material + MOI que absorbe libres/diferencias
         const resumenCats = [];
         for (const cat of catsPresentes) {
             const items = grupos[cat];
             const esSCD = CATS_COMPRA_DIRECTA.includes(cat);
             const esCañeria = CATS_SIN_CTTA.includes(cat);
-            let renovaLineas = 0, contratistaCat = 0;
+            let renovaLineas = 0, contratistaCat = 0, moiPreAsignado = 0;
+            let extraCertAplicado = false;
             const lineas = [];
             for (const it of items) {
-                const itEsMOI = it.esMOI || /mano.*obra.*industrial/i.test(it.descripcion || '');
-                const vfRenova = money(it.precioBase) * money(it.cantidad);
+                const itEsMOI = esItemMOIAsignado(it);
+                const esCertificadorItem = esItemCertificador(it, cat);
+                // MOI ya asignado a contratista (no certificador) en el DC cargado: no se
+                // renderiza como línea propia — su monto se resta del MOI que se calcula por
+                // diferencia para esta categoría.
+                if (itEsMOI && !esCertificadorItem) {
+                    moiPreAsignado += money(it.precioBase) * money(it.cantidad);
+                    continue;
+                }
+                // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
+                // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificadorItem && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                if (extraCert > 0) extraCertAplicado = true;
+                const vfRenova = money(it.precioBase) * money(it.cantidad) + extraCert;
                 const precioCtta = esCañeria ? it.precioBase
                     : ((it.precioCTTA !== null && it.precioCTTA !== undefined && it.precioCTTA > 0) ? it.precioCTTA : it.precioBase);
-                const vfContratista = money(precioCtta) * money(it.cantidad);
-                contratistaCat += esSCD ? vfRenova || vfContratista : vfContratista;
+                const vfContratista = money(precioCtta) * money(it.cantidad) + extraCert;
+                contratistaCat += vfContratista;
                 if (esLibrePpto(it)) continue; // va dentro del MOI
                 renovaLineas += vfRenova;
-                lineas.push({ it, itEsMOI, vfRenova });
+                lineas.push({ it, itEsMOI, vfRenova, extraCert });
                 const mat = itemsNota.find(m => m.esMaterialImpovar && m.idInstalacion === it.id);
                 if (mat) {
                     const vfMat = money(mat.precioBase) * money(mat.cantidad);
@@ -3473,7 +3562,11 @@ async function exportarDCFinalExcel() {
                     lineas.push({ it: mat, esMaterial: true, vfRenova: vfMat });
                 }
             }
-            const moi = esSCD || esCañeria ? 0 : Math.round(contratistaCat - renovaLineas);
+            // MOI por diferencia menos el MOI ya asignado en el DC cargado (puede quedar
+            // negativo: crédito). Ya no se fuerza a 0 en compra directa —ver nota en
+            // exportarAExcel— y ya no se sustituye el precio contratista por el de Renova
+            // en compra directa (esa sustitución ocultaba diferencias reales del contratista).
+            const moi = esCañeria ? 0 : Math.round(contratistaCat - renovaLineas) - moiPreAsignado;
             resumenCats.push({ cat, lineas, moi, total: renovaLineas + moi, esSCD });
         }
         const subTotalSOLPED = resumenCats.reduce((s, c) => s + c.total, 0);
@@ -3528,10 +3621,11 @@ async function exportarDCFinalExcel() {
                 const it = ln.it;
                 const descUp = String(it.descripcion || '').toUpperCase();
                 const oper = ln.esMaterial ? '' : operacionSAPParaItem(rc.cat, descUp, !!ln.itEsMOI);
+                const notaCert = ln.extraCert ? ` (incl. $${fmt(ln.extraCert)} MOI certificador SCD)` : '';
                 const fila = [
                     oper,
                     String(it.codigo || '').replace(/^0+/, '') || '-',
-                    (ln.esMaterial ? '↳ MATERIAL — ' : '') + it.descripcion,
+                    (ln.esMaterial ? '↳ MATERIAL — ' : '') + it.descripcion + notaCert,
                     it.unidad || (ln.esMaterial ? 'ML' : 'ST'),
                     it.cantidad,
                     money(it.precioBase),
@@ -3553,7 +3647,10 @@ async function exportarDCFinalExcel() {
                 r++;
             }
             if (rc.moi !== 0) {
-                const filaMOI = [operacionSAPParaItem(rc.cat, 'MANO OBRA INDUSTRIAL', true), '', 'MANO OBRA INDUSTRIAL (absorbe ítems sin código Renova y diferencias)', 'ST', 1, money(rc.moi), money(rc.moi), ''];
+                const descMOI = rc.moi < 0
+                    ? 'MANO DE OBRA INDUSTRIAL (crédito — el DC cargado ya asignó más MOI del que hace falta)'
+                    : 'MANO OBRA INDUSTRIAL (absorbe ítems sin código Renova y diferencias)';
+                const filaMOI = [operacionSAPParaItem(rc.cat, 'MANO OBRA INDUSTRIAL', true), '', descMOI, 'ST', 1, money(rc.moi), money(rc.moi), ''];
                 filaMOI.forEach((v, i) => {
                     const col = i + 1;
                     const cell = sheet.getCell(r, col);
