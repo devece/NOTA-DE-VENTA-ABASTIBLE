@@ -1182,6 +1182,87 @@ let itemsNota = [];
 let notasGuardadas = [];
 
 // ============================================================
+// RESPALDO EN LA NUBE (Supabase) — el historial vive principalmente en
+// localStorage (rápido, funciona offline); esto es un respaldo best-effort
+// para no perderlo si cambian de navegador/equipo o borran datos. Si Supabase
+// no responde, la app sigue funcionando igual con el historial local.
+// ============================================================
+const SUPABASE_URL = 'https://zjiqgvdzdzehfjcqxdck.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_eYQFB_Dy6Er4KCPpdOb4jg_13-CGeo2';
+
+async function supabaseGuardarNota(nota) {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/notas`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+                'Prefer': 'resolution=merge-duplicates',
+            },
+            body: JSON.stringify([{
+                id: nota.id,
+                proyecto: nota.proyecto,
+                cliente: nota.cliente,
+                rut: nota.rut,
+                direccion: nota.direccion,
+                ciudad: nota.ciudad,
+                telefono: nota.telefono,
+                centro: nota.centro,
+                fecha: nota.fecha,
+                vencimiento: nota.vencimiento,
+                perfil: perfilActivo,
+                items: nota.items,
+                actualizado_en: new Date().toISOString(),
+            }]),
+        });
+        if (!res.ok) console.warn('Supabase rechazó el respaldo de la nota:', res.status, await res.text().catch(() => ''));
+    } catch (e) {
+        console.warn('No se pudo respaldar la nota en la nube (queda guardada localmente igual):', e.message);
+    }
+}
+
+async function supabaseEliminarNota(id) {
+    try {
+        await fetch(`${SUPABASE_URL}/rest/v1/notas?id=eq.${encodeURIComponent(id)}`, {
+            method: 'DELETE',
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        });
+    } catch (e) {
+        console.warn('No se pudo eliminar la nota del respaldo en la nube:', e.message);
+    }
+}
+
+async function supabaseListarNotas() {
+    try {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/notas?select=*&order=actualizado_en.desc`, {
+            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        });
+        if (!res.ok) return [];
+        const filas = await res.json();
+        return filas.map(f => ({
+            id: f.id, proyecto: f.proyecto, cliente: f.cliente, rut: f.rut,
+            direccion: f.direccion, ciudad: f.ciudad, telefono: f.telefono,
+            centro: f.centro, fecha: f.fecha, vencimiento: f.vencimiento, items: f.items || [],
+        }));
+    } catch (e) {
+        console.warn('No se pudo leer el respaldo en la nube (se muestra solo el historial local):', e.message);
+        return [];
+    }
+}
+
+// Combina el historial local con el respaldo remoto (por id; si un mismo id
+// existe en ambos, se prefiere la versión remota por ser la más reciente).
+async function cargarHistorialCombinado() {
+    const local = JSON.parse(localStorage.getItem("notasGas") || "[]");
+    const remotas = await supabaseListarNotas();
+    const porId = new Map();
+    local.forEach(n => porId.set(n.id, n));
+    remotas.forEach(n => porId.set(n.id, n));
+    return [...porId.values()];
+}
+
+// ============================================================
 // PERFILES Y MODOS
 // ============================================================
 let perfilActivo = null;   // 'abastible' | 'contratista'
@@ -3974,20 +4055,19 @@ function guardarNota() {
     notasGuardadas.unshift(nota); 
     if(notasGuardadas.length > 100) notasGuardadas = notasGuardadas.slice(0, 100);
     localStorage.setItem("notasGas", JSON.stringify(notasGuardadas));
+    supabaseGuardarNota(nota); // respaldo en la nube, best-effort (no bloquea el guardado local)
     mostrarToast('Nota guardada correctamente', 'ok');
     // El contratista no tiene panel Historial (botón oculto): se queda en su vista actual
     if (perfilActivo !== 'contratista') verHistorial();
 }
 
-function verHistorial() {
-    const saved = localStorage.getItem("notasGas"); 
-    notasGuardadas = saved ? JSON.parse(saved) : []; 
+function renderizarHistorial() {
     const container = $("historialList");
     if (notasGuardadas.length === 0) {
         container.innerHTML = '<div class="text-center py-12 flex flex-col items-center gap-2" style="color: var(--aba-gray);"><span class="text-4xl">📭</span><span>Sin notas guardadas</span></div>';
     } else {
-        container.innerHTML = notasGuardadas.map(n => { 
-            const totalBase = n.items.reduce((s, i) => s + (i.precioBase || 0) * i.cantidad, 0); 
+        container.innerHTML = notasGuardadas.map(n => {
+            const totalBase = n.items.reduce((s, i) => s + (i.precioBase || 0) * i.cantidad, 0);
             return `<div class="border rounded-xl p-4 hover:shadow-md transition-all" style="border-color: var(--aba-border);">
                 <div class="flex justify-between items-start gap-4 flex-wrap">
                     <div>
@@ -4003,10 +4083,22 @@ function verHistorial() {
                         </div>
                     </div>
                 </div>
-            </div>`; 
+            </div>`;
         }).join("");
     }
+}
+
+// Muestra primero el historial local (instantáneo) y lo completa con lo que haya en el
+// respaldo en la nube apenas responda (por si hay notas guardadas desde otro navegador/equipo).
+function verHistorial() {
+    const saved = localStorage.getItem("notasGas");
+    notasGuardadas = saved ? JSON.parse(saved) : [];
     mostrarSolo("panelHistorial");
+    renderizarHistorial();
+    cargarHistorialCombinado().then(combinado => {
+        notasGuardadas = combinado;
+        renderizarHistorial();
+    });
 }
 
 async function eliminarNota(id) {
@@ -4014,8 +4106,9 @@ async function eliminarNota(id) {
     if (!confirmado) return;
     notasGuardadas = notasGuardadas.filter(n => n.id !== id);
     localStorage.setItem("notasGas", JSON.stringify(notasGuardadas));
+    supabaseEliminarNota(id); // best-effort, no bloquea el borrado local
     mostrarToast("Nota eliminada", "ok");
-    verHistorial();
+    renderizarHistorial();
 }
 
 // Migra ítems de proyectos guardados con versiones anteriores:
