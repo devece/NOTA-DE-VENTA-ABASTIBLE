@@ -410,7 +410,7 @@
 <div id="modalDC" class="modal-overlay">
     <div class="modal-container" style="max-width:520px;">
         <div class="modal-header" style="background: linear-gradient(135deg, #7C3AED, #5B21B6); padding:20px 24px;">
-            <h3 style="font-size:18px; font-weight:700; color:white; margin:0;">📄 Detalle Comercial → Nota de Venta</h3>
+            <h3 id="modalDCTitulo" style="font-size:18px; font-weight:700; color:white; margin:0;">📄 Detalle Comercial → Nota de Venta</h3>
             <p style="color:rgba(255,255,255,0.8); font-size:13px; margin:6px 0 0 0;">Claude extrae automáticamente todos los ítems del PDF</p>
         </div>
         <div class="modal-body" style="padding:20px 24px;">
@@ -499,7 +499,7 @@
         </div>
         <div class="selector-card" onclick="document.getElementById('importarPptoContratistaInput').click()">
             <span class="sc-icon">📊</span>
-            <div class="sc-title">Convertir Ppto. a Nota de Venta</div>
+            <div class="sc-title">Convertir Ppto. a Cotización</div>
             <div class="sc-desc">Sube tu presupuesto Excel (.xls/.xlsx). Se importan los ítems vinculando automáticamente material Impovar y precios Renova de tu zona.</div>
         </div>
     </div>
@@ -655,7 +655,7 @@
             <div class="flex items-center gap-3">
                 <span id="resumenConteo" class="text-xs" style="color: var(--aba-gray);">0 ítems agregados</span>
                 <button onclick="volverPaso1()" class="text-sm" style="color: var(--aba-blue);">← Modificar datos</button>
-                <button onclick="irPaso3()" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">Ver Nota de Venta →</button>
+                <button id="btnVerDocPaso2" onclick="irPaso3()" class="btn-primary px-4 py-2 rounded-lg text-sm font-semibold">Ver Nota de Venta →</button>
             </div>
         </div>
 
@@ -5097,6 +5097,8 @@ function irPaso2() {
     $("resumenCliente").textContent = cliente;
     $("resumenCentro").textContent = centro;
     $("resumenCiudad").textContent = ciudad || "-";
+    // En perfil Contratista todo el documento se llama "Cotización", no "Nota de Venta"
+    $("btnVerDocPaso2").textContent = perfilActivo === 'contratista' ? 'Ver Cotización →' : 'Ver Nota de Venta →';
     mostrarSolo("paso2");
     inicializarCategorias();
     cargarProductos();
@@ -5151,7 +5153,13 @@ async function procesarDetalleComercial(event) {
     document.getElementById('dcFooter').style.display = 'none';
     document.getElementById('dcMensaje').textContent = 'Analizando PDF...';
     document.getElementById('dcSubMensaje').textContent = 'Esto puede tomar hasta 30 segundos';
-    document.getElementById('btnConfirmarDC').textContent = (modoActivo === 'dc_cotizacion') ? 'Cargar ítems del DC' : 'Cargar como Nota de Venta';
+    // En perfil Contratista todo el documento se llama "Cotización", no "Nota de Venta"
+    const esContratistaDC = perfilActivo === 'contratista';
+    const tituloModalDC = document.getElementById('modalDCTitulo');
+    if (tituloModalDC) tituloModalDC.textContent = esContratistaDC ? '📄 Detalle Comercial → Cotización' : '📄 Detalle Comercial → Nota de Venta';
+    document.getElementById('btnConfirmarDC').textContent = (modoActivo === 'dc_cotizacion')
+        ? 'Cargar ítems del DC'
+        : (esContratistaDC ? 'Cargar como Cotización' : 'Cargar como Nota de Venta');
     modal.classList.add('active');
     dcDatosExtraidos = null;
 
