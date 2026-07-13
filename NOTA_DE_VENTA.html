@@ -879,6 +879,40 @@ function calcularExtraCertificadorSCD(items) {
         .filter(i => i.categoria === 'SERVICIO COMPRA DIRECTA' && esItemMOIAsignado(i) && esItemCertificador(i, i.categoria))
         .reduce((s, i) => s + (i.precioBase || 0) * (i.cantidad || 0), 0);
 }
+// Si hay MOI de certificador en Servicio Compra Directa pero Normalizaciones no trae un ítem
+// código 400 real (no generado por esta misma función), lo crea al precio Renova de catálogo
+// (si la base lo tiene para el centro activo; si no, precio 0). El saldo — lo que exceda ese
+// precio de catálogo — no se mueve: se devuelve para que el llamador lo sume al MOI ya asignado
+// de Servicio Compra Directa (se resta igual que cualquier MOI ya asignado de esa categoría).
+// Idempotente: en renders sucesivos reutiliza el ítem ya creado en vez de duplicarlo.
+function asegurarItem400Normalizaciones(items, extraCertificadorSCD) {
+    if (extraCertificadorSCD <= 0) return 0;
+    const hayItem400Real = items.some(i => i.categoria === 'NORMALIZACIONES' && !i.esGeneradoAuto
+        && esItemCertificador(i, i.categoria) && !esItemMOIAsignado(i));
+    if (hayItem400Real) return 0;
+
+    let sintetico = items.find(i => i.categoria === 'NORMALIZACIONES' && i.esGeneradoAuto);
+    if (!sintetico) {
+        const catalogo = (dbProductos['NORMALIZACIONES'] || []).find(p => String(p.cod || '').replace(/\D/g, '') === '400');
+        const precioCatalogo = catalogo ? obtenerPrecioBase(catalogo, centroActivo) : 0;
+        sintetico = {
+            id: generarUUID(),
+            codigo: catalogo ? catalogo.cod : '400',
+            descripcion: (catalogo ? catalogo.desc : 'Inspección periódica Sello Verde') + ' (generado automáticamente desde Servicio Compra Directa)',
+            categoria: 'NORMALIZACIONES',
+            unidad: catalogo ? catalogo.um : 'UN',
+            cantidad: 1,
+            precioBase: precioCatalogo,
+            precioCTTA: precioCatalogo,
+            centro: centroActivo,
+            tieneCotizacion: true,
+            esCertificador: true,
+            esGeneradoAuto: true
+        };
+        items.push(sintetico);
+    }
+    return extraCertificadorSCD - sintetico.precioBase;
+}
 
 // ============================================================
 // MATERIALES CAÑERÍA — se leen desde dbProductos (base_datos.xlsx)
@@ -1808,6 +1842,12 @@ function renderizarNotaFinal() {
         $("notaCentro").textContent = centroActivo || "-";
         $("notaVencimiento").textContent = $("vencimiento").value || "-";
 
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones, creándolo si el DC no
+        // trae uno). Debe ir antes de agrupar: si crea el ítem, tiene que quedar incluido.
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
+        const saldoCertificadorSCD = asegurarItem400Normalizaciones(itemsNota, extraCertificadorSCD);
+
         const grupos = {};
         categoriasList.forEach(c => { grupos[c] = []; });
         // Incluir categorías de compra directa aunque no estén en la base
@@ -1840,9 +1880,6 @@ function renderizarNotaFinal() {
         let totalGeneralCttaPuro = 0;
         let totalGeneralCertificador = 0;
         let totalGeneralImpovar = 0;
-        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
-        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
-        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
 
         for (const cat of ordenCats) {
             const items = grupos[cat];
@@ -1850,7 +1887,10 @@ function renderizarNotaFinal() {
             const esCompraDirecta = CATS_COMPRA_DIRECTA.includes(cat);
             let subtotalBase = 0;
             let subtotalContratista = 0;
-            let moiPreAsignado = 0; // MOI ya asignado en un DC cargado — se resta del MOI por diferencia
+            // MOI ya asignado en un DC cargado — se resta del MOI por diferencia. En Servicio
+            // Compra Directa incluye también el saldo del certificador que no cupo en el ítem
+            // código 400 de Normalizaciones (precio de catálogo vs. monto realmente asignado).
+            let moiPreAsignado = cat === 'SERVICIO COMPRA DIRECTA' ? saldoCertificadorSCD : 0;
             let extraCertAplicado = false;
 
             for (const item of items) {
@@ -1874,7 +1914,9 @@ function renderizarNotaFinal() {
                 }
                 // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
                 // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
-                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                // El ítem generado automáticamente (asegurarItem400Normalizaciones) ya nace con el
+                // precio de catálogo como su valor — no se le vuelve a sumar el monto acá.
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !item.esGeneradoAuto && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
                 if (extraCert > 0) extraCertAplicado = true;
                 const totalBase = item.precioBase * item.cantidad + extraCert;
                 if (!moiNoSuma) subtotalBase += totalBase;
@@ -3057,6 +3099,12 @@ async function exportarAExcel() {
             c.border = noBorder();
         });
 
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones, creándolo si el DC no trae
+        // uno). Debe ir antes de agrupar: si crea el ítem, tiene que quedar incluido.
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
+        const saldoCertificadorSCD = asegurarItem400Normalizaciones(itemsNota, extraCertificadorSCD);
+
         // ── DATOS ──────────────────────────────────────
         const grupos = {};
         categoriasList.forEach(c => grupos[c] = []);
@@ -3075,9 +3123,6 @@ async function exportarAExcel() {
         let totalContratistaGeneral = 0;
         let currentDataRow = 9;
         let alt = false;
-        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
-        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
-        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
 
         // Para cálculo de ancho automático cols A,B,C,E
         const autoMaxLen = { 1: 8, 2: 8, 3: 20, 5: 5 };
@@ -3091,7 +3136,10 @@ async function exportarAExcel() {
 
             let subtotalRenova = 0;
             let subtotalContratista = 0;
-            let moiPreAsignado = 0; // MOI ya asignado en un DC cargado — se resta del MOI por diferencia
+            // MOI ya asignado en un DC cargado — se resta del MOI por diferencia. En Servicio
+            // Compra Directa incluye también el saldo del certificador que no cupo en el ítem
+            // código 400 de Normalizaciones (precio de catálogo vs. monto realmente asignado).
+            let moiPreAsignado = cat === 'SERVICIO COMPRA DIRECTA' ? saldoCertificadorSCD : 0;
             let extraCertAplicado = false;
 
             for (const item of items) {
@@ -3115,7 +3163,9 @@ async function exportarAExcel() {
                 }
                 // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
                 // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
-                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                // El ítem generado automáticamente (asegurarItem400Normalizaciones) ya nace con el
+                // precio de catálogo como su valor — no se le vuelve a sumar el monto acá.
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificador && !item.esGeneradoAuto && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
                 if (extraCert > 0) extraCertAplicado = true;
                 const totalRenova = (item.precioBase || 0) * (item.cantidad || 0) + extraCert;
                 if (!moiNoSuma) subtotalRenova += totalRenova;
@@ -3507,6 +3557,12 @@ async function exportarDCFinalExcel() {
 
         // ── AGRUPAR Y CALCULAR ──
         const esLibrePpto = it => it.esItemLibre || /^PPTO-/.test(String(it.codigo || ''));
+        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
+        // categoría — se suma al ítem código 400 de Normalizaciones, creándolo si el DC no trae
+        // uno). Debe ir antes de agrupar: si crea el ítem, tiene que quedar incluido.
+        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
+        const saldoCertificadorSCD = asegurarItem400Normalizaciones(itemsNota, extraCertificadorSCD);
+
         const grupos = {};
         itemsNota.forEach(it => {
             if (it.esMaterialImpovar) return;
@@ -3520,17 +3576,16 @@ async function exportarDCFinalExcel() {
             ...Object.keys(grupos).filter(c => !ordenDC.includes(c))
         ];
 
-        // MOI de Servicio Compra Directa asignado al certificador (no se resta del MOI de su
-        // categoría — se suma al ítem código 400 de Normalizaciones cuando se procese esa categoría).
-        const extraCertificadorSCD = calcularExtraCertificadorSCD(itemsNota);
-
         // Cálculo por categoría: líneas (código real) + material + MOI que absorbe libres/diferencias
         const resumenCats = [];
         for (const cat of catsPresentes) {
             const items = grupos[cat];
             const esSCD = CATS_COMPRA_DIRECTA.includes(cat);
             const esCañeria = CATS_SIN_CTTA.includes(cat);
-            let renovaLineas = 0, contratistaCat = 0, moiPreAsignado = 0;
+            // MOI ya asignado en un DC cargado — se resta del MOI por diferencia. En Servicio
+            // Compra Directa incluye también el saldo del certificador que no cupo en el ítem
+            // código 400 de Normalizaciones (precio de catálogo vs. monto realmente asignado).
+            let renovaLineas = 0, contratistaCat = 0, moiPreAsignado = cat === 'SERVICIO COMPRA DIRECTA' ? saldoCertificadorSCD : 0;
             let extraCertAplicado = false;
             const lineas = [];
             for (const it of items) {
@@ -3546,9 +3601,10 @@ async function exportarDCFinalExcel() {
                 // MOI de Servicio Compra Directa asignado al certificador: referencial en su
                 // propia categoría (no suma a sus totales) — su monto se suma aparte al ítem
                 // código 400 de Normalizaciones (ver extraCert más abajo), igual que en
-                // renderizarNotaFinal/exportarAExcel.
+                // renderizarNotaFinal/exportarAExcel. El ítem generado automáticamente ya nace
+                // con el precio de catálogo como su valor — no se le vuelve a sumar el monto acá.
                 const moiNoSuma = itEsMOI && esCertificadorItem;
-                const extraCert = (cat === 'NORMALIZACIONES' && esCertificadorItem && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
+                const extraCert = (cat === 'NORMALIZACIONES' && esCertificadorItem && !it.esGeneradoAuto && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
                 if (extraCert > 0) extraCertAplicado = true;
                 const vfRenova = money(it.precioBase) * money(it.cantidad) + extraCert;
                 const precioCtta = esCañeria ? it.precioBase
