@@ -409,6 +409,11 @@
             <button id="labelCargarCotizacionContratista" onclick="document.getElementById('cargarCotizacionInput').click()" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:none; background:#0E7490; color:white; border:none;">
                 📥 Importar Cotización Contratista
             </button>
+            <!-- Solo en modo Nota de Venta (Abastible): descarga el proyecto armado como .json
+                 para que el contratista lo abra con "Cargar Cotización" y complete sus precios. -->
+            <button id="btnEnviarContratista" onclick="guardarProyecto()" style="padding:10px 16px; border-radius:10px; font-weight:600; cursor:pointer; font-size:14px; display:none; background:#0E7490; color:white; border:none;">
+                📤 Enviar a Contratista
+            </button>
         </div>
     </div>
 </div>
@@ -1510,6 +1515,9 @@ function iniciarAppConModo() {
     // cotización, y para generarle a Abastible el .json con precisión exacta de precios.
     // A Abastible ya lo reemplaza el Historial (con respaldo en la nube) — ver guardarNota().
     $('grupoProyectoContratista').style.display = esContratista ? 'flex' : 'none';
+    // Abastible arma la Nota de Venta y la descarga como .json para que el contratista
+    // la abra con "Cargar Cotización" y ponga sus precios (ver punto 3 del flujo).
+    $('btnEnviarContratista').style.display = (!esContratista && modoActivo === 'nota_venta') ? 'inline-block' : 'none';
     // En la web (https) la base se auto-carga sola al abrir el sitio (ver cargarBaseDesdeServidor),
     // así que el botón manual sobra ahí; se muestra solo si ese auto-fetch falla (ver más abajo).
     $('btnCargarExcel').style.display = (esContratista || window.location.protocol === 'https:') ? 'none' : '';
@@ -4258,9 +4266,9 @@ function guardarProyecto() {
     const link = document.createElement("a"); 
     link.href = URL.createObjectURL(blob); 
     const nombre = data.proyecto ? data.proyecto.replace(/\s/g, "_") : "PROYECTO"; 
-    link.download = `NV_${nombre}.json`; 
-    link.click(); 
-    mostrarToast('Cotización guardada correctamente', 'ok');
+    link.download = `NV_${nombre}.json`;
+    link.click();
+    mostrarToast(perfilActivo === 'abastible' ? 'Nota de Venta descargada para enviar al contratista' : 'Cotización guardada correctamente', 'ok');
 }
 
 function cargarProyecto(event) {
