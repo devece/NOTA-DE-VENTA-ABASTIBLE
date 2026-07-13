@@ -3543,18 +3543,21 @@ async function exportarDCFinalExcel() {
                     moiPreAsignado += money(it.precioBase) * money(it.cantidad);
                     continue;
                 }
-                // MOI de Servicio Compra Directa asignado al certificador: se suma al ítem
-                // código 400 (certificador) de Normalizaciones, no se resta del MOI de esta categoría.
+                // MOI de Servicio Compra Directa asignado al certificador: referencial en su
+                // propia categoría (no suma a sus totales) — su monto se suma aparte al ítem
+                // código 400 de Normalizaciones (ver extraCert más abajo), igual que en
+                // renderizarNotaFinal/exportarAExcel.
+                const moiNoSuma = itEsMOI && esCertificadorItem;
                 const extraCert = (cat === 'NORMALIZACIONES' && esCertificadorItem && !extraCertAplicado && extraCertificadorSCD > 0) ? extraCertificadorSCD : 0;
                 if (extraCert > 0) extraCertAplicado = true;
                 const vfRenova = money(it.precioBase) * money(it.cantidad) + extraCert;
                 const precioCtta = esCañeria ? it.precioBase
                     : ((it.precioCTTA !== null && it.precioCTTA !== undefined && it.precioCTTA > 0) ? it.precioCTTA : it.precioBase);
                 const vfContratista = money(precioCtta) * money(it.cantidad) + extraCert;
-                contratistaCat += vfContratista;
+                if (!moiNoSuma) contratistaCat += vfContratista;
                 if (esLibrePpto(it)) continue; // va dentro del MOI
-                renovaLineas += vfRenova;
-                lineas.push({ it, itEsMOI, vfRenova, extraCert });
+                if (!moiNoSuma) renovaLineas += vfRenova;
+                lineas.push({ it, itEsMOI, vfRenova, extraCert, moiNoSuma });
                 const mat = itemsNota.find(m => m.esMaterialImpovar && m.idInstalacion === it.id);
                 if (mat) {
                     const vfMat = money(mat.precioBase) * money(mat.cantidad);
@@ -3622,24 +3625,28 @@ async function exportarDCFinalExcel() {
                 const descUp = String(it.descripcion || '').toUpperCase();
                 const oper = ln.esMaterial ? '' : operacionSAPParaItem(rc.cat, descUp, !!ln.itEsMOI);
                 const notaCert = ln.extraCert ? ` (incl. $${fmt(ln.extraCert)} MOI certificador SCD)` : '';
+                const notaRef = ln.moiNoSuma ? ' (REFERENCIAL — no suma acá, se suma al ítem 400 de Normalizaciones)' : '';
                 const fila = [
                     oper,
                     String(it.codigo || '').replace(/^0+/, '') || '-',
-                    (ln.esMaterial ? '↳ MATERIAL — ' : '') + it.descripcion + notaCert,
+                    (ln.esMaterial ? '↳ MATERIAL — ' : '') + it.descripcion + notaCert + notaRef,
                     it.unidad || (ln.esMaterial ? 'ML' : 'ST'),
                     it.cantidad,
-                    money(it.precioBase),
-                    money(ln.vfRenova),
+                    ln.moiNoSuma ? 'NO SUMA' : money(it.precioBase),
+                    ln.moiNoSuma ? 'NO SUMA' : money(ln.vfRenova),
                     ln.esMaterial ? 'IMPOVAR' : (rc.esSCD ? (it.proveedor || '') : '')
                 ];
                 fila.forEach((v, i) => {
                     const col = i + 1;
                     const cell = sheet.getCell(r, col);
                     cell.value = v; cell.border = gridBorder();
-                    cell.font = ln.esMaterial
+                    cell.font = ln.moiNoSuma
+                        ? { name: 'Arial', size: 9, italic: true, color: { argb: 'FF9A3412' } }
+                        : ln.esMaterial
                         ? { name: 'Arial', size: 8, italic: true, color: { argb: 'FF92400E' } }
                         : { name: 'Arial', size: 9 };
-                    if (ln.esMaterial) cell.fill = fillSolid('FFFFFBF0');
+                    if (ln.moiNoSuma) cell.fill = fillSolid('FFFFF7ED');
+                    else if (ln.esMaterial) cell.fill = fillSolid('FFFFFBF0');
                     if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                     else if (col === 4 || col === 5 || col === 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
