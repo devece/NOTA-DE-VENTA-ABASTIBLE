@@ -129,7 +129,7 @@ superior en cualquier momento de la cotización:
 
 - **💾 Guardar Cotización** — descarga `NV_<proyecto>.json` con todos los datos del
   proyecto y los ítems. Es el mismo archivo que se manda a Abastible para que lo abra
-  con **"Abrir cotización del contratista"** en su Análisis DC + Cotización.
+  con **"Abrir cotización del contratista"** desde su perfil.
 - **📂 Cargar Cotización** — vuelve a abrir un `.json` guardado antes (propio, o uno
   que te mandó Abastible con **Enviar a Contratista**) para completar tus precios y
   seguir donde quedaste.

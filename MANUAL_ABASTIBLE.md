@@ -12,10 +12,9 @@ Si sos **Contratista (empresa externa)**, usá [MANUAL_CONTRATISTA.md](MANUAL_CO
 2. [Elegir qué documento crear](#2-elegir-qué-documento-crear)
 3. [Nota de Venta](#3-nota-de-venta)
 4. [Cargar DC (PDF)](#4-cargar-dc-pdf)
-5. [Análisis DC + Cotización](#5-análisis-dc--cotización)
-6. [Historial de Notas](#6-historial-de-notas)
-7. [Acciones del documento final](#7-acciones-del-documento-final)
-8. [Preguntas frecuentes](#8-preguntas-frecuentes)
+5. [Historial de Notas](#5-historial-de-notas)
+6. [Acciones del documento final](#6-acciones-del-documento-final)
+7. [Preguntas frecuentes](#7-preguntas-frecuentes)
 
 ---
 
@@ -30,7 +29,7 @@ a la pantalla de selección de documento.
 
 ## 2. Elegir qué documento crear
 
-Hay tres opciones. Cada una arranca un flujo distinto:
+Hay dos opciones. Cada una arranca un flujo distinto:
 
 ![Selección de documento](docs/manual/img/abastible/02-seleccion-documento.png)
 
@@ -38,7 +37,6 @@ Hay tres opciones. Cada una arranca un flujo distinto:
 |---|---|
 | **📋 Nota de Venta** | Armar una Nota de Venta manualmente, eligiendo productos Renova por centro. |
 | **📄 Cargar DC** | Subir el PDF de un Detalle Comercial para crear automáticamente un proyecto con sus ítems, listo para que el contratista cotice. |
-| **🔍 Análisis DC + Cotización** | Cruzar un DC (o un presupuesto/cotización de contratista) contra los precios Renova y calcular el cuadre con MOI. |
 
 ## 3. Nota de Venta
 
@@ -85,7 +83,7 @@ Total) y el resumen final.
 ![Paso 3 — Nota de Venta](docs/manual/img/abastible/07-nota-venta-paso3.png)
 
 Desde acá se puede **Exportar a Excel**, **Generar DC**, **Guardar Nota** o
-**Imprimir** (ver [sección 7](#7-acciones-del-documento-final)). En modo Nota de Venta
+**Imprimir** (ver [sección 6](#6-acciones-del-documento-final)). En modo Nota de Venta
 también aparece en la barra superior el botón **📤 Enviar a Contratista**, que descarga
 un `.json` con el proyecto para que el contratista lo abra con **Cargar Cotización** en
 su perfil y ponga sus precios.
@@ -106,66 +104,7 @@ Pasos:
    el monto de la certificación antes de continuar (en vez de asumir un valor fijo).
 5. Queda armada la Nota de Venta (Paso 3), lista para exportar o enviar al contratista.
 
-## 5. Análisis DC + Cotización
-
-Esta es la pantalla central para **cuadrar** lo que cotizó un contratista contra los
-precios Renova. Ofrece 4 vías de entrada, según de dónde partís:
-
-![Panel Análisis DC + Cotización](docs/manual/img/abastible/09-analisis-dc-cotizacion-panel.png)
-
-| Tarjeta | Cuándo usarla |
-|---|---|
-| **📄 Cargar DC (PDF)** | Partís de cero con el PDF del Detalle Comercial (igual que en la [sección 4](#4-cargar-dc-pdf)), y después ingresás o importás la cotización del contratista para el análisis. |
-| **📥 Abrir cotización del contratista** | El contratista ya te mandó el archivo **`.json`** que generó con **Guardar Cotización** desde su perfil. Se abre directo en el análisis (Paso 3), sin pasos intermedios. |
-| **📊 Convertir Ppto. Contratista** | El contratista te mandó su presupuesto en **Excel** (.xls/.xlsx), con cualquier formato propio. Ver detalle abajo. |
-| **📥 Importar Cotización Contratista** | Ya tenés un DC cargado en esta sesión y el contratista te mandó sus precios en Excel o JSON: se vuelcan sobre los ítems ya cargados. |
-
-### 5.1 Convertir Ppto. Contratista — flujo detallado
-
-Es la forma más común de partir cuando el contratista no usa la app, sino que manda su
-propio Excel de presupuesto (columnas mínimas: **Descripción**, **Cant.**, **Precio**;
-opcionales: Ítem, Unidad, Subtotal, Categoría).
-
-1. Click en la tarjeta **Convertir Ppto. Contratista** y seleccionar el Excel.
-2. La app clasifica cada ítem automáticamente:
-   - **Cañerías**: solo entran a CAÑERIAS AP/MP/BP los ítems cuya descripción habla de
-     cañería/instalación/red GLP **y** trae diámetro. El match contra Renova es **por
-     diámetro + familia de presión** (nunca por texto literal, porque cada contratista
-     describe distinto). El material Impovar se vincula solo.
-   - **Resto de ítems**: match exacto o por similitud de palabras clave.
-   - **Sin match**: quedan como ítem libre con precio Renova **$0** — su valor se
-     refleja después como MOI de su categoría (no se pierde).
-3. Si al proyecto le falta Cliente o Centro, la app te pide completarlos (el nombre de
-   Proyecto se propone solo, a partir del nombre del archivo):
-
-   ![Completar datos del proyecto](docs/manual/img/abastible/10-convertir-ppto-completar-datos.png)
-
-4. Al continuar, se abre el Paso 2 con los ítems ya importados y clasificados por
-   categoría — se pueden revisar, corregir matches por similitud, o agregar/eliminar
-   ítems antes de seguir:
-
-   ![Ítems importados en Paso 2](docs/manual/img/abastible/11-convertir-ppto-paso2.png)
-
-5. Click en **Ver Nota de Venta →** para llegar al análisis de cuadre.
-
-### 5.2 El análisis de cuadre
-
-El Paso 3 en modo Análisis muestra, por categoría, el Total Renova vs. el Total
-Contratista, con **Mano de Obra Industrial (MOI)** calculada como la diferencia, y un
-sello de validación al pie:
-
-![Análisis de cuadre](docs/manual/img/abastible/12-analisis-cuadre-paso3.png)
-
-- **Total Base Renova + Total MOI = Total Contratista**, con el sello
-  **✅ CUADRE VALIDADO**.
-- Los ítems con código `PPTO-…` son los que no matchearon con Renova (precio Renova
-  $0): su valor completo queda absorbido en el MOI de su categoría.
-- Al exportar a Excel (ver [sección 7](#7-acciones-del-documento-final)), esa misma
-  vista se convierte en la **guía de digitación** para crear el DC — con la columna
-  **"DIGITAR EN DC"** indicando qué filas cargar y cuáles no (para no duplicar el
-  valor que ya está sumado en el MOI).
-
-## 6. Historial de Notas
+## 5. Historial de Notas
 
 El botón **📋 Historial** (solo disponible para Abastible, no para Contratista) lista
 las notas guardadas con **💾 Guardar Nota**, combinando lo guardado en este navegador
@@ -174,13 +113,12 @@ las notas guardadas con **💾 Guardar Nota**, combinando lo guardado en este na
 
 ![Historial de notas](docs/manual/img/abastible/08-historial.png)
 
-## 7. Acciones del documento final
+## 6. Acciones del documento final
 
-Estos botones aparecen al pie del Paso 3 (Nota de Venta / Análisis de Cuadre):
+Estos botones aparecen al pie del Paso 3 (Nota de Venta):
 
 - **📊 Exportar a Excel** — descarga `NOTA_VENTA_<proyecto>.xlsx` con el detalle
-  completo (categoría, código, descripción, precio Renova, total, y en modo análisis
-  también precio/total contratista, diferencia y la columna guía "DIGITAR EN DC").
+  completo (categoría, código, descripción, precio Renova, total).
 - **📄 Generar DC** — solo visible para Abastible (nunca para Contratista): genera
   `DC_<proyecto>.xlsx` con la hoja lista en formato Operación/Código/Descripción/UN/
   Cant./Valor Unit./Valor Final/Proveedor.
@@ -189,17 +127,12 @@ Estos botones aparecen al pie del Paso 3 (Nota de Venta / Análisis de Cuadre):
 - **📤 Enviar a Contratista** (solo en modo Nota de Venta) — descarga el `.json` del
   proyecto para que el contratista lo abra con **Cargar Cotización**.
 
-## 8. Preguntas frecuentes
+## 7. Preguntas frecuentes
 
 **¿Por qué no aparecen productos en el Paso 2?**
 Falta cargar la base de productos Renova. En el sitio publicado (https) se carga sola
 al abrir la app; si falla, usar el botón **📂 Cargar Base Excel** y elegir
 `base_datos.xlsx`.
-
-**¿Cuál es la diferencia entre "Nota de Venta" y "Análisis DC + Cotización"?**
-"Nota de Venta" es para armar un documento desde cero, eligiendo productos vos mismo.
-"Análisis DC + Cotización" es para **cuadrar** un DC o presupuesto/cotización de un
-contratista contra los precios Renova, con el desglose de MOI.
 
 **¿Qué le mando al contratista para que cotice?**
 Un `.json` generado con **Enviar a Contratista** (desde una Nota de Venta) o
