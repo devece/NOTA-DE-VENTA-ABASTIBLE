@@ -163,8 +163,7 @@ sello de validación al pie:
 - Al exportar a Excel (ver [sección 7](#7-acciones-del-documento-final)), esa misma
   vista se convierte en la **guía de digitación** para crear el DC — con la columna
   **"DIGITAR EN DC"** indicando qué filas cargar y cuáles no (para no duplicar el
-  valor que ya está sumado en el MOI). El detalle completo de esa correspondencia está
-  en [MANUAL_FLUJO_PPTO_A_DC.md](MANUAL_FLUJO_PPTO_A_DC.md).
+  valor que ya está sumado en el MOI).
 
 ## 6. Historial de Notas
 
