@@ -109,7 +109,7 @@ Pasos:
 ## 5. Análisis DC + Cotización
 
 Esta es la pantalla central para **cuadrar** lo que cotizó un contratista contra los
-precios Renova. Ofrece 3 vías de entrada, según de dónde partís:
+precios Renova. Ofrece 4 vías de entrada, según de dónde partís:
 
 ![Panel Análisis DC + Cotización](docs/manual/img/abastible/09-analisis-dc-cotizacion-panel.png)
 
@@ -117,9 +117,38 @@ precios Renova. Ofrece 3 vías de entrada, según de dónde partís:
 |---|---|
 | **📄 Cargar DC (PDF)** | Partís de cero con el PDF del Detalle Comercial (igual que en la [sección 4](#4-cargar-dc-pdf)), y después ingresás o importás la cotización del contratista para el análisis. |
 | **📥 Abrir cotización del contratista** | El contratista ya te mandó el archivo **`.json`** que generó con **Guardar Cotización** desde su perfil. Se abre directo en el análisis (Paso 3), sin pasos intermedios. |
+| **📊 Convertir Ppto. Contratista** | El contratista te mandó su presupuesto en **Excel** (.xls/.xlsx), con cualquier formato propio. Ver detalle abajo. |
 | **📥 Importar Cotización Contratista** | Ya tenés un DC cargado en esta sesión y el contratista te mandó sus precios en Excel o JSON: se vuelcan sobre los ítems ya cargados. |
 
-### 5.1 El análisis de cuadre
+### 5.1 Convertir Ppto. Contratista — flujo detallado
+
+Es la forma más común de partir cuando el contratista no usa la app, sino que manda su
+propio Excel de presupuesto (columnas mínimas: **Descripción**, **Cant.**, **Precio**;
+opcionales: Ítem, Unidad, Subtotal, Categoría).
+
+1. Click en la tarjeta **Convertir Ppto. Contratista** y seleccionar el Excel.
+2. La app clasifica cada ítem automáticamente:
+   - **Cañerías**: solo entran a CAÑERIAS AP/MP/BP los ítems cuya descripción habla de
+     cañería/instalación/red GLP **y** trae diámetro. El match contra Renova es **por
+     diámetro + familia de presión** (nunca por texto literal, porque cada contratista
+     describe distinto). El material Impovar se vincula solo.
+   - **Resto de ítems**: match exacto o por similitud de palabras clave.
+   - **Sin match**: quedan como ítem libre con precio Renova **$0** — su valor se
+     refleja después como MOI de su categoría (no se pierde).
+3. Si al proyecto le falta Cliente o Centro, la app te pide completarlos (el nombre de
+   Proyecto se propone solo, a partir del nombre del archivo):
+
+   ![Completar datos del proyecto](docs/manual/img/abastible/10-convertir-ppto-completar-datos.png)
+
+4. Al continuar, se abre el Paso 2 con los ítems ya importados y clasificados por
+   categoría — se pueden revisar, corregir matches por similitud, o agregar/eliminar
+   ítems antes de seguir:
+
+   ![Ítems importados en Paso 2](docs/manual/img/abastible/11-convertir-ppto-paso2.png)
+
+5. Click en **Ver Nota de Venta →** para llegar al análisis de cuadre.
+
+### 5.2 El análisis de cuadre
 
 El Paso 3 en modo Análisis muestra, por categoría, el Total Renova vs. el Total
 Contratista, con **Mano de Obra Industrial (MOI)** calculada como la diferencia, y un
