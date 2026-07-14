@@ -1209,31 +1209,42 @@ let notasGuardadas = [];
 const SUPABASE_URL = 'https://zjiqgvdzdzehfjcqxdck.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_eYQFB_Dy6Er4KCPpdOb4jg_13-CGeo2';
 
+// La tabla notas no acepta acceso directo (sin políticas públicas): todo pasa por
+// funciones RPC que exigen la misma contraseña del sitio (cookie nv_auth que puso
+// middleware.js al entrar), verificada server-side contra un secreto en Supabase
+// Vault. Así, tener la URL+clave anon del código ya no alcanza para leer o borrar
+// el historial de otros — hace falta la contraseña real.
+function obtenerPasswordSitio() {
+    const match = document.cookie.match(/(?:^|;\s*)nv_auth=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
 async function supabaseGuardarNota(nota) {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/notas`, {
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/notas_guardar`, {
             method: 'POST',
             headers: {
                 'apikey': SUPABASE_KEY,
                 'Authorization': `Bearer ${SUPABASE_KEY}`,
                 'Content-Type': 'application/json',
-                'Prefer': 'resolution=merge-duplicates',
             },
-            body: JSON.stringify([{
-                id: nota.id,
-                proyecto: nota.proyecto,
-                cliente: nota.cliente,
-                rut: nota.rut,
-                direccion: nota.direccion,
-                ciudad: nota.ciudad,
-                telefono: nota.telefono,
-                centro: nota.centro,
-                fecha: nota.fecha,
-                vencimiento: nota.vencimiento,
-                perfil: perfilActivo,
-                items: nota.items,
-                actualizado_en: new Date().toISOString(),
-            }]),
+            body: JSON.stringify({
+                p_password: obtenerPasswordSitio(),
+                p_nota: {
+                    id: nota.id,
+                    proyecto: nota.proyecto,
+                    cliente: nota.cliente,
+                    rut: nota.rut,
+                    direccion: nota.direccion,
+                    ciudad: nota.ciudad,
+                    telefono: nota.telefono,
+                    centro: nota.centro,
+                    fecha: nota.fecha,
+                    vencimiento: nota.vencimiento,
+                    perfil: perfilActivo,
+                    items: nota.items,
+                },
+            }),
         });
         if (!res.ok) console.warn('Supabase rechazó el respaldo de la nota:', res.status, await res.text().catch(() => ''));
     } catch (e) {
@@ -1243,9 +1254,14 @@ async function supabaseGuardarNota(nota) {
 
 async function supabaseEliminarNota(id) {
     try {
-        await fetch(`${SUPABASE_URL}/rest/v1/notas?id=eq.${encodeURIComponent(id)}`, {
-            method: 'DELETE',
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        await fetch(`${SUPABASE_URL}/rest/v1/rpc/notas_eliminar`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ p_password: obtenerPasswordSitio(), p_id: id }),
         });
     } catch (e) {
         console.warn('No se pudo eliminar la nota del respaldo en la nube:', e.message);
@@ -1254,8 +1270,14 @@ async function supabaseEliminarNota(id) {
 
 async function supabaseListarNotas() {
     try {
-        const res = await fetch(`${SUPABASE_URL}/rest/v1/notas?select=*&order=actualizado_en.desc`, {
-            headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` },
+        const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/notas_listar`, {
+            method: 'POST',
+            headers: {
+                'apikey': SUPABASE_KEY,
+                'Authorization': `Bearer ${SUPABASE_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ p_password: obtenerPasswordSitio() }),
         });
         if (!res.ok) return [];
         const filas = await res.json();
