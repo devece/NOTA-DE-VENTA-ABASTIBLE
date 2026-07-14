@@ -1,6 +1,8 @@
 # Flujo: Presupuesto del contratista → Nota de Venta → DC cuadrado
 
-> Borrador para el manual de uso. Pendiente: agregar capturas de pantalla de cada paso.
+> Detalle fila por fila de qué se digita en el DC. Para las capturas de pantalla de
+> cada paso de este flujo (Convertir Ppto. Contratista → análisis de cuadre), ver la
+> sección 5 de [MANUAL_ABASTIBLE.md](MANUAL_ABASTIBLE.md#5-análisis-dc--cotización).
 
 ## Parte 1 — Convertir el presupuesto del contratista en proyecto (JSON)
 
