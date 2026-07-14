@@ -91,7 +91,19 @@
         }
         .perfil-badge.pb-abastible { background: var(--aba-orange-light); color: var(--aba-orange-dark); }
         .perfil-badge.pb-contratista { background: var(--ctta-green-light); color: var(--ctta-green-dark); }
-        
+
+        .manual-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--aba-blue);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+        .manual-link:hover { color: var(--aba-orange-dark); }
+
         .btn-primary { 
             background: var(--aba-orange); 
             color: white; 
@@ -519,6 +531,9 @@
             <div class="sc-title">Contratista</div>
             <div class="sc-desc">Empresas externas. Genera tu Cotización a partir de los precios Renova de tu zona, agregando los ítems que necesites.</div>
         </div>
+    </div>
+    <div class="text-center" style="margin-top:32px;">
+        <a href="docs/manual/index.html" target="_blank" rel="noopener" class="manual-link">📘 Ver manual de uso</a>
     </div>
 </div>
 
