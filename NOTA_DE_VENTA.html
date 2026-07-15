@@ -1067,8 +1067,10 @@ function obtenerMaterialCañeria(item) {
     if (!matProd) return null;
 
     const precioTira = obtenerPrecioBase(matProd, item.centro);
-    // El precio de Impovar viene por TIRA; acá se muestra y cobra por ML, así que
-    // hay que convertir antes de multiplicar por la cantidad en ML.
+    // La planilla nativa de Impovar (impovar.xlsx) ya trae el precio por ML calculado
+    // ("PRECIO POR METRO"), por lo que el parser la carga con unidad_medida='ML' y acá
+    // no hace falta dividir de nuevo. El chequeo 'TIRA' queda de respaldo por si algún
+    // día se vuelve a cargar un archivo con precio por tira sin convertir.
     const esPorTira = String(matProd.um || '').toUpperCase().includes('TIRA');
     const precioPorML = esPorTira ? precioTira / ML_POR_TIRA : precioTira;
     const metros = calcularMetrosMaterial(item.cantidad);
@@ -5819,20 +5821,50 @@ function cargarBaseDesdeServidor() {
             } catch { return true; }
         });
         const items = [];
+        const categoriasImpovar = new Set();
         hojasVisibles.forEach(nombreHoja => {
             const datosHoja = XLSX.utils.sheet_to_json(workbook.Sheets[nombreHoja]);
             datosHoja.forEach(item => {
+                if (esImpovar) {
+                    // Formato nativo de Impovar (planilla trimestral): 1 sola hoja
+                    // "MATERIAL CAÑERIAS", categoría en la columna CATEGORIA
+                    // ("CATEGORIA AP" / "CATEGORIA MP Y BP" — mismo material para MP y BP),
+                    // precio ya calculado por metro en "PRECIO POR METRO [CLP/Mt.]".
+                    const codigo = String(item['CODIGO'] ?? '').trim();
+                    const descripcion = String(item['DESCRIPCIÓN'] ?? '').trim();
+                    const precioMetro = item['PRECIO POR METRO [CLP/Mt.]'];
+                    const precio = precioMetro !== undefined ? parsePrecio(precioMetro) : null;
+                    if (!codigo || !descripcion || precio === null || precio <= 0) return;
+
+                    const categoriaRaw = String(item['CATEGORIA'] ?? '').toUpperCase();
+                    const categoriasDestino = categoriaRaw.includes('AP') ? ['CAÑERIAS AP']
+                        : (categoriaRaw.includes('MP') || categoriaRaw.includes('BP')) ? ['CAÑERIAS MP', 'CAÑERIAS BP']
+                        : [];
+                    categoriasDestino.forEach(cat => {
+                        categoriasImpovar.add(cat);
+                        items.push({
+                            'código': codigo,
+                            'descripción': descripcion,
+                            'precio': precio,
+                            'unidad_medida': 'ML',
+                            categoria: cat,
+                            esImpovar: true
+                        });
+                    });
+                    return;
+                }
+
                 const codigo     = String(item['código'] || item['codigo'] || '').trim();
                 const descripcion = String(item['descripción'] || item['descripcion'] || '').trim();
                 const precio     = item['precio'] !== undefined ? parsePrecio(item['precio']) : null;
                 if (!codigo || !descripcion || precio === null || precio <= 0) return;
                 item.categoria   = nombreHoja;
                 item.precio      = precio;
-                item.esImpovar   = esImpovar || false;
+                item.esImpovar   = false;
                 items.push(item);
             });
         });
-        return { items, hojas: hojasVisibles };
+        return { items, hojas: esImpovar ? [...categoriasImpovar] : hojasVisibles };
     }
 
     promesaCargaBase = Promise.allSettled([
