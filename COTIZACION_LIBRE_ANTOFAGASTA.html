@@ -43,6 +43,15 @@
     .money-fmt .cifra { font-weight: 500; }
     .money-fmt.money-pos .signo, .money-fmt.money-pos .cifra { color: #C2410C; }
     .money-fmt.money-neg .signo, .money-fmt.money-neg .cifra { color: #DC2626; }
+    tr.row-libre td { background: #FFFBEB; }
+    tr.row-libre:hover td { background: var(--aba-orange-light); }
+    .badge-libre { font-size: 10px; background: var(--aba-orange-light); color: var(--aba-orange-dark); padding: 1px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px; }
+    .input-text-libre { border: 1px solid var(--aba-border); border-radius: 6px; padding: 4px 6px; width: 100%; }
+    .btn-quitar { color: #DC2626; background: none; border: none; cursor: pointer; font-size: 16px; line-height: 1; }
+    .btn-quitar:hover { color: #991B1B; }
+    tr.add-row td { background: var(--aba-blue-light); }
+    .btn-agregar-libre { background: var(--aba-blue); color: #fff; border: none; border-radius: 6px; padding: 5px 10px; font-size: 11px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+    .btn-agregar-libre:hover { background: var(--aba-blue-dark); }
     ::-webkit-scrollbar { height: 10px; width: 10px; }
 </style>
 </head>
@@ -133,6 +142,10 @@ const BASE = {"CAÑERIAS AP":[{"c":"1002528","d":"Instalación Cañería Cu Alta
 
 const ORDEN_CATS = Object.keys(BASE);
 
+// Ítems libres agregados a mano (no están en base_datos.xlsx): catIdx -> [{id, d, u, cant, precio}]
+const customItems = {};
+let nextCustomId = 1;
+
 function fmt(n) {
     n = Number(n) || 0;
     if (n === 0) return "0";
@@ -160,7 +173,7 @@ function construirTablas() {
         html += `<div class="bg-white rounded-lg border mb-4 overflow-hidden" style="border-color: var(--aba-border);">
             <div class="cat-header px-4 py-2 font-bold text-sm flex items-center justify-between" onclick="toggleCat(${catIdx})">
                 <span>${cat} <span class="text-xs font-normal opacity-80">(${items.length} ítems)</span></span>
-                ${esFijo ? '<span class="cat-fixed-badge" style="background:rgba(255,255,255,.2); color:#fff;">PRECIO FIJO RENOVA — SIN MOI</span>' : ''}
+                ${esFijo ? '<span class="cat-fixed-badge" style="background:rgba(255,255,255,.2); color:#fff;">CATÁLOGO A PRECIO FIJO RENOVA</span>' : ''}
             </div>
             <div id="catBody${catIdx}">
                 <div class="px-3 py-2" style="border-bottom:1px solid var(--aba-border); background:var(--aba-silver);">
@@ -176,6 +189,7 @@ function construirTablas() {
                         <th class="text-right">Precio Contratista</th>
                         <th class="text-right">Total Contratista</th>
                         <th class="text-right">Diferencia</th>
+                        <th></th>
                     </tr></thead>
                     <tbody id="catTbody${catIdx}">`;
         items.forEach((it, itIdx) => {
@@ -189,12 +203,26 @@ function construirTablas() {
                 <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${esFijo ? it.p : ''}" placeholder="${esFijo ? '' : 'Ingrese valor'}" ${esFijo ? 'disabled' : ''} oninput="recalcFila(${catIdx},${itIdx})"></td>
                 <td class="text-right cell-totctta">${fmtMoney(0)}</td>
                 <td class="text-right cell-dif">${fmtMoneyColor(0)}</td>
+                <td></td>
             </tr>`;
         });
-        html += `</tbody>
+        html += `
+                        <tr class="add-row" data-cat="${catIdx}">
+                            <td class="text-xs" style="color:var(--aba-gray);">LIBRE</td>
+                            <td><input type="text" class="input-text-libre inp-libre-desc" placeholder="Descripción del ítem libre"></td>
+                            <td><input type="text" class="input-text-libre inp-libre-unidad" placeholder="UN" style="width:60px"></td>
+                            <td class="text-right"><input type="number" min="0" step="0.5" class="input-num inp-libre-cant" placeholder="0"></td>
+                            <td class="text-right" style="color:var(--aba-gray);">${fmtMoney(0)}</td>
+                            <td class="text-right" style="color:var(--aba-gray);">${fmtMoney(0)}</td>
+                            <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-libre-precio" placeholder="Ingrese valor"></td>
+                            <td></td>
+                            <td></td>
+                            <td class="text-center"><button class="btn-agregar-libre" onclick="agregarItemLibre(${catIdx})">+ Agregar</button></td>
+                        </tr>
+                    </tbody>
                     <tfoot>
-                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td></tr>
-                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td></tr>`}
+                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
+                        <tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
                     </tfoot>
                 </table>
                 </div>
@@ -237,12 +265,14 @@ function recalcCategoria(catIdx) {
         subRenova += cant * it.p;
         subCtta += cant * precioCtta;
     });
+    (customItems[catIdx] || []).forEach(item => {
+        if (item.cant > 0) subCtta += item.cant * item.precio;
+    });
     const moi = subCtta - subRenova;
     document.getElementById('subRenova' + catIdx).innerHTML = fmtMoney(subRenova);
     document.getElementById('subContratista' + catIdx).innerHTML = fmtMoney(subCtta);
     document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(moi);
-    const moiCell = document.getElementById('moi' + catIdx);
-    if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
+    document.getElementById('moi' + catIdx).innerHTML = fmtMoneyColor(moi);
 }
 
 function recalcTotalGeneral() {
@@ -257,12 +287,83 @@ function recalcTotalGeneral() {
             totalRenova += cant * it.p;
             totalCtta += cant * precioCtta;
         });
+        (customItems[catIdx] || []).forEach(item => {
+            if (item.cant > 0) totalCtta += item.cant * item.precio;
+        });
     });
     const totalMOI = totalCtta - totalRenova;
     document.getElementById('sumRenova').textContent = fmtMoneyPlain(totalRenova);
     document.getElementById('sumMOI').textContent = fmtMoneyPlain(totalMOI);
     document.getElementById('sumContratista').textContent = fmtMoneyPlain(totalCtta);
     document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} = ${fmtMoneyPlain(totalRenova + totalMOI)}`;
+}
+
+// ============================================================
+// ÍTEMS LIBRES (no están en base_datos.xlsx) — su Precio Renova es $0,
+// así que todo su valor queda absorbido en el MOI de la categoría.
+// ============================================================
+function agregarItemLibre(catIdx) {
+    const addRow = document.querySelector(`tr.add-row[data-cat="${catIdx}"]`);
+    const desc = addRow.querySelector('.inp-libre-desc').value.trim();
+    const unidad = addRow.querySelector('.inp-libre-unidad').value.trim() || 'UN';
+    const cant = parseFloat(addRow.querySelector('.inp-libre-cant').value) || 0;
+    const precio = parseFloat(addRow.querySelector('.inp-libre-precio').value) || 0;
+    if (!desc || cant <= 0) {
+        alert('Completá al menos la descripción y la cantidad del ítem libre.');
+        return;
+    }
+    const id = nextCustomId++;
+    if (!customItems[catIdx]) customItems[catIdx] = [];
+    customItems[catIdx].push({ id, d: desc, u: unidad, cant, precio });
+
+    addRow.querySelector('.inp-libre-desc').value = '';
+    addRow.querySelector('.inp-libre-unidad').value = '';
+    addRow.querySelector('.inp-libre-cant').value = '';
+    addRow.querySelector('.inp-libre-precio').value = '';
+
+    const tr = document.createElement('tr');
+    tr.className = 'row row-libre';
+    tr.dataset.cat = catIdx;
+    tr.dataset.customId = id;
+    tr.dataset.search = (desc + ' ' + unidad).toLowerCase();
+    tr.innerHTML = `
+        <td class="text-xs" style="color:var(--aba-gray);">LIBRE</td>
+        <td>${escapeHtml(desc)}<span class="badge-libre">ÍTEM LIBRE</span></td>
+        <td class="text-center">${escapeHtml(unidad)}</td>
+        <td class="text-right"><input type="number" min="0" step="0.5" class="input-num inp-cant" value="${cant}" oninput="recalcFilaLibre(${catIdx},${id})"></td>
+        <td class="text-right">${fmtMoney(0)}</td>
+        <td class="text-right cell-totrenova">${fmtMoney(0)}</td>
+        <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${precio || ''}" placeholder="Ingrese valor" oninput="recalcFilaLibre(${catIdx},${id})"></td>
+        <td class="text-right cell-totctta">${fmtMoney(0)}</td>
+        <td class="text-right cell-dif">${fmtMoneyColor(0)}</td>
+        <td class="text-center"><button class="btn-quitar" onclick="quitarItemLibre(${catIdx},${id})" title="Quitar ítem">✕</button></td>
+    `;
+    addRow.parentNode.insertBefore(tr, addRow);
+    recalcFilaLibre(catIdx, id);
+}
+
+function recalcFilaLibre(catIdx, id) {
+    const tr = document.querySelector(`tr.row-libre[data-cat="${catIdx}"][data-custom-id="${id}"]`);
+    const item = (customItems[catIdx] || []).find(i => i.id === id);
+    if (!tr || !item) return;
+    const cant = parseFloat(tr.querySelector('.inp-cant').value) || 0;
+    const precio = parseFloat(tr.querySelector('.inp-precio').value) || 0;
+    item.cant = cant;
+    item.precio = precio;
+    const totCtta = cant * precio;
+    tr.querySelector('.cell-totctta').innerHTML = fmtMoney(totCtta);
+    tr.querySelector('.cell-dif').innerHTML = fmtMoneyColor(totCtta);
+    tr.classList.toggle('has-qty', cant > 0);
+    recalcCategoria(catIdx);
+    recalcTotalGeneral();
+}
+
+function quitarItemLibre(catIdx, id) {
+    customItems[catIdx] = (customItems[catIdx] || []).filter(i => i.id !== id);
+    const tr = document.querySelector(`tr.row-libre[data-cat="${catIdx}"][data-custom-id="${id}"]`);
+    if (tr) tr.remove();
+    recalcCategoria(catIdx);
+    recalcTotalGeneral();
 }
 
 function escapeHtml(s) {
@@ -363,13 +464,14 @@ async function exportarExcel() {
             const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
             return parseFloat(row.querySelector('.inp-cant').value) || 0;
         });
-        const huboItems = cantidades.some(c => c > 0);
+        const librosCat = (customItems[catIdx] || []).filter(item => item.cant > 0);
+        const huboItems = cantidades.some(c => c > 0) || librosCat.length > 0;
         if (!huboItems) return;
 
         // Fila de categoría (encabezado de grupo)
         sheet.mergeCells(r, 1, r, 9);
         const catCell = sheet.getCell(r, 1);
-        catCell.value = cat + (esFijo ? '  (precio fijo Renova — sin MOI)' : '');
+        catCell.value = cat + (esFijo ? '  (catálogo a precio fijo Renova)' : '');
         catCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
         catCell.fill = fillSolid(C.blueL);
         catCell.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -393,6 +495,25 @@ async function exportarExcel() {
                 cell.value = v;
                 cell.border = gridBorder();
                 cell.font = { name: 'Arial', size: 8 };
+                if ([5, 6, 7, 8, 9].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            });
+            r++;
+        });
+
+        librosCat.forEach(item => {
+            const totCtta = item.cant * item.precio;
+            subCtta += totCtta;
+
+            const fila = ['LIBRE', item.d + ' (ÍTEM LIBRE)', item.u, item.cant, 0, 0, item.precio, totCtta, totCtta];
+            fila.forEach((v, i) => {
+                const col = i + 1;
+                const cell = sheet.getCell(r, col);
+                cell.value = v;
+                cell.border = gridBorder();
+                cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: C.orange } };
+                cell.fill = fillSolid(C.orangeL);
                 if ([5, 6, 7, 8, 9].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                 else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 else cell.alignment = { horizontal: 'left', vertical: 'middle' };
