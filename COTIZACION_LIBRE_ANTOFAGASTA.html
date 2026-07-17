@@ -280,7 +280,7 @@ function construirTablas() {
                     </tbody>
                     <tfoot>
                         <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
-                        <tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
+                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>`}
                     </tfoot>
                 </table>
                 </div>
@@ -330,7 +330,8 @@ function recalcCategoria(catIdx) {
     document.getElementById('subRenova' + catIdx).innerHTML = fmtMoney(subRenova);
     document.getElementById('subContratista' + catIdx).innerHTML = fmtMoney(subCtta);
     document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(moi);
-    document.getElementById('moi' + catIdx).innerHTML = fmtMoneyColor(moi);
+    const moiCell = document.getElementById('moi' + catIdx);
+    if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
 }
 
 function recalcTotalGeneral() {
@@ -603,7 +604,7 @@ async function exportarExcel() {
         });
         r++;
 
-        if (moi !== 0) {
+        if (moi !== 0 && !esFijo) {
             sheet.mergeCells(r, 1, r, 4);
             const moiLbl = sheet.getCell(r, 1);
             moiLbl.value = '🛠️ MANO DE OBRA INDUSTRIAL — ' + cat;
