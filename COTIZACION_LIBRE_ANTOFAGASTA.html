@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cotización Libre Antofagasta - Abastible</title>
+<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+<script src="libs/exceljs.min.js"></script>
+<style>
+    :root {
+        --aba-orange: #FE5100;
+        --aba-orange-dark: #E04E00;
+        --aba-orange-light: #FEF2E8;
+        --aba-blue: #001489;
+        --aba-blue-dark: #00106E;
+        --aba-blue-light: #EBEEF9;
+        --aba-gray: #54585A;
+        --aba-silver: #F8F8F8;
+        --aba-border: #E5E7EB;
+    }
+    body { font-family: Arial, Helvetica, sans-serif; background: var(--aba-silver); }
+    .btn-primary { background: var(--aba-orange); color: #fff; font-weight: 600; padding: 10px 18px; border-radius: 8px; transition: background .15s; }
+    .btn-primary:hover { background: var(--aba-orange-dark); }
+    .btn-secondary { background: var(--aba-blue); color: #fff; font-weight: 600; padding: 10px 18px; border-radius: 8px; transition: background .15s; }
+    .btn-secondary:hover { background: var(--aba-blue-dark); }
+    .cat-header { background: var(--aba-blue); color: #fff; cursor: pointer; }
+    .cat-header:hover { background: var(--aba-blue-dark); }
+    table.items { width: 100%; border-collapse: collapse; font-size: 13px; }
+    table.items th { background: var(--aba-blue-light); color: var(--aba-blue); text-align: left; padding: 6px 8px; position: sticky; top: 0; }
+    table.items td { padding: 5px 8px; border-bottom: 1px solid var(--aba-border); }
+    table.items tbody tr:hover td { background: var(--aba-orange-light); }
+    table.items tbody tr.has-qty td { background: #FFFBEB; }
+    .input-num { width: 90px; border: 1px solid var(--aba-border); border-radius: 6px; padding: 4px 6px; text-align: right; }
+    .input-num:focus { outline: 2px solid var(--aba-orange); border-color: var(--aba-orange); }
+    .input-num[disabled] { background: var(--aba-silver); color: var(--aba-gray); }
+    .subtotal-row td { background: var(--aba-blue-light); font-weight: 700; color: var(--aba-blue); border-top: 2px solid var(--aba-blue); }
+    .moi-row td { background: var(--aba-orange-light); font-weight: 700; color: var(--aba-orange-dark); }
+    .cat-fixed-badge { font-size: 10px; background: var(--aba-blue-light); color: var(--aba-blue); padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    .summary-card { border-radius: 12px; padding: 14px; text-align: center; }
+    ::-webkit-scrollbar { height: 10px; width: 10px; }
+</style>
+</head>
+<body>
+
+<div class="sticky top-0 z-30 bg-white border-b shadow-sm" style="border-color: var(--aba-border);">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div>
+            <h1 class="text-lg font-bold" style="color: var(--aba-blue);">📋 Cotización Libre — Planta Antofagasta</h1>
+            <div class="text-xs" style="color: var(--aba-gray);">Ingresá tus valores por ítem. La app calcula la diferencia contra el precio Renova y la agrega como MOI por categoría.</div>
+        </div>
+        <div class="flex gap-2">
+            <button onclick="exportarExcel()" class="btn-primary">📊 Exportar a Excel</button>
+            <button onclick="window.print()" class="btn-secondary">🖨️ Imprimir</button>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 py-5">
+
+    <!-- Datos del proyecto -->
+    <div class="bg-white rounded-lg border p-4 mb-5" style="border-color: var(--aba-border);">
+        <div class="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Proyecto</label>
+                <input id="fProyecto" type="text" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);" placeholder="Nombre del proyecto">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Cliente</label>
+                <input id="fCliente" type="text" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);" placeholder="Nombre del cliente">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">RUT / ID</label>
+                <input id="fRut" type="text" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Centro</label>
+                <input type="text" value="Planta Antofagasta" disabled class="w-full border rounded-lg px-3 py-2 bg-gray-100" style="border-color: var(--aba-border); color: var(--aba-gray);">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Fecha</label>
+                <input id="fFecha" type="date" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);">
+            </div>
+        </div>
+    </div>
+
+    <!-- Buscador -->
+    <div class="mb-4">
+        <input id="buscador" type="text" oninput="filtrar(this.value)" placeholder="🔎 Buscar ítem por código o descripción..." class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);">
+    </div>
+
+    <!-- Resumen -->
+    <div class="bg-white rounded-lg border-2 overflow-hidden mb-5" style="border-color: var(--aba-blue);">
+        <div class="text-white px-4 py-2 font-bold text-sm" style="background: var(--aba-blue);">📊 RESUMEN</div>
+        <div class="p-4">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="summary-card" style="background: #EBEEF9;">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--aba-blue);">Total Base Renova</div>
+                    <div id="sumRenova" class="text-2xl font-bold mt-1" style="color: var(--aba-blue);">$0</div>
+                </div>
+                <div class="summary-card" style="background: #FEF2E8;">
+                    <div class="text-xs font-semibold uppercase" style="color: var(--aba-orange);">Total Mano de Obra Industrial</div>
+                    <div id="sumMOI" class="text-2xl font-bold mt-1" style="color: var(--aba-orange);">$0</div>
+                </div>
+                <div class="summary-card" style="background: #E8F5E9;">
+                    <div class="text-xs font-semibold uppercase" style="color: #2E7D32;">Total Contratista</div>
+                    <div id="sumContratista" class="text-2xl font-bold mt-1" style="color: #2E7D32;">$0</div>
+                </div>
+            </div>
+            <div class="mt-4 p-3 text-center rounded-lg bg-green-100 border border-green-300">
+                <div class="font-bold text-sm text-green-700">✅ Base Renova + MOI = Total Contratista</div>
+                <div id="formulaCheck" class="text-xs mt-1 font-mono">$0 + $0 = $0</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="categorias"></div>
+
+</div>
+
+<script>
+const CENTRO = 'Planta Antofagasta';
+// Categorías cuyo precio contratista es fijo = Precio Base Renova (no se edita, no genera MOI)
+const CATS_PRECIO_FIJO = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
+
+// Ítems de la base_datos.xlsx filtrados a Planta Antofagasta (código, descripción, unidad, precio)
+const BASE = {"CAÑERIAS AP":[{"c":"1002528","d":"Instalación Cañería Cu Alta Presión 1 1/2\"","u":"ML","p":9916},{"c":"1002529","d":"Instalación Cañería Cu Alta Presión 1 1/4\"","u":"ML","p":9557},{"c":"1002470","d":"Instalación Cañería Cu Alta Presión 1\"","u":"ML","p":9175},{"c":"1002471","d":"Instalación Cañería Cu Alta Presión 1/2\"","u":"ML","p":8502},{"c":"1002472","d":"Instalación Cañería Cu Alta Presión 2 1/2\"","u":"ML","p":11016},{"c":"1002473","d":"Instalación Cañería Cu Alta Presión 2\"","u":"ML","p":10424},{"c":"1002474","d":"Instalación Cañería Cu Alta Presión 3/4\"","u":"ML","p":8502},{"c":"1002475","d":"Instalación Cañería Cu Alta Presión 3/8\"","u":"ML","p":8502}],"CAÑERIAS MP":[{"c":"1002527","d":"INST CAÑERIA CU PROTEGIDA TIPO L 1","u":"ML","p":10125},{"c":"1002526","d":"INST CAÑERIA CU PROTEGIDA TIPO L 1/2","u":"ML","p":9382},{"c":"1002524","d":"INST CAÑERIA CU PROTEGIDA TIPO L 3/4","u":"ML","p":9382},{"c":"1002525","d":"INST CAÑERIA CU PROTEGIDA TIPO L 3/8","u":"ML","p":8502},{"c":"1002522","d":"INST CAÑERIA CU ROLLO 18m TIPO L 1/2","u":"ML","p":9382},{"c":"1002521","d":"INST CAÑERIA CU ROLLO 18m Tipo L 3/8","u":"ML","p":8502},{"c":"1002520","d":"INSTA CAÑERIA CU ROLLO 18m TIPO L 3/4","u":"ML","p":9382},{"c":"1002476","d":"Instalación Cañería Cu Media/Baja Presión 1 1/2","u":"ML","p":9916},{"c":"1002477","d":"Instalación Cañería Cu Media/Baja Presión 1 1/4","u":"ML","p":10546},{"c":"1002478","d":"Instalación Cañería Cu Media/Baja Presión 1\"","u":"ML","p":10125},{"c":"1002479","d":"Instalación Cañería Cu Media/Baja Presión 1/2\"","u":"ML","p":9382},{"c":"1002480","d":"Instalación Cañería Cu Media/Baja Presión 2 1/2","u":"ML","p":11016},{"c":"1002481","d":"Instalación Cañería Cu Media/Baja Presión 2\"","u":"ML","p":10424},{"c":"1002482","d":"Instalación Cañería Cu Media/Baja Presión 3\"","u":"ML","p":11715},{"c":"1002483","d":"Instalación Cañería Cu Media/Baja Presión 3/4\"","u":"ML","p":9382},{"c":"1002484","d":"Instalación Cañería Cu Media/Baja Presión 3/8\"","u":"ML","p":8502},{"c":"1002494","d":"Instalación Cañería Cu Media/Baja Presión 4\"","u":"ML","p":11715}],"CAÑERIAS BP":[{"c":"1002527","d":"INST CAÑERIA CU PROTEGIDA TIPO L 1","u":"ML","p":9175},{"c":"1002526","d":"INST CAÑERIA CU PROTEGIDA TIPO L 1/2","u":"ML","p":9382},{"c":"1002524","d":"INST CAÑERIA CU PROTEGIDA TIPO L 3/4","u":"ML","p":9382},{"c":"1002525","d":"INST CAÑERIA CU PROTEGIDA TIPO L 3/8","u":"ML","p":8502},{"c":"1002522","d":"INST CAÑERIA CU ROLLO 18m TIPO L 1/2","u":"ML","p":9382},{"c":"1002521","d":"INST CAÑERIA CU ROLLO 18m Tipo L 3/8","u":"ML","p":8502},{"c":"1002520","d":"INSTA CAÑERIA CU ROLLO 18m TIPO L 3/4","u":"ML","p":9382},{"c":"1002476","d":"Instalación Cañería Cu Media/Baja Presión 1 1/2","u":"ML","p":9916},{"c":"1002477","d":"Instalación Cañería Cu Media/Baja Presión 1 1/4","u":"ML","p":10546},{"c":"1002478","d":"Instalación Cañería Cu Media/Baja Presión 1\"","u":"ML","p":9175},{"c":"1002479","d":"Instalación Cañería Cu Media/Baja Presión 1/2\"","u":"ML","p":9382},{"c":"1002480","d":"Instalación Cañería Cu Media/Baja Presión 2 1/2","u":"ML","p":11016},{"c":"1002481","d":"Instalación Cañería Cu Media/Baja Presión 2\"","u":"ML","p":10424},{"c":"1002482","d":"Instalación Cañería Cu Media/Baja Presión 3\"","u":"ML","p":11715},{"c":"1002483","d":"Instalación Cañería Cu Media/Baja Presión 3/4\"","u":"ML","p":9382},{"c":"1002484","d":"Instalación Cañería Cu Media/Baja Presión 3/8\"","u":"ML","p":8502},{"c":"1002494","d":"Instalación Cañería Cu Media/Baja Presión 4\"","u":"ML","p":11715}],"SERVICIO CAÑERIAS":[{"c":"1000046","d":"DETECCION ESCAPE","u":"ST","p":15000},{"c":"1000690","d":"MANO OBRA INDUSTRIAL","u":"H","p":20000},{"c":"1001240","d":"PINTURA MT CAÑERIA HASTA 2\"","u":"M","p":1500},{"c":"1001239","d":"PINTURA MT CAÑERIA HASTA 3/4\"","u":"M","p":1500},{"c":"1001226","d":"PROTECCION PLANZA CAÑERIA HASTA 3/4\"","u":"M","p":1150},{"c":"1001229","d":"SOPORTE TUBERIA DE 1\" A 2\"","u":"M","p":2450},{"c":"1001228","d":"SOPORTE TUBERIA HASTA 3/4\"","u":"M","p":1617},{"c":"1001202","d":"VAINA EN MURO CAÑERIA HASTA 3/4\"","u":"ST","p":1188}],"CONEXIONES":[{"c":"1000033","d":"CELOSIA EN MURO SIN TESTIGUERA","u":"ST","p":37000},{"c":"1000034","d":"CELOSIA METALICA EN PUERTA","u":"ST","p":20750},{"c":"1000005","d":"CONEXIÓN ANAFE INDUSTRIAL","u":"ST","p":25000},{"c":"1000008","d":"CONEXIÓN ARRANQ CON TAPON HI P/ARTEFAC","u":"ST","p":2880},{"c":"1000035","d":"CONEXIÓN COCINA CON LLAVE","u":"ST","p":23500},{"c":"1000036","d":"CONEXIÓN COCINA INDUSTRIAL","u":"ST","p":33000},{"c":"1000067","d":"CONEXIÓN FREIDORA","u":"ST","p":25000},{"c":"1000071","d":"CONEXIÓN GAS CALEFONT","u":"ST","p":27500},{"c":"1000075","d":"CONEXIÓN HORNO INDUSTRIAL","u":"ST","p":25000},{"c":"1000158","d":"CONEXIÓN MEDIDOR HABITACIONAL","u":"ST","p":27500},{"c":"1000173","d":"CONEXIÓN PLANCHA","u":"ST","p":25000},{"c":"1000211","d":"CONEXIÓN REGUL PRIMERA ETAPA HASTA 3/4\"","u":"ST","p":45000},{"c":"1000210","d":"CONEXIÓN REGUL SEGUNDA ETAPA HASTA 3/4\"","u":"ST","p":38500},{"c":"1000208","d":"CONEXIÓN REGULADOR SEGUNDA ETAPA 1\"","u":"ST","p":41800},{"c":"1000247","d":"CONEXIÓN VALV CORTE 1/2\" ALTA PRESION","u":"ST","p":38000},{"c":"1000248","d":"CONEXIÓN VALV CORTE 1/2\" MED O BAJ PRESI","u":"ST","p":25000},{"c":"1000256","d":"CONEXIÓN VALV CORTE 3/4\" MED O BAJ PRESI","u":"ST","p":19000},{"c":"1000258","d":"CONEXIÓN VALV CORTE 3/8\" MED O BAJ PRESI","u":"ST","p":10000},{"c":"1002420","d":"ENROLAMIENTO DE MEDIDORES","u":"ST","p":5556},{"c":"1001620","d":"FLEXIBLE PARA TANQUE","u":"ST","p":20000},{"c":"1002571","d":"GAS INICIAL","u":"ST","p":21000},{"c":"1000085","d":"INTERCONEXION 3 EST. SUBTERRANEOS","u":"ST","p":67935},{"c":"1001700","d":"MANIFOLD INTERCONEXION 2 S.BALON AEREOS","u":"ST","p":64878},{"c":"1001701","d":"MANIFOLD INTERCONEXION 3 S.BALON AEREOS","u":"ST","p":107028},{"c":"1001702","d":"MANIFOLD INTERCONEXION 4 S.BALON AEREOS","u":"ST","p":138869},{"c":"1000690","d":"MANO OBRA INDUSTRIAL","u":"H","p":20000}],"OBRAS CIVILES":[{"c":"1000006","d":"ANCLAJE DE ESTANQUE AEREO HASTA 4000 LTS","u":"ST","p":14000},{"c":"1000007","d":"ANCLAJE DE ESTANQUE SUBTERRANEO","u":"ST","p":18000},{"c":"1001264","d":"BARRERA PROTECCION ESTANQUE X METRO","u":"M","p":40000},{"c":"1000013","d":"BASES ESTANQUE SUPER BALON 190 KG.","u":"ST","p":100000},{"c":"1000019","d":"BASES PARA ESTANQUE DE 4000 LTS.","u":"ST","p":120000},{"c":"1000961","d":"CAMARA SECTORIZACION MODULO DE HORMIGON","u":"ST","p":42750},{"c":"1000667","d":"CASETA PROTECCION REGULADOR I ETAPA","u":"ST","p":40000},{"c":"1000063","d":"FOSO P/TRES ESTANQ 4M3 SUB","u":"ST","p":716200},{"c":"1000062","d":"FOSO PARA DOS ESTANQUES EN PARALELO DE 4","u":"ST","p":320000},{"c":"1000066","d":"FOSO SIN BASE NI ANCLAJ P/ ESTAN SUB 4M3","u":"ST","p":375529},{"c":"1001923","d":"INSTALACION DE LETREROS DE PELIGRO","u":"ST","p":1},{"c":"1000690","d":"MANO OBRA INDUSTRIAL","u":"H","p":20000},{"c":"1000167","d":"METRO LINEAL EXCAV,PROTEC Y RETAP A 0,8M","u":"ST","p":11813},{"c":"1000172","d":"NICHO PARA MEDIDOR","u":"ST","p":15000},{"c":"1000963","d":"REJA (CANASTILLO) ESTANQUE SUBTERRANEO","u":"ST","p":60000}],"NORMALIZACIONES":[{"c":"1000819","d":"CERTIFICACION INTEGRAL COMERCIAL","u":"ST","p":120000},{"c":"1000817","d":"CERTIFICACION INTEGRAL SUPERBALON","u":"ST","p":90000},{"c":"1000900","d":"DECLARACION SALA DE CALDERA SOBRE 70KW","u":"ST","p":250000},{"c":"1000850","d":"DECLARACION SEC DEPTO - CASA","u":"ST","p":5000},{"c":"1000750","d":"DECLARACION TIPO A","u":"ST","p":58450},{"c":"1000751","d":"DECLARACION TIPO B","u":"ST","p":71809},{"c":"1000752","d":"DECLARACION TIPO C","u":"ST","p":133427},{"c":"1000870","d":"INCRIPCION SEC TRAMO 4 (SOBRE 200 KW)","u":"ST","p":58500},{"c":"1000871","d":"INSCRIPCION SEC ESTACION SURTIDORA","u":"ST","p":17880},{"c":"1000760","d":"INSCRIPCION SEC TRAMO 1 (HASTA 60 KW)","u":"ST","p":3670},{"c":"1000761","d":"INSCRIPCION SEC TRAMO 2 ( 60,1 A 100 KW)","u":"ST","p":17880},{"c":"1000762","d":"INSCRIPCION SEC TRAMO 3 ( SOBRE100 KW)","u":"ST","p":35290},{"c":"1000816","d":"INSPECCION  PERIÓDICA DEPTOS   ZONA 2","u":"ST","p":17000},{"c":"1000078","d":"INSPECCION PERIODICA CASA","u":"ST","p":50000},{"c":"1000080","d":"INSPECCION PERIODICA COMERCIAL","u":"ST","p":80000},{"c":"1000079","d":"INSPECCION PERIODICA DEPTO. EDIFICIO","u":"ST","p":25000},{"c":"1000780","d":"INSPECCION PERIODICA INDUSTRIAL","u":"ST","p":80000},{"c":"1000814","d":"INSPECCION PERIÓDICA COMERCIAL ZONA 2","u":"ST","p":50000},{"c":"1000813","d":"INSPECCION PERIÓDICA HABITACIONAL ZONA 2","u":"ST","p":30000},{"c":"1000815","d":"INSPECCION PERIÓDICA INDUSTRIAL ZONA 2","u":"ST","p":40250},{"c":"1001253","d":"INSPECCION REDUCIDA","u":"ST","p":15000},{"c":"1000272","d":"INSPECCION Y CERTIFICACION SUPERBALON","u":"ST","p":2},{"c":"1000690","d":"MANO OBRA INDUSTRIAL","u":"H","p":20000},{"c":"1001242","d":"PLANO AS BUILT MP CONDOMINIO","u":"ST","p":89459},{"c":"1001090","d":"PLANO AS BUILT MP CONJUNTO HABITACIONAL","u":"ST","p":89459},{"c":"1001201","d":"PLANO AS BUILT MP EDIFICIO","u":"ST","p":89459},{"c":"1000175","d":"PLANO Y CERTIFIC CONJUNTO HABITACIONAL","u":"ST","p":150000},{"c":"1000180","d":"PLANO Y CERTIFIC INSTALACION INDUSTRIAL","u":"ST","p":150000},{"c":"1000174","d":"PLANO Y CERTIFICADO CASAS TIPO C-45 Y SB","u":"ST","p":100000},{"c":"1000177","d":"PLANO Y CERTIFICADO EDIFICIO TIPO E-1200","u":"ST","p":150000},{"c":"1000178","d":"PLANO Y CERTIFICADO EDIFICIO TIPO E-4000","u":"ST","p":80000},{"c":"1000179","d":"PLANO Y CERTIFICADO ESTACION SURTIDORA","u":"ST","p":120000},{"c":"1000212","d":"REGULARIZACION PLANO Y CERTIFICADO","u":"ST","p":89459},{"c":"1000810","d":"TC2- ANEXOF","u":"ST","p":65000}],"EQUIPO COMPRA DIRECTA":[{"c":"000000000000002016","d":"FILTRO Y 3/4\"","u":"ST","p":1},{"c":"000000000000004270","d":"MANOMETRO 0-30 LBS","u":"ST","p":5280},{"c":"000000000000004331","d":"QUEMADOR RIELLO R-40 FS-20","u":"ST","p":3730400},{"c":"000000000000004560","d":"MEDIDOR BP SCHLUMBERGER G-10 QMAX=16M3","u":"ST","p":219936},{"c":"000000000000004704","d":"MEDIDOR BP SCHLUMBERGER G-16 QMAX=25M3","u":"ST","p":283728},{"c":"000000000000004752","d":"VALVULA LLENADO 1 1/4\" 7579 REGO","u":"ST","p":70300},{"c":"000000000000004761","d":"REGULADOR 1584-MN REGO","u":"ST","p":54823},{"c":"000000000000004763","d":"REGULADOR 627/7710 FISHER","u":"ST","p":289093},{"c":"000000000000004767","d":"REGULADOR 64 SR 23 P/EST 1 ET MC  FISHER","u":"ST","p":134021},{"c":"000000000000004796","d":"REGULADOR LV 4403 B-4 REGO","u":"ST","p":33090},{"c":"000000000000004800","d":"REGULADOR LV 4403 TR 96 REGO","u":"ST","p":16779},{"c":"000000000000004802","d":"REGULADOR LV 5503 B8 H14 REGO","u":"ST","p":67547},{"c":"000000000000006073","d":"BOMBA BLACKMER LGF1 1 HP 220V","u":"ST","p":544824},{"c":"000000000000007076","d":"MEDIDOR BP SCHLUMBERGER G-25 QMAX=40M3","u":"ST","p":457800},{"c":"000000000000007239","d":"TABLERO ELECTRICO","u":"ST","p":3680000},{"c":"000000000000007277","d":"CINTA PROTECCION CAÑERIA ROLLO 400M","u":"ST","p":67},{"c":"000000000000008034","d":"MEDIDOR BP SCHLUMBERGER G-6 QMAX=10M3","u":"ST","p":76275},{"c":"000000000000008186","d":"KIT MEDIDOR CONEXION ACTARIS G-4   G-2,5","u":"ST","p":71340},{"c":"000000000000009492","d":"MANOMETRO  0 A  400  MBAR 4\"X1/2\" NPT","u":"ST","p":16990},{"c":"000000000000011323","d":"MANOMETRO 0 A 100 MBAR 4\"X1/2\" NPT S/GLI","u":"ST","p":30093},{"c":"000000000000016741","d":"KIT COLAS 11/4\" MEDIDOR BP G-6 SCHLUMBER","u":"ST","p":50688},{"c":"000000000000016744","d":"KIT COLAS 2\" MEDIDOR BP G-10 SCHLUMBER","u":"ST","p":72360},{"c":"000000000000016745","d":"KIT COLAS 11/2 MEDIDOR BP G-16 SCHLUMBER","u":"ST","p":68000},{"c":"000000000000016746","d":"KIT COLAS 2\" MEDIDOR BP G-25 SCHLUMBER","u":"ST","p":60300},{"c":"000000000000017091","d":"SEGURO VALVULA ARCO TAJO 2001","u":"ST","p":5402},{"c":"000000000000017393","d":"LLAVE BOLA 3/4 HI ARCO TAJO 2001","u":"ST","p":23189},{"c":"000000000000017394","d":"LLAVE SEGURO ARCO TAJO 2001","u":"ST","p":12400},{"c":"000000000000017395","d":"LLAVE BOLA 1/2 HI ARCO TAJO 2000","u":"ST","p":8028},{"c":"000000000000017626","d":"REGULADOR C/SISTEMA UPSO OPSO 25-250 PSI","u":"ST","p":43780},{"c":"000000000000017647","d":"CALDERA MURAL T/FORZ. FERROLI TOP 80 C/K","u":"ST","p":3730400},{"c":"000000000000017734","d":"ESTANQUE DE EXPANSION 40 LTS.","u":"ST","p":325500},{"c":"000000000000017850","d":"ACCESORIOS CALDERA","u":"ST","p":59935571},{"c":"000000000000017852","d":"KIT CHIMENEA URSUS TROTTER","u":"ST","p":170892},{"c":"000000000000018125","d":"CONVERSION DE QUEMADOR A GAS LIC. 3500MC","u":"ST","p":54700},{"c":"000000000000018182","d":"CIRCUITO RED CALEFACCION E HIDRAULICA","u":"ST","p":15918181},{"c":"000000000000018218","d":"BOMBA CIRCULACION XPS 25/6/180 N","u":"ST","p":63425},{"c":"000000000000018244","d":"ESTANQUE EXPANSION 35 LTS.","u":"ST","p":376990},{"c":"000000000000018335","d":"REG BD BP 240P-290/131 3/4\"(600 Mcal)","u":"ST","p":190955},{"c":"000000000000018336","d":"REG BD BP 240P-290/131 1\"(600 Mcal)","u":"ST","p":509018},{"c":"000000000000018338","d":"REG BD BP 274P-290/960 2\" (6900 Mcal)","u":"ST","p":957950},{"c":"000000000000018340","d":"REG BD BP 260P-290/1235 1\"(730 Mcal)","u":"ST","p":440494},{"c":"000000000000018371","d":"DUCTOS EVACUACION CALDERA","u":"ST","p":179030},{"c":"000000000000018372","d":"SOPORTE CALDERAS (MURO)","u":"ST","p":899300},{"c":"000000000000018501","d":"SENSOR DE TEMPERATURA PT100","u":"ST","p":32000},{"c":"000000000000018527","d":"INTERCAMBIADOR PLACAS CIPRIANI N° 325","u":"ST","p":3962975},{"c":"000000000000018530","d":"BOMBA RECIRCULACION XPS 26-6","u":"ST","p":520000},{"c":"000000000000018730","d":"LLAVE GAS LUJO ENCIMERA P/GAS HI HE 1/2\"","u":"ST","p":12000},{"c":"000000000000019427","d":"ESTANQUE ACUMULADOR 1000 LITROS","u":"ST","p":4024800},{"c":"000000000000019541","d":"ESTANQUE EXPANSION ACS-ACC","u":"ST","p":54652},{"c":"000000000000019543","d":"BOMBA WILO S40 / 10","u":"ST","p":319000},{"c":"000000000000019597","d":"SISTEMA PURGA AUTOMATICO SUPERFICIE","u":"ST","p":22990},{"c":"000000000000019607","d":"MEDIDOR G 1.6 SIN SENSOR DE PULSO ITRON","u":"ST","p":23686},{"c":"000000000000019608","d":"MEDIDOR G-4 (6 M3/H) CON SENSOR DE PULSO","u":"ST","p":45007},{"c":"000000000000019613","d":"BOMBA CIRCUITO PRIMARIO  80/180T  DAB","u":"ST","p":229000},{"c":"000000000000019659","d":"CALDERA CONDENSACIÓN COSMOGAS 35 KW","u":"ST","p":3730400},{"c":"000000000000019891","d":"CALDERA BAXI LUNA DUO-TEC MP 1.50","u":"ST","p":3730400},{"c":"000000000000020075","d":"KIT EVACUACION DE GASES","u":"ST","p":46750},{"c":"000000000000020114","d":"CALDERA ANWO NAVIEN AQUA PLUS 35/42","u":"ST","p":3650000},{"c":"000000000000020115","d":"CALEFON ANWO VAN13LTS TF","u":"ST","p":10707450},{"c":"000000000000020153","d":"CALDERA CONDENSACION ICI MONOLITE JB75","u":"ST","p":3850000},{"c":"000000000000020156","d":"CALDERA BAXI CONDENSACION 90 MCAL","u":"ST","p":3850000},{"c":"000000000000020214","d":"CODO 90 AGUADENS 115","u":"ST","p":16990},{"c":"000000000000020219","d":"CONTROL DE CASCADA COSMOGAS","u":"ST","p":739658},{"c":"000000000000020256","d":"BOMBA RECIRCULACION ACS","u":"ST","p":821534},{"c":"000000000000020390","d":"CALDERA BAXI LUNA DUO-TEC MP 1.110","u":"ST","p":11098225},{"c":"000000000000020515","d":"CALDERA ANWO NAVIEN AQUA PLUS 30/32","u":"ST","p":699900},{"c":"000000000000020584","d":"VALVULA SEGURIDAD 7 BAR","u":"ST","p":15615},{"c":"000000000000020832","d":"REG REMP 1584-VN 3-30PSI1765 MCAL/H 1/2\"","u":"ST","p":69296},{"c":"000000000000020833","d":"REG REMP 1588-VN 3-30 PSI 2773 MCAL/H 1\"","u":"ST","p":137},{"c":"000000000000021017","d":"CONECTOR MEDIDOR DE GAS 1\" x 3/4\"  ITRON","u":"ST","p":3250},{"c":"000000000000021018","d":"CONECTOR MEDIDOR GAS 3/4'' X 1/2'' ITRON","u":"ST","p":3120},{"c":"000000000000022617","d":"SELLO TUERCA 3/4\" + PRECINTO NUMERADO","u":"ST","p":280},{"c":"000000000000026492","d":"CALDERA RIELLO CONDEXA PRO 135  - 129 KW","u":"ST","p":3990000},{"c":"000000000000026510","d":"CALDERA CONDENSACION BOSCH700 7736702444","u":"ST","p":11832000},{"c":"000000000000028038","d":"REGULADOR GNALI BOCCIA FGB100 6mbar","u":"ST","p":604500}],"SERVICIO COMPRA DIRECTA":[{"c":"1000962","d":"CELOSIA EN MURO CON TESTIGUERA","u":"ST","p":70000},{"c":"1000038","d":"CONEXION RED MATRIZ EXIST (POLIETILENO)","u":"ST","p":110000},{"c":"1000900","d":"DECLARACION SALA DE CALDERA SOBRE 70KW","u":"ST","p":300000},{"c":"1001861","d":"INSTALACION CELOSIA","u":"ST","p":4990},{"c":"1001923","d":"INSTALACION DE LETREROS DE PELIGRO","u":"ST","p":80000},{"c":"1000274","d":"MANO DE OBRA MANTENCION INDUSTRIAL","u":"ST","p":41206879},{"c":"1000770","d":"MANO OBRA HABITACIONAL","u":"ST","p":4050000},{"c":"1000690","d":"MANO OBRA INDUSTRIAL","u":"ST","p":64985854},{"c":"1001884","d":"MONTAJE Y CONEXION NUEVA CALDERA","u":"ST","p":8751547},{"c":"1001949","d":"MONTAJE Y PUESTA EN MARCHA","u":"ST","p":12086000},{"c":"1001431","d":"REMOCION DE ESCOMBROS","u":"ST","p":300000},{"c":"1001229","d":"SOPORTE TUBERIA DE 1\" A 2\"","u":"ST","p":550000},{"c":"1000640","d":"VIATICO TRASLADO","u":"ST","p":450000},{"c":"1001879","d":"VISITAS REGULARI. DE INSTALACI. GRANEL","u":"ST","p":250000}]};
+
+const ORDEN_CATS = Object.keys(BASE);
+
+function fmt(n) {
+    n = Number(n) || 0;
+    if (n === 0) return "0";
+    return Math.round(n).toLocaleString("es-CL");
+}
+function fmtMoney(n) { return '$' + fmt(n); }
+function fmtMoneyColor(n) {
+    n = Number(n) || 0;
+    const signo = n > 0 ? '+$' : n < 0 ? '-$' : '$';
+    const cls = n > 0 ? 'text-orange-600' : n < 0 ? 'text-red-600' : '';
+    return `<span class="${cls}">${signo}${fmt(Math.abs(n))}</span>`;
+}
+
+function construirTablas() {
+    const cont = document.getElementById('categorias');
+    let html = '';
+    ORDEN_CATS.forEach((cat, catIdx) => {
+        const items = BASE[cat];
+        if (!items || items.length === 0) return;
+        const esFijo = CATS_PRECIO_FIJO.includes(cat);
+        html += `<div class="bg-white rounded-lg border mb-4 overflow-hidden" style="border-color: var(--aba-border);">
+            <div class="cat-header px-4 py-2 font-bold text-sm flex items-center justify-between" onclick="toggleCat(${catIdx})">
+                <span>${cat} <span class="text-xs font-normal opacity-80">(${items.length} ítems)</span></span>
+                ${esFijo ? '<span class="cat-fixed-badge" style="background:rgba(255,255,255,.2); color:#fff;">PRECIO FIJO RENOVA — SIN MOI</span>' : ''}
+            </div>
+            <div id="catBody${catIdx}" class="overflow-x-auto">
+                <table class="items">
+                    <thead><tr>
+                        <th>Código</th><th>Descripción</th><th>Unidad</th>
+                        <th class="text-right">Cant.</th>
+                        <th class="text-right">Precio Renova</th>
+                        <th class="text-right">Total Renova</th>
+                        <th class="text-right">Precio Contratista</th>
+                        <th class="text-right">Total Contratista</th>
+                        <th class="text-right">Diferencia</th>
+                    </tr></thead>
+                    <tbody id="catTbody${catIdx}">`;
+        items.forEach((it, itIdx) => {
+            html += `<tr class="row" data-cat="${catIdx}" data-it="${itIdx}" data-search="${(it.c + ' ' + it.d).toLowerCase()}">
+                <td class="text-xs" style="color:var(--aba-gray);">${it.c.replace(/^0+/, '') || '-'}</td>
+                <td>${it.d}</td>
+                <td class="text-center">${it.u}</td>
+                <td class="text-right"><input type="number" min="0" step="0.5" class="input-num inp-cant" value="" oninput="recalcFila(${catIdx},${itIdx})"></td>
+                <td class="text-right">${fmtMoney(it.p)}</td>
+                <td class="text-right cell-totrenova">$0</td>
+                <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${esFijo ? it.p : ''}" placeholder="${esFijo ? '' : 'Ingrese valor'}" ${esFijo ? 'disabled' : ''} oninput="recalcFila(${catIdx},${itIdx})"></td>
+                <td class="text-right cell-totctta">$0</td>
+                <td class="text-right cell-dif">$0</td>
+            </tr>`;
+        });
+        html += `</tbody>
+                    <tfoot>
+                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">$0</td><td></td><td class="text-right" id="subContratista${catIdx}">$0</td><td class="text-right" id="subDif${catIdx}">$0</td></tr>
+                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">$0</td></tr>`}
+                    </tfoot>
+                </table>
+            </div>
+        </div>`;
+    });
+    cont.innerHTML = html;
+}
+
+function toggleCat(catIdx) {
+    const body = document.getElementById('catBody' + catIdx);
+    body.style.display = (body.style.display === 'none') ? '' : 'none';
+}
+
+function recalcFila(catIdx, itIdx) {
+    const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
+    const it = BASE[ORDEN_CATS[catIdx]][itIdx];
+    const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
+    const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+    const totRenova = cant * it.p;
+    const totCtta = cant * precioCtta;
+    const dif = totCtta - totRenova;
+    row.querySelector('.cell-totrenova').textContent = fmtMoney(totRenova);
+    row.querySelector('.cell-totctta').textContent = fmtMoney(totCtta);
+    row.querySelector('.cell-dif').innerHTML = fmtMoneyColor(dif);
+    row.classList.toggle('has-qty', cant > 0);
+    recalcCategoria(catIdx);
+    recalcTotalGeneral();
+}
+
+function recalcCategoria(catIdx) {
+    const cat = ORDEN_CATS[catIdx];
+    const items = BASE[cat];
+    let subRenova = 0, subCtta = 0;
+    items.forEach((it, itIdx) => {
+        const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
+        const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
+        if (cant <= 0) return;
+        const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+        subRenova += cant * it.p;
+        subCtta += cant * precioCtta;
+    });
+    const moi = subCtta - subRenova;
+    document.getElementById('subRenova' + catIdx).textContent = fmtMoney(subRenova);
+    document.getElementById('subContratista' + catIdx).textContent = fmtMoney(subCtta);
+    document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(moi);
+    const moiCell = document.getElementById('moi' + catIdx);
+    if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
+}
+
+function recalcTotalGeneral() {
+    let totalRenova = 0, totalCtta = 0;
+    ORDEN_CATS.forEach((cat, catIdx) => {
+        const items = BASE[cat];
+        items.forEach((it, itIdx) => {
+            const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
+            const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
+            if (cant <= 0) return;
+            const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+            totalRenova += cant * it.p;
+            totalCtta += cant * precioCtta;
+        });
+    });
+    const totalMOI = totalCtta - totalRenova;
+    document.getElementById('sumRenova').textContent = fmtMoney(totalRenova);
+    document.getElementById('sumMOI').textContent = fmtMoney(totalMOI);
+    document.getElementById('sumContratista').textContent = fmtMoney(totalCtta);
+    document.getElementById('formulaCheck').textContent = `${fmtMoney(totalRenova)} + ${fmtMoney(totalMOI)} = ${fmtMoney(totalRenova + totalMOI)}`;
+}
+
+function filtrar(q) {
+    q = (q || '').toLowerCase().trim();
+    document.querySelectorAll('tr.row').forEach(row => {
+        const match = !q || row.dataset.search.includes(q);
+        row.style.display = match ? '' : 'none';
+    });
+}
+
+// ============================================================
+// EXPORTAR A EXCEL (mismo formato/lógica de MOI que la app Nota de Venta)
+// ============================================================
+async function exportarExcel() {
+    if (typeof ExcelJS === 'undefined') { alert('Librería ExcelJS no cargada'); return; }
+
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('COTIZACION');
+
+    const C = {
+        blue: 'FF001489', blueL: 'FFEBEEF9', blueDark: 'FF00106E',
+        orange: 'FFFE5100', orangeL: 'FFFEF2E8',
+        white: 'FFFFFFFF', silver: 'FFF5F5F5', gray: 'FF54585A',
+        gridLine: 'FFD9D9D9', red: 'FFDC2626', green: 'FF2E7D32'
+    };
+    const MONEY = '_-$* #,##0_-;-$* #,##0_-;_-$* "-"??_-;_-@_-';
+    function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
+    function gridBorder() { const s = { style: 'thin', color: { argb: C.gridLine } }; return { top: s, bottom: s, left: s, right: s }; }
+
+    sheet.columns = [{ width: 14 }, { width: 28 }, { width: 8 }, { width: 9 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }];
+
+    sheet.mergeCells('A1:I1');
+    sheet.getRow(1).height = 28;
+    const banner = sheet.getCell('A1');
+    banner.value = 'COTIZACIÓN LIBRE · PLANTA ANTOFAGASTA';
+    banner.font = { name: 'Arial', bold: true, size: 14, color: { argb: C.white } };
+    banner.fill = fillSolid(C.blue);
+    banner.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    const campos = [
+        ['PROYECTO', document.getElementById('fProyecto').value || '-'],
+        ['CLIENTE', document.getElementById('fCliente').value || '-'],
+        ['RUT / ID', document.getElementById('fRut').value || '-'],
+        ['CENTRO', CENTRO],
+        ['FECHA', document.getElementById('fFecha').value || '-'],
+    ];
+    let r = 2;
+    campos.forEach(([k, v]) => {
+        sheet.mergeCells(r, 1, r, 2);
+        const lbl = sheet.getCell(r, 1);
+        lbl.value = k; lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
+        lbl.fill = fillSolid(C.silver); lbl.alignment = { horizontal: 'right', vertical: 'middle' };
+        sheet.mergeCells(r, 3, r, 9);
+        const val = sheet.getCell(r, 3);
+        val.value = v; val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
+        val.alignment = { horizontal: 'left', vertical: 'middle' };
+        r++;
+    });
+
+    const filaSep = r;
+    sheet.getRow(filaSep).height = 4;
+    sheet.mergeCells(`A${filaSep}:I${filaSep}`);
+    sheet.getCell(`A${filaSep}`).fill = fillSolid(C.blue);
+    r++;
+
+    const filaHeader = r;
+    sheet.getRow(filaHeader).height = 24;
+    ['CÓDIGO', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'DIFERENCIA'].forEach((h, i) => {
+        const c = sheet.getCell(filaHeader, i + 1);
+        c.value = h; c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.white } };
+        c.fill = fillSolid(C.blue); c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    });
+    r++;
+
+    let totalGeneralRenova = 0, totalGeneralMOI = 0, totalGeneralContratista = 0;
+
+    ORDEN_CATS.forEach((cat, catIdx) => {
+        const items = BASE[cat];
+        if (!items || items.length === 0) return;
+        const esFijo = CATS_PRECIO_FIJO.includes(cat);
+        let subRenova = 0, subCtta = 0;
+
+        const cantidades = items.map((it, itIdx) => {
+            const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
+            return parseFloat(row.querySelector('.inp-cant').value) || 0;
+        });
+        const huboItems = cantidades.some(c => c > 0);
+        if (!huboItems) return;
+
+        // Fila de categoría (encabezado de grupo)
+        sheet.mergeCells(r, 1, r, 9);
+        const catCell = sheet.getCell(r, 1);
+        catCell.value = cat + (esFijo ? '  (precio fijo Renova — sin MOI)' : '');
+        catCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
+        catCell.fill = fillSolid(C.blueL);
+        catCell.alignment = { horizontal: 'left', vertical: 'middle' };
+        r++;
+
+        items.forEach((it, itIdx) => {
+            const cant = cantidades[itIdx];
+            if (cant <= 0) return;
+            const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
+            const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+            const totRenova = cant * it.p;
+            const totCtta = cant * precioCtta;
+            const dif = totCtta - totRenova;
+            subRenova += totRenova;
+            subCtta += totCtta;
+
+            const fila = [it.c.replace(/^0+/, '') || '-', it.d, it.u, cant, it.p, totRenova, precioCtta, totCtta, dif];
+            fila.forEach((v, i) => {
+                const col = i + 1;
+                const cell = sheet.getCell(r, col);
+                cell.value = v;
+                cell.border = gridBorder();
+                cell.font = { name: 'Arial', size: 8 };
+                if ([5, 6, 7, 8, 9].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
+                else cell.alignment = { horizontal: 'left', vertical: 'middle' };
+            });
+            r++;
+        });
+
+        const moi = subCtta - subRenova;
+        sheet.mergeCells(r, 1, r, 4);
+        const subLbl = sheet.getCell(r, 1);
+        subLbl.value = 'SUBTOTAL ' + cat;
+        subLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
+        subLbl.fill = fillSolid(C.blueL);
+        subLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+        [5, 6, 7, 8, 9].forEach(col => {
+            const cell = sheet.getCell(r, col);
+            cell.fill = fillSolid(C.blueL);
+            cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
+            cell.alignment = { horizontal: 'right', vertical: 'middle' };
+            if (col === 6) { cell.value = subRenova; cell.numFmt = MONEY; }
+            else if (col === 8) { cell.value = subCtta; cell.numFmt = MONEY; }
+            else if (col === 9) { cell.value = moi; cell.numFmt = MONEY; }
+        });
+        r++;
+
+        if (moi !== 0) {
+            sheet.mergeCells(r, 1, r, 4);
+            const moiLbl = sheet.getCell(r, 1);
+            moiLbl.value = '🛠️ MANO DE OBRA INDUSTRIAL — ' + cat;
+            moiLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.orange } };
+            moiLbl.fill = fillSolid(C.orangeL);
+            moiLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            [5, 6, 7, 8, 9].forEach(col => {
+                const cell = sheet.getCell(r, col);
+                cell.fill = fillSolid(C.orangeL);
+                cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.orange } };
+                cell.alignment = { horizontal: 'right', vertical: 'middle' };
+                if (col === 9) { cell.value = moi; cell.numFmt = MONEY; }
+            });
+            r++;
+        }
+
+        r++; // fila en blanco separadora
+
+        totalGeneralRenova += subRenova;
+        totalGeneralMOI += moi;
+        totalGeneralContratista += subCtta;
+    });
+
+    sheet.mergeCells(r, 1, r, 4);
+    const totLbl = sheet.getCell(r, 1);
+    totLbl.value = 'TOTAL GENERAL';
+    totLbl.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+    totLbl.fill = fillSolid(C.blue);
+    totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+    [5, 6, 7, 8, 9].forEach(col => {
+        const cell = sheet.getCell(r, col);
+        cell.fill = fillSolid(C.blue);
+        cell.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+        cell.alignment = { horizontal: 'right', vertical: 'middle' };
+        if (col === 6) { cell.value = totalGeneralRenova; cell.numFmt = MONEY; }
+        else if (col === 8) { cell.value = totalGeneralContratista; cell.numFmt = MONEY; }
+        else if (col === 9) { cell.value = totalGeneralMOI; cell.numFmt = MONEY; }
+    });
+    sheet.getRow(r).height = 22;
+    r += 2;
+
+    sheet.mergeCells(`A${r}:I${r}`);
+    const notaCell = sheet.getCell(`A${r}`);
+    notaCell.value = `Base Renova + MOI = Total Contratista   →   ${totalGeneralRenova.toLocaleString('es-CL')} + ${totalGeneralMOI.toLocaleString('es-CL')} = ${(totalGeneralRenova + totalGeneralMOI).toLocaleString('es-CL')}`;
+    notaCell.font = { name: 'Arial', italic: true, size: 9, color: { argb: C.gray } };
+    notaCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    sheet.pageSetup.orientation = 'landscape';
+    sheet.pageSetup.fitToPage = true;
+    sheet.pageSetup.fitToWidth = 1;
+    sheet.pageSetup.fitToHeight = 0;
+    sheet.pageSetup.margins = { left: 0.4, right: 0.4, top: 0.4, bottom: 0.4, header: 0.1, footer: 0.1 };
+    sheet.views = [{ state: 'frozen', ySplit: filaHeader }];
+    sheet.showGridLines = false;
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const proyecto = document.getElementById('fProyecto').value || 'SIN_PROYECTO';
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = `COTIZACION_LIBRE_ANTOFAGASTA_${proyecto.replace(/\s+/g, '_')}.xlsx`;
+    link.click();
+}
+
+construirTablas();
+document.getElementById('fFecha').value = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
