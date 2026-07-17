@@ -162,7 +162,11 @@ function construirTablas() {
                 <span>${cat} <span class="text-xs font-normal opacity-80">(${items.length} ítems)</span></span>
                 ${esFijo ? '<span class="cat-fixed-badge" style="background:rgba(255,255,255,.2); color:#fff;">PRECIO FIJO RENOVA — SIN MOI</span>' : ''}
             </div>
-            <div id="catBody${catIdx}" class="overflow-x-auto">
+            <div id="catBody${catIdx}">
+                <div class="px-3 py-2" style="border-bottom:1px solid var(--aba-border); background:var(--aba-silver);">
+                    <input type="text" class="cat-search-input" oninput="filtrarCategoria(${catIdx}, this.value)" placeholder="🔎 Buscar en ${escapeHtml(cat)}..." style="width:100%; max-width:360px; border:1px solid var(--aba-border); border-radius:6px; padding:5px 10px; font-size:12px;">
+                </div>
+                <div class="overflow-x-auto">
                 <table class="items">
                     <thead><tr>
                         <th>Código</th><th>Descripción</th><th>Unidad</th>
@@ -193,6 +197,7 @@ function construirTablas() {
                         ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td></tr>`}
                     </tfoot>
                 </table>
+                </div>
             </div>
         </div>`;
     });
@@ -260,9 +265,23 @@ function recalcTotalGeneral() {
     document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} = ${fmtMoneyPlain(totalRenova + totalMOI)}`;
 }
 
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 function filtrar(q) {
     q = (q || '').toLowerCase().trim();
+    document.querySelectorAll('.cat-search-input').forEach(inp => inp.value = '');
     document.querySelectorAll('tr.row').forEach(row => {
+        const match = !q || row.dataset.search.includes(q);
+        row.style.display = match ? '' : 'none';
+    });
+}
+
+function filtrarCategoria(catIdx, q) {
+    q = (q || '').toLowerCase().trim();
+    document.getElementById('buscador').value = '';
+    document.querySelectorAll(`tr.row[data-cat="${catIdx}"]`).forEach(row => {
         const match = !q || row.dataset.search.includes(q);
         row.style.display = match ? '' : 'none';
     });
