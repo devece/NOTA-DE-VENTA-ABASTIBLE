@@ -37,6 +37,12 @@
     .moi-row td { background: var(--aba-orange-light); font-weight: 700; color: var(--aba-orange-dark); }
     .cat-fixed-badge { font-size: 10px; background: var(--aba-blue-light); color: var(--aba-blue); padding: 2px 6px; border-radius: 4px; font-weight: 600; }
     .summary-card { border-radius: 12px; padding: 14px; text-align: center; }
+    /* Formato contabilidad: $ pegado a la izquierda, cifra pegada a la derecha */
+    .money-fmt { display: flex; justify-content: space-between; gap: 4px; font-variant-numeric: tabular-nums; }
+    .money-fmt .signo { color: var(--aba-gray); }
+    .money-fmt .cifra { font-weight: 500; }
+    .money-fmt.money-pos .signo, .money-fmt.money-pos .cifra { color: #C2410C; }
+    .money-fmt.money-neg .signo, .money-fmt.money-neg .cifra { color: #DC2626; }
     ::-webkit-scrollbar { height: 10px; width: 10px; }
 </style>
 </head>
@@ -132,12 +138,16 @@ function fmt(n) {
     if (n === 0) return "0";
     return Math.round(n).toLocaleString("es-CL");
 }
-function fmtMoney(n) { return '$' + fmt(n); }
+function fmtMoneyPlain(n) { return '$' + fmt(n); }
+// Formato contabilidad: signo $ pegado a la izquierda, cifra pegada a la derecha
+function fmtMoney(n) {
+    return `<span class="money-fmt"><span class="signo">$</span><span class="cifra">${fmt(n)}</span></span>`;
+}
 function fmtMoneyColor(n) {
     n = Number(n) || 0;
     const signo = n > 0 ? '+$' : n < 0 ? '-$' : '$';
-    const cls = n > 0 ? 'text-orange-600' : n < 0 ? 'text-red-600' : '';
-    return `<span class="${cls}">${signo}${fmt(Math.abs(n))}</span>`;
+    const cls = n > 0 ? 'money-pos' : n < 0 ? 'money-neg' : '';
+    return `<span class="money-fmt ${cls}"><span class="signo">${signo}</span><span class="cifra">${fmt(Math.abs(n))}</span></span>`;
 }
 
 function construirTablas() {
@@ -171,16 +181,16 @@ function construirTablas() {
                 <td class="text-center">${it.u}</td>
                 <td class="text-right"><input type="number" min="0" step="0.5" class="input-num inp-cant" value="" oninput="recalcFila(${catIdx},${itIdx})"></td>
                 <td class="text-right">${fmtMoney(it.p)}</td>
-                <td class="text-right cell-totrenova">$0</td>
+                <td class="text-right cell-totrenova">${fmtMoney(0)}</td>
                 <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${esFijo ? it.p : ''}" placeholder="${esFijo ? '' : 'Ingrese valor'}" ${esFijo ? 'disabled' : ''} oninput="recalcFila(${catIdx},${itIdx})"></td>
-                <td class="text-right cell-totctta">$0</td>
-                <td class="text-right cell-dif">$0</td>
+                <td class="text-right cell-totctta">${fmtMoney(0)}</td>
+                <td class="text-right cell-dif">${fmtMoneyColor(0)}</td>
             </tr>`;
         });
         html += `</tbody>
                     <tfoot>
-                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">$0</td><td></td><td class="text-right" id="subContratista${catIdx}">$0</td><td class="text-right" id="subDif${catIdx}">$0</td></tr>
-                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">$0</td></tr>`}
+                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td></tr>
+                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td></tr>`}
                     </tfoot>
                 </table>
             </div>
@@ -202,8 +212,8 @@ function recalcFila(catIdx, itIdx) {
     const totRenova = cant * it.p;
     const totCtta = cant * precioCtta;
     const dif = totCtta - totRenova;
-    row.querySelector('.cell-totrenova').textContent = fmtMoney(totRenova);
-    row.querySelector('.cell-totctta').textContent = fmtMoney(totCtta);
+    row.querySelector('.cell-totrenova').innerHTML = fmtMoney(totRenova);
+    row.querySelector('.cell-totctta').innerHTML = fmtMoney(totCtta);
     row.querySelector('.cell-dif').innerHTML = fmtMoneyColor(dif);
     row.classList.toggle('has-qty', cant > 0);
     recalcCategoria(catIdx);
@@ -223,8 +233,8 @@ function recalcCategoria(catIdx) {
         subCtta += cant * precioCtta;
     });
     const moi = subCtta - subRenova;
-    document.getElementById('subRenova' + catIdx).textContent = fmtMoney(subRenova);
-    document.getElementById('subContratista' + catIdx).textContent = fmtMoney(subCtta);
+    document.getElementById('subRenova' + catIdx).innerHTML = fmtMoney(subRenova);
+    document.getElementById('subContratista' + catIdx).innerHTML = fmtMoney(subCtta);
     document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(moi);
     const moiCell = document.getElementById('moi' + catIdx);
     if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
@@ -244,10 +254,10 @@ function recalcTotalGeneral() {
         });
     });
     const totalMOI = totalCtta - totalRenova;
-    document.getElementById('sumRenova').textContent = fmtMoney(totalRenova);
-    document.getElementById('sumMOI').textContent = fmtMoney(totalMOI);
-    document.getElementById('sumContratista').textContent = fmtMoney(totalCtta);
-    document.getElementById('formulaCheck').textContent = `${fmtMoney(totalRenova)} + ${fmtMoney(totalMOI)} = ${fmtMoney(totalRenova + totalMOI)}`;
+    document.getElementById('sumRenova').textContent = fmtMoneyPlain(totalRenova);
+    document.getElementById('sumMOI').textContent = fmtMoneyPlain(totalMOI);
+    document.getElementById('sumContratista').textContent = fmtMoneyPlain(totalCtta);
+    document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} = ${fmtMoneyPlain(totalRenova + totalMOI)}`;
 }
 
 function filtrar(q) {
