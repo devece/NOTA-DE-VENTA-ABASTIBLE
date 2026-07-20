@@ -169,7 +169,7 @@ sello de validación al pie:
 
 El botón **📋 Historial** (solo disponible para Abastible, no para Contratista) lista
 las notas guardadas con **💾 Guardar Nota**, combinando lo guardado en este navegador
-(localStorage) con el respaldo en la nube (Supabase, best-effort). Desde ahí se puede
+(localStorage) con el respaldo en la nube (best-effort). Desde ahí se puede
 **Cargar** una nota para seguir editándola o **Eliminar** una que ya no sirve.
 
 ![Historial de notas](docs/manual/img/abastible/08-historial.png)
