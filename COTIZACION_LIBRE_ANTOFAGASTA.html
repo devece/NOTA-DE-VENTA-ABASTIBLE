@@ -172,8 +172,8 @@
                 </div>
             </div>
             <div class="mt-4 p-3 text-center rounded-lg bg-green-100 border border-green-300">
-                <div class="font-bold text-sm text-green-700">✅ Base Renova + MOI + GG/Utilidad = Total Contratista</div>
-                <div id="formulaCheck" class="text-xs mt-1 font-mono">$0 + $0 + $0 = $0</div>
+                <div class="font-bold text-sm text-green-700">✅ Base Renova + MOI = Total Contratista</div>
+                <div id="formulaCheck" class="text-xs mt-1 font-mono">$0 + $0 = $0</div>
             </div>
         </div>
     </div>
@@ -376,8 +376,7 @@ function recalcCategoria(catIdx) {
         }
     });
     const subFinal = subCtta + subGGUtil;
-    const moi = subCtta - subRenova;
-    const dif = subFinal - subRenova;
+    const dif = subFinal - subRenova; // = suma de las Diferencias por ítem; el MOI es este mismo valor
     document.getElementById('subRenova' + catIdx).innerHTML = fmtMoney(subRenova);
     document.getElementById('subContratista' + catIdx).innerHTML = fmtMoney(subCtta);
     const ggutilCell = document.getElementById('subGGUtil' + catIdx);
@@ -385,7 +384,7 @@ function recalcCategoria(catIdx) {
     document.getElementById('subFinal' + catIdx).innerHTML = fmtMoney(subFinal);
     document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(dif);
     const moiCell = document.getElementById('moi' + catIdx);
-    if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
+    if (moiCell) moiCell.innerHTML = fmtMoneyColor(dif);
 }
 
 function recalcTotalGeneral() {
@@ -411,13 +410,13 @@ function recalcTotalGeneral() {
             }
         });
     });
-    const totalMOI = totalCtta - totalRenova;
     const totalFinal = totalCtta + totalGGUtil;
+    const totalMOI = totalFinal - totalRenova; // = suma de las Diferencias
     document.getElementById('sumRenova').textContent = fmtMoneyPlain(totalRenova);
     document.getElementById('sumMOI').textContent = fmtMoneyPlain(totalMOI);
     document.getElementById('sumGGUtil').textContent = fmtMoneyPlain(totalGGUtil);
     document.getElementById('sumContratista').textContent = fmtMoneyPlain(totalFinal);
-    document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} + ${fmtMoneyPlain(totalGGUtil)} = ${fmtMoneyPlain(totalFinal)}`;
+    document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} = ${fmtMoneyPlain(totalFinal)}`;
 }
 
 // ============================================================
@@ -587,7 +586,7 @@ async function exportarExcel() {
     });
     r++;
 
-    let totalGeneralRenova = 0, totalGeneralMOI = 0, totalGeneralContratista = 0, totalGeneralGGUtil = 0;
+    let totalGeneralRenova = 0, totalGeneralContratista = 0, totalGeneralGGUtil = 0;
 
     ORDEN_CATS.forEach((cat, catIdx) => {
         const items = BASE[cat];
@@ -663,8 +662,7 @@ async function exportarExcel() {
         });
 
         const subFinal = subCtta + subGGUtil;
-        const moi = subCtta - subRenova;
-        const dif = subFinal - subRenova;
+        const dif = subFinal - subRenova; // = suma de las Diferencias por ítem; el MOI es este mismo valor
         sheet.mergeCells(r, 1, r, 4);
         const subLbl = sheet.getCell(r, 1);
         subLbl.value = 'SUBTOTAL ' + cat;
@@ -684,7 +682,7 @@ async function exportarExcel() {
         });
         r++;
 
-        if (moi !== 0 && !esFijo) {
+        if (dif !== 0 && !esFijo) {
             sheet.mergeCells(r, 1, r, 7);
             const moiLbl = sheet.getCell(r, 1);
             moiLbl.value = '🛠️ MANO DE OBRA INDUSTRIAL — ' + cat;
@@ -696,7 +694,7 @@ async function exportarExcel() {
                 cell.fill = fillSolid(C.orangeL);
                 cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.orange } };
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                if (col === 8) { cell.value = moi; cell.numFmt = MONEY; }
+                if (col === 8) { cell.value = dif; cell.numFmt = MONEY; }
             });
             r++;
         }
@@ -704,7 +702,6 @@ async function exportarExcel() {
         r++; // fila en blanco separadora
 
         totalGeneralRenova += subRenova;
-        totalGeneralMOI += moi;
         totalGeneralContratista += subCtta;
         totalGeneralGGUtil += subGGUtil;
     });
