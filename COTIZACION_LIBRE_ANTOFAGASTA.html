@@ -133,6 +133,14 @@
                 <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">Teléfono</label>
                 <input id="fTelefono" type="text" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);" placeholder="Teléfono de contacto">
             </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">% Gastos Generales</label>
+                <input id="fPctGG" type="number" min="0" step="0.01" oninput="actualizarPorcentajesGGUtil()" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);" placeholder="0">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold uppercase mb-1" style="color: var(--aba-gray);">% Utilidad</label>
+                <input id="fPctUtil" type="number" min="0" step="0.01" oninput="actualizarPorcentajesGGUtil()" class="w-full border rounded-lg px-3 py-2" style="border-color: var(--aba-border);" placeholder="0">
+            </div>
         </div>
     </div>
 
@@ -145,7 +153,7 @@
     <div class="bg-white rounded-lg border-2 overflow-hidden mb-5" style="border-color: var(--aba-blue);">
         <div class="text-white px-4 py-2 font-bold text-sm" style="background: var(--aba-blue);">📊 RESUMEN</div>
         <div class="p-4">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div class="summary-card" style="background: #EBEEF9;">
                     <div class="text-xs font-semibold uppercase" style="color: var(--aba-blue);">Total Base Renova</div>
                     <div id="sumRenova" class="text-2xl font-bold mt-1" style="color: var(--aba-blue);">$0</div>
@@ -154,14 +162,18 @@
                     <div class="text-xs font-semibold uppercase" style="color: var(--aba-orange);">Total Mano de Obra Industrial</div>
                     <div id="sumMOI" class="text-2xl font-bold mt-1" style="color: var(--aba-orange);">$0</div>
                 </div>
+                <div class="summary-card" style="background: #F3E8FF;">
+                    <div class="text-xs font-semibold uppercase" style="color: #6D28D9;">Total GG + Utilidad</div>
+                    <div id="sumGGUtil" class="text-2xl font-bold mt-1" style="color: #6D28D9;">$0</div>
+                </div>
                 <div class="summary-card" style="background: #E8F5E9;">
                     <div class="text-xs font-semibold uppercase" style="color: #2E7D32;">Total Contratista</div>
                     <div id="sumContratista" class="text-2xl font-bold mt-1" style="color: #2E7D32;">$0</div>
                 </div>
             </div>
             <div class="mt-4 p-3 text-center rounded-lg bg-green-100 border border-green-300">
-                <div class="font-bold text-sm text-green-700">✅ Base Renova + MOI = Total Contratista</div>
-                <div id="formulaCheck" class="text-xs mt-1 font-mono">$0 + $0 = $0</div>
+                <div class="font-bold text-sm text-green-700">✅ Base Renova + MOI + GG/Utilidad = Total Contratista</div>
+                <div id="formulaCheck" class="text-xs mt-1 font-mono">$0 + $0 + $0 = $0</div>
             </div>
         </div>
     </div>
@@ -185,6 +197,25 @@ let ORDEN_CATS = Object.keys(BASE);
 // Ítems libres agregados a mano (no están en base_datos.xlsx): catIdx -> [{id, d, u, cant, precio}]
 let customItems = {};
 let nextCustomId = 1;
+
+// % Gastos Generales y % Utilidad del contratista (Datos del contratista) — no aplican a
+// las categorías CATS_PRECIO_FIJO (cañerías, que cotizan siempre a precio fijo Renova).
+let PCT_GG = 0;
+let PCT_UTIL = 0;
+
+function actualizarPorcentajesGGUtil() {
+    PCT_GG = parseFloat(document.getElementById('fPctGG').value) || 0;
+    PCT_UTIL = parseFloat(document.getElementById('fPctUtil').value) || 0;
+    ORDEN_CATS.forEach((cat, catIdx) => {
+        (BASE[cat] || []).forEach((it, itIdx) => recalcFila(catIdx, itIdx));
+        (customItems[catIdx] || []).forEach(item => recalcFilaLibre(catIdx, item.id));
+    });
+    recalcTotalGeneral();
+}
+
+function montoGGUtil(totCtta, esFijo) {
+    return esFijo ? 0 : totCtta * (PCT_GG + PCT_UTIL) / 100;
+}
 
 function cambiarCentro(nuevoCentro) {
     const hayDatos = Object.values(customItems).some(arr => arr && arr.length > 0)
@@ -246,6 +277,7 @@ function construirTablas() {
                         <th class="text-right">Total Renova</th>
                         <th class="text-right">Precio Contratista</th>
                         <th class="text-right">Total Contratista</th>
+                        <th class="text-right">GG + Utilidad</th>
                         <th class="text-right">Diferencia</th>
                         <th></th>
                     </tr></thead>
@@ -260,6 +292,7 @@ function construirTablas() {
                 <td class="text-right cell-totrenova">${fmtMoney(0)}</td>
                 <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${esFijo ? it.p : ''}" placeholder="${esFijo ? '' : 'Ingrese valor'}" ${esFijo ? 'disabled' : ''} oninput="recalcFila(${catIdx},${itIdx})"></td>
                 <td class="text-right cell-totctta">${fmtMoney(0)}</td>
+                <td class="text-right cell-ggutil">${esFijo ? '<span class="text-xs" style="color:var(--aba-gray);">—</span>' : fmtMoney(0)}</td>
                 <td class="text-right cell-dif">${fmtMoneyColor(0)}</td>
                 <td></td>
             </tr>`;
@@ -275,12 +308,14 @@ function construirTablas() {
                             <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-libre-precio" placeholder="Ingrese valor"></td>
                             <td></td>
                             <td></td>
+                            <td></td>
                             <td class="text-center"><button class="btn-agregar-libre" onclick="agregarItemLibre(${catIdx})">+ Agregar</button></td>
                         </tr>
                     </tbody>
                     <tfoot>
-                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
-                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>`}
+                        <tr class="subtotal-row"><td colspan="5" class="text-right">SUBTOTAL ${cat}</td><td class="text-right" id="subRenova${catIdx}">${fmtMoney(0)}</td><td></td><td class="text-right" id="subContratista${catIdx}">${fmtMoney(0)}</td><td class="text-right" id="subGGUtil${catIdx}">${esFijo ? '—' : fmtMoney(0)}</td><td class="text-right" id="subDif${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>
+                        ${esFijo ? '' : `<tr class="moi-row"><td colspan="5" class="text-right">🛠️ MANO DE OBRA INDUSTRIAL (${cat})</td><td></td><td></td><td></td><td></td><td class="text-right" id="moi${catIdx}">${fmtMoneyColor(0)}</td><td></td></tr>`}
+                        ${esFijo ? '' : `<tr class="moi-row" style="background:#E8F5E9;"><td colspan="5" class="text-right">✅ TOTAL FINAL CONTRATISTA (${cat}) — incl. GG+Utilidad</td><td></td><td></td><td class="text-right" id="subFinal${catIdx}" style="color:#2E7D32;">${fmtMoney(0)}</td><td></td><td></td><td></td></tr>`}
                     </tfoot>
                 </table>
                 </div>
@@ -298,13 +333,16 @@ function toggleCat(catIdx) {
 function recalcFila(catIdx, itIdx) {
     const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
     const it = BASE[ORDEN_CATS[catIdx]][itIdx];
+    const esFijo = CATS_PRECIO_FIJO.includes(ORDEN_CATS[catIdx]);
     const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
     const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
     const totRenova = cant * it.p;
     const totCtta = cant * precioCtta;
     const dif = totCtta - totRenova;
+    const ggutil = montoGGUtil(totCtta, esFijo);
     row.querySelector('.cell-totrenova').innerHTML = fmtMoney(totRenova);
     row.querySelector('.cell-totctta').innerHTML = fmtMoney(totCtta);
+    row.querySelector('.cell-ggutil').innerHTML = esFijo ? '<span class="text-xs" style="color:var(--aba-gray);">—</span>' : fmtMoney(ggutil);
     row.querySelector('.cell-dif').innerHTML = fmtMoneyColor(dif);
     row.classList.toggle('has-qty', cant > 0);
     recalcCategoria(catIdx);
@@ -314,47 +352,67 @@ function recalcFila(catIdx, itIdx) {
 function recalcCategoria(catIdx) {
     const cat = ORDEN_CATS[catIdx];
     const items = BASE[cat];
-    let subRenova = 0, subCtta = 0;
+    const esFijo = CATS_PRECIO_FIJO.includes(cat);
+    let subRenova = 0, subCtta = 0, subGGUtil = 0;
     items.forEach((it, itIdx) => {
         const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
         const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
         if (cant <= 0) return;
         const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+        const totCtta = cant * precioCtta;
         subRenova += cant * it.p;
-        subCtta += cant * precioCtta;
+        subCtta += totCtta;
+        subGGUtil += montoGGUtil(totCtta, esFijo);
     });
     (customItems[catIdx] || []).forEach(item => {
-        if (item.cant > 0) subCtta += item.cant * item.precio;
+        if (item.cant > 0) {
+            const totCtta = item.cant * item.precio;
+            subCtta += totCtta;
+            subGGUtil += montoGGUtil(totCtta, esFijo);
+        }
     });
     const moi = subCtta - subRenova;
     document.getElementById('subRenova' + catIdx).innerHTML = fmtMoney(subRenova);
     document.getElementById('subContratista' + catIdx).innerHTML = fmtMoney(subCtta);
+    const ggutilCell = document.getElementById('subGGUtil' + catIdx);
+    if (ggutilCell) ggutilCell.innerHTML = esFijo ? '—' : fmtMoney(subGGUtil);
     document.getElementById('subDif' + catIdx).innerHTML = fmtMoneyColor(moi);
     const moiCell = document.getElementById('moi' + catIdx);
     if (moiCell) moiCell.innerHTML = fmtMoneyColor(moi);
+    const finalCell = document.getElementById('subFinal' + catIdx);
+    if (finalCell) finalCell.innerHTML = fmtMoney(subCtta + subGGUtil);
 }
 
 function recalcTotalGeneral() {
-    let totalRenova = 0, totalCtta = 0;
+    let totalRenova = 0, totalCtta = 0, totalGGUtil = 0;
     ORDEN_CATS.forEach((cat, catIdx) => {
+        const esFijo = CATS_PRECIO_FIJO.includes(cat);
         const items = BASE[cat];
         items.forEach((it, itIdx) => {
             const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
             const cant = parseFloat(row.querySelector('.inp-cant').value) || 0;
             if (cant <= 0) return;
             const precioCtta = parseFloat(row.querySelector('.inp-precio').value) || 0;
+            const totCtta = cant * precioCtta;
             totalRenova += cant * it.p;
-            totalCtta += cant * precioCtta;
+            totalCtta += totCtta;
+            totalGGUtil += montoGGUtil(totCtta, esFijo);
         });
         (customItems[catIdx] || []).forEach(item => {
-            if (item.cant > 0) totalCtta += item.cant * item.precio;
+            if (item.cant > 0) {
+                const totCtta = item.cant * item.precio;
+                totalCtta += totCtta;
+                totalGGUtil += montoGGUtil(totCtta, esFijo);
+            }
         });
     });
     const totalMOI = totalCtta - totalRenova;
+    const totalFinal = totalCtta + totalGGUtil;
     document.getElementById('sumRenova').textContent = fmtMoneyPlain(totalRenova);
     document.getElementById('sumMOI').textContent = fmtMoneyPlain(totalMOI);
-    document.getElementById('sumContratista').textContent = fmtMoneyPlain(totalCtta);
-    document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} = ${fmtMoneyPlain(totalRenova + totalMOI)}`;
+    document.getElementById('sumGGUtil').textContent = fmtMoneyPlain(totalGGUtil);
+    document.getElementById('sumContratista').textContent = fmtMoneyPlain(totalFinal);
+    document.getElementById('formulaCheck').textContent = `${fmtMoneyPlain(totalRenova)} + ${fmtMoneyPlain(totalMOI)} + ${fmtMoneyPlain(totalGGUtil)} = ${fmtMoneyPlain(totalFinal)}`;
 }
 
 // ============================================================
@@ -394,6 +452,7 @@ function agregarItemLibre(catIdx) {
         <td class="text-right cell-totrenova">${fmtMoney(0)}</td>
         <td class="text-right"><input type="text" inputmode="decimal" class="input-num inp-precio" value="${precio || ''}" placeholder="Ingrese valor" oninput="recalcFilaLibre(${catIdx},${id})"></td>
         <td class="text-right cell-totctta">${fmtMoney(0)}</td>
+        <td class="text-right cell-ggutil">${CATS_PRECIO_FIJO.includes(ORDEN_CATS[catIdx]) ? '<span class="text-xs" style="color:var(--aba-gray);">—</span>' : fmtMoney(0)}</td>
         <td class="text-right cell-dif">${fmtMoneyColor(0)}</td>
         <td class="text-center"><button class="btn-quitar" onclick="quitarItemLibre(${catIdx},${id})" title="Quitar ítem">✕</button></td>
     `;
@@ -405,12 +464,15 @@ function recalcFilaLibre(catIdx, id) {
     const tr = document.querySelector(`tr.row-libre[data-cat="${catIdx}"][data-custom-id="${id}"]`);
     const item = (customItems[catIdx] || []).find(i => i.id === id);
     if (!tr || !item) return;
+    const esFijo = CATS_PRECIO_FIJO.includes(ORDEN_CATS[catIdx]);
     const cant = parseFloat(tr.querySelector('.inp-cant').value) || 0;
     const precio = parseFloat(tr.querySelector('.inp-precio').value) || 0;
     item.cant = cant;
     item.precio = precio;
     const totCtta = cant * precio;
+    const ggutil = montoGGUtil(totCtta, esFijo);
     tr.querySelector('.cell-totctta').innerHTML = fmtMoney(totCtta);
+    tr.querySelector('.cell-ggutil').innerHTML = esFijo ? '<span class="text-xs" style="color:var(--aba-gray);">—</span>' : fmtMoney(ggutil);
     tr.querySelector('.cell-dif').innerHTML = fmtMoneyColor(totCtta);
     tr.classList.toggle('has-qty', cant > 0);
     recalcCategoria(catIdx);
@@ -466,9 +528,9 @@ async function exportarExcel() {
     function fillSolid(argb) { return { type: 'pattern', pattern: 'solid', fgColor: { argb } }; }
     function gridBorder() { const s = { style: 'thin', color: { argb: C.gridLine } }; return { top: s, bottom: s, left: s, right: s }; }
 
-    sheet.columns = [{ width: 14 }, { width: 28 }, { width: 8 }, { width: 9 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }];
+    sheet.columns = [{ width: 14 }, { width: 28 }, { width: 8 }, { width: 9 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }, { width: 12 }];
 
-    sheet.mergeCells('A1:I1');
+    sheet.mergeCells('A1:J1');
     sheet.getRow(1).height = 28;
     const banner = sheet.getCell('A1');
     banner.value = 'COTIZACIÓN LIBRE · ' + CENTRO.toUpperCase();
@@ -495,7 +557,7 @@ async function exportarExcel() {
         const lbl = sheet.getCell(r, 1);
         lbl.value = k; lbl.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.gray } };
         lbl.fill = fillSolid(C.silver); lbl.alignment = { horizontal: 'right', vertical: 'middle' };
-        sheet.mergeCells(r, 3, r, 9);
+        sheet.mergeCells(r, 3, r, 10);
         const val = sheet.getCell(r, 3);
         val.value = v; val.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
         val.alignment = { horizontal: 'left', vertical: 'middle' };
@@ -504,26 +566,26 @@ async function exportarExcel() {
 
     const filaSep = r;
     sheet.getRow(filaSep).height = 4;
-    sheet.mergeCells(`A${filaSep}:I${filaSep}`);
+    sheet.mergeCells(`A${filaSep}:J${filaSep}`);
     sheet.getCell(`A${filaSep}`).fill = fillSolid(C.blue);
     r++;
 
     const filaHeader = r;
     sheet.getRow(filaHeader).height = 24;
-    ['CÓDIGO', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'DIFERENCIA'].forEach((h, i) => {
+    ['CÓDIGO', 'DESCRIPCIÓN', 'UNIDAD', 'CANT.', 'PRECIO\nRENOVA', 'TOTAL\nRENOVA', 'PRECIO\nCONTRATISTA', 'TOTAL\nCONTRATISTA', 'GG + UTILIDAD', 'DIFERENCIA'].forEach((h, i) => {
         const c = sheet.getCell(filaHeader, i + 1);
         c.value = h; c.font = { name: 'Arial', bold: true, size: 8, color: { argb: C.white } };
         c.fill = fillSolid(C.blue); c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     });
     r++;
 
-    let totalGeneralRenova = 0, totalGeneralMOI = 0, totalGeneralContratista = 0;
+    let totalGeneralRenova = 0, totalGeneralMOI = 0, totalGeneralContratista = 0, totalGeneralGGUtil = 0;
 
     ORDEN_CATS.forEach((cat, catIdx) => {
         const items = BASE[cat];
         if (!items || items.length === 0) return;
         const esFijo = CATS_PRECIO_FIJO.includes(cat);
-        let subRenova = 0, subCtta = 0;
+        let subRenova = 0, subCtta = 0, subGGUtil = 0;
 
         const cantidades = items.map((it, itIdx) => {
             const row = document.querySelector(`tr.row[data-cat="${catIdx}"][data-it="${itIdx}"]`);
@@ -534,7 +596,7 @@ async function exportarExcel() {
         if (!huboItems) return;
 
         // Fila de categoría (encabezado de grupo)
-        sheet.mergeCells(r, 1, r, 9);
+        sheet.mergeCells(r, 1, r, 10);
         const catCell = sheet.getCell(r, 1);
         catCell.value = cat + (esFijo ? '  (catálogo a precio fijo Renova)' : '');
         catCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
@@ -550,17 +612,19 @@ async function exportarExcel() {
             const totRenova = cant * it.p;
             const totCtta = cant * precioCtta;
             const dif = totCtta - totRenova;
+            const ggutil = montoGGUtil(totCtta, esFijo);
             subRenova += totRenova;
             subCtta += totCtta;
+            subGGUtil += ggutil;
 
-            const fila = [it.c.replace(/^0+/, '') || '-', it.d, it.u, cant, it.p, totRenova, precioCtta, totCtta, dif];
+            const fila = [it.c.replace(/^0+/, '') || '-', it.d, it.u, cant, it.p, totRenova, precioCtta, totCtta, ggutil, dif];
             fila.forEach((v, i) => {
                 const col = i + 1;
                 const cell = sheet.getCell(r, col);
                 cell.value = v;
                 cell.border = gridBorder();
                 cell.font = { name: 'Arial', size: 8 };
-                if ([5, 6, 7, 8, 9].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                if ([5, 6, 7, 8, 9, 10].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                 else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 else cell.alignment = { horizontal: 'left', vertical: 'middle' };
             });
@@ -569,9 +633,11 @@ async function exportarExcel() {
 
         librosCat.forEach(item => {
             const totCtta = item.cant * item.precio;
+            const ggutil = montoGGUtil(totCtta, esFijo);
             subCtta += totCtta;
+            subGGUtil += ggutil;
 
-            const fila = ['LIBRE', item.d + ' (ÍTEM LIBRE)', item.u, item.cant, 0, 0, item.precio, totCtta, totCtta];
+            const fila = ['LIBRE', item.d + ' (ÍTEM LIBRE)', item.u, item.cant, 0, 0, item.precio, totCtta, ggutil, totCtta];
             fila.forEach((v, i) => {
                 const col = i + 1;
                 const cell = sheet.getCell(r, col);
@@ -579,7 +645,7 @@ async function exportarExcel() {
                 cell.border = gridBorder();
                 cell.font = { name: 'Arial', size: 8, italic: true, color: { argb: C.orange } };
                 cell.fill = fillSolid(C.orangeL);
-                if ([5, 6, 7, 8, 9].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
+                if ([5, 6, 7, 8, 9, 10].includes(col)) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                 else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 else cell.alignment = { horizontal: 'left', vertical: 'middle' };
             });
@@ -593,14 +659,15 @@ async function exportarExcel() {
         subLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
         subLbl.fill = fillSolid(C.blueL);
         subLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-        [5, 6, 7, 8, 9].forEach(col => {
+        [5, 6, 7, 8, 9, 10].forEach(col => {
             const cell = sheet.getCell(r, col);
             cell.fill = fillSolid(C.blueL);
             cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blueDark } };
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
             if (col === 6) { cell.value = subRenova; cell.numFmt = MONEY; }
             else if (col === 8) { cell.value = subCtta; cell.numFmt = MONEY; }
-            else if (col === 9) { cell.value = moi; cell.numFmt = MONEY; }
+            else if (col === 9) { cell.value = subGGUtil; cell.numFmt = MONEY; }
+            else if (col === 10) { cell.value = moi; cell.numFmt = MONEY; }
         });
         r++;
 
@@ -611,13 +678,27 @@ async function exportarExcel() {
             moiLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.orange } };
             moiLbl.fill = fillSolid(C.orangeL);
             moiLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-            [5, 6, 7, 8, 9].forEach(col => {
+            [5, 6, 7, 8, 9, 10].forEach(col => {
                 const cell = sheet.getCell(r, col);
                 cell.fill = fillSolid(C.orangeL);
                 cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.orange } };
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                if (col === 9) { cell.value = moi; cell.numFmt = MONEY; }
+                if (col === 10) { cell.value = moi; cell.numFmt = MONEY; }
             });
+            r++;
+
+            sheet.mergeCells(r, 1, r, 4);
+            const finLbl = sheet.getCell(r, 1);
+            finLbl.value = '✅ TOTAL FINAL CONTRATISTA — ' + cat;
+            finLbl.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.green } };
+            finLbl.fill = fillSolid(C.orangeL);
+            finLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+            const finCell = sheet.getCell(r, 8);
+            finCell.value = subCtta + subGGUtil;
+            finCell.numFmt = MONEY;
+            finCell.fill = fillSolid(C.orangeL);
+            finCell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.green } };
+            finCell.alignment = { horizontal: 'right', vertical: 'middle' };
             r++;
         }
 
@@ -626,6 +707,7 @@ async function exportarExcel() {
         totalGeneralRenova += subRenova;
         totalGeneralMOI += moi;
         totalGeneralContratista += subCtta;
+        totalGeneralGGUtil += subGGUtil;
     });
 
     sheet.mergeCells(r, 1, r, 4);
@@ -634,21 +716,39 @@ async function exportarExcel() {
     totLbl.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
     totLbl.fill = fillSolid(C.blue);
     totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
-    [5, 6, 7, 8, 9].forEach(col => {
+    [5, 6, 7, 8, 9, 10].forEach(col => {
         const cell = sheet.getCell(r, col);
         cell.fill = fillSolid(C.blue);
         cell.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
         cell.alignment = { horizontal: 'right', vertical: 'middle' };
         if (col === 6) { cell.value = totalGeneralRenova; cell.numFmt = MONEY; }
         else if (col === 8) { cell.value = totalGeneralContratista; cell.numFmt = MONEY; }
-        else if (col === 9) { cell.value = totalGeneralMOI; cell.numFmt = MONEY; }
+        else if (col === 9) { cell.value = totalGeneralGGUtil; cell.numFmt = MONEY; }
+        else if (col === 10) { cell.value = totalGeneralMOI; cell.numFmt = MONEY; }
     });
+    sheet.getRow(r).height = 22;
+    r++;
+
+    const totalContratistaFinal = totalGeneralContratista + totalGeneralGGUtil;
+    sheet.mergeCells(r, 1, r, 8);
+    const finalLbl = sheet.getCell(r, 1);
+    finalLbl.value = '✅ TOTAL CONTRATISTA FINAL (incl. GG + Utilidad)';
+    finalLbl.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+    finalLbl.fill = fillSolid(C.green);
+    finalLbl.alignment = { horizontal: 'right', vertical: 'middle' };
+    sheet.mergeCells(r, 9, r, 10);
+    const finalVal = sheet.getCell(r, 9);
+    finalVal.value = totalContratistaFinal;
+    finalVal.numFmt = MONEY;
+    finalVal.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
+    finalVal.fill = fillSolid(C.green);
+    finalVal.alignment = { horizontal: 'right', vertical: 'middle' };
     sheet.getRow(r).height = 22;
     r += 2;
 
-    sheet.mergeCells(`A${r}:I${r}`);
+    sheet.mergeCells(`A${r}:J${r}`);
     const notaCell = sheet.getCell(`A${r}`);
-    notaCell.value = `Base Renova + MOI = Total Contratista   →   ${totalGeneralRenova.toLocaleString('es-CL')} + ${totalGeneralMOI.toLocaleString('es-CL')} = ${(totalGeneralRenova + totalGeneralMOI).toLocaleString('es-CL')}`;
+    notaCell.value = `Base Renova + MOI + GG/Utilidad = Total Contratista Final   →   ${totalGeneralRenova.toLocaleString('es-CL')} + ${totalGeneralMOI.toLocaleString('es-CL')} + ${totalGeneralGGUtil.toLocaleString('es-CL')} = ${totalContratistaFinal.toLocaleString('es-CL')}`;
     notaCell.font = { name: 'Arial', italic: true, size: 9, color: { argb: C.gray } };
     notaCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
