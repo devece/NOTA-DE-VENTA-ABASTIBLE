@@ -817,7 +817,7 @@
                 <div class="flex gap-3">
                     <button onclick="exportarAExcel()" class="btn-secondary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">📊 Exportar a Excel</button>
                     <button onclick="exportarDCFinalExcel()" id="btnGenerarDC" class="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style="background:#7C3AED; color:white;">📄 Generar DC</button>
-                    <button onclick="guardarNota()" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">💾 Guardar Nota</button>
+                    <button onclick="guardarNota()" id="btnGuardarNota" class="btn-primary px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2">💾 Guardar Nota</button>
                     <button onclick="imprimirNota()" class="px-5 py-2.5 rounded-lg text-sm font-semibold flex items-center gap-2" style="background: var(--aba-blue); color: white;">🖨️ Imprimir</button>
                 </div>
             </div>
@@ -863,8 +863,17 @@ function parsePrecio(valor) {
         number = parseFloat(conPuntoDecimal);
     } 
     else if (str.includes(',') && !str.includes('.')) {
-        let conPunto = str.replace(/,/g, '.');
-        number = parseFloat(conPunto);
+        const comas = (str.match(/,/g) || []).length;
+        if (comas > 1) {
+            let sinComas = str.replace(/,/g, '');
+            number = parseInt(sinComas, 10);
+        } else if (/^\d{1,3},\d{3}$/.test(str)) {
+            // Una sola coma seguida de exactamente 3 dígitos = separador de miles
+            // ("150,000" → 150000, no 150). Los precios de la app no usan decimales.
+            number = parseInt(str.replace(',', ''), 10);
+        } else {
+            number = parseFloat(str.replace(',', '.'));
+        }
     }
     else if (str.includes('.') && !str.includes(',')) {
         const puntos = (str.match(/\./g) || []).length;
@@ -1512,6 +1521,9 @@ function iniciarAppConModo() {
     if ($('btnGenerarDC')) $('btnGenerarDC').style.display = esContratista ? 'none' : '';
     $('estadoBaseExcel').classList.toggle('hidden', true);
     $('btnHistorialHeader').style.display = esContratista ? 'none' : '';
+    // El Historial (con respaldo en la nube) es solo de Abastible; el Contratista no debe
+    // poder guardar ahí su cotización (usa Guardar/Cargar Proyecto .json en su lugar).
+    if ($('btnGuardarNota')) $('btnGuardarNota').style.display = esContratista ? 'none' : '';
 
     // Título de cabecera y de paso 1
     const titulos = {
