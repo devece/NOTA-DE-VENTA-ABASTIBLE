@@ -1048,6 +1048,11 @@ function obtenerMaterialCañeria(item) {
     const catsCañeria = ['CAÑERIAS AP', 'CAÑERIAS MP', 'CAÑERIAS BP'];
     if (!catsCañeria.includes(cat)) return null;
 
+    // Cañería de ACERO (código con sufijo "AC", ej: LAP10AC, LMP10AC, LBP10AC):
+    // el precio de instalación ya incluye el material, por lo que NO corresponde
+    // agregar material Impovar (que solo cotiza cañería de Cobre).
+    if (/L(AP|MP|BP)\d*AC/i.test(item.descripcion || '')) return null;
+
     // Usar columna diametro si existe, sino extraer de la descripción
     const diametroInstalacion = item.diametro || extraerDiametro(item.descripcion);
     if (!diametroInstalacion) return null;
