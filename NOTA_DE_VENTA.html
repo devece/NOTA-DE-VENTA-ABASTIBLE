@@ -2727,9 +2727,11 @@ async function exportarCotizacionExcel() {
         });
 
         let totalGeneral = 0;
+        const filasSubtotalCot = [];
         for (const cat in grupos) {
             const items = grupos[cat];
             let subtotal = 0;
+            const filasIncluidas = [];
             for (const item of items) {
                 const precio = (item.precioCTTA !== null && item.precioCTTA > 0) ? item.precioCTTA : item.precioBase;
                 const total = precio * item.cantidad;
@@ -2746,6 +2748,9 @@ async function exportarCotizacionExcel() {
                     else if (col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 });
+                // Fórmula: TOTAL = PRECIO UNIT. (F) × CANT. (E), recalculable en Excel
+                sheet.getCell(r, 7).value = { formula: `F${r}*E${r}`, result: total };
+                filasIncluidas.push(r);
                 r++;
 
                 // Material Impovar vinculado
@@ -2766,6 +2771,8 @@ async function exportarCotizacionExcel() {
                         else if (col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                         else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                     });
+                    sheet.getCell(r, 7).value = { formula: `F${r}*E${r}`, result: totalMat };
+                    filasIncluidas.push(r);
                     r++;
                 }
             }
@@ -2776,11 +2783,14 @@ async function exportarCotizacionExcel() {
             subCell.fill = fillSolid(C.greenL);
             subCell.alignment = { horizontal: 'right', vertical: 'middle' };
             const subVal = sheet.getCell(r, 7);
-            subVal.value = money(subtotal);
+            subVal.value = filasIncluidas.length
+                ? { formula: `SUM(${filasIncluidas.map(fr => 'G' + fr).join(',')})`, result: subtotal }
+                : money(subtotal);
             subVal.numFmt = MONEY;
             subVal.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
             subVal.fill = fillSolid(C.greenL);
             subVal.alignment = { horizontal: 'right', vertical: 'middle' };
+            filasSubtotalCot.push(r);
             r++;
             totalGeneral += subtotal;
         }
@@ -2793,7 +2803,9 @@ async function exportarCotizacionExcel() {
         totLbl.fill = fillSolid(C.green);
         totLbl.alignment = { horizontal: 'right', vertical: 'middle' };
         const totVal = sheet.getCell(r, 7);
-        totVal.value = money(totalGeneral);
+        totVal.value = filasSubtotalCot.length
+            ? { formula: `SUM(${filasSubtotalCot.map(fr => 'G' + fr).join(',')})`, result: totalGeneral }
+            : money(totalGeneral);
         totVal.numFmt = MONEY;
         totVal.font = { name: 'Arial', bold: true, size: 11, color: { argb: C.white } };
         totVal.fill = fillSolid(C.green);
@@ -2951,12 +2963,14 @@ async function exportarComparativaContratistaExcel() {
 
         let totalRenovaGeneral = 0;
         let totalContratistaGeneral = 0;
+        const filasSubtotal = [];
 
         for (const cat in grupos) {
             const items = grupos[cat];
             const esCañeriaPrecioFijo = CATS_SIN_CTTA.includes(cat);
             let subtotalRenova = 0;
             let subtotalContratista = 0;
+            const filasIncluidas = [];
 
             for (const item of items) {
                 const itemEsMOI = item.esMOI || /mano.*obra.*industrial/i.test(item.descripcion || '');
@@ -2995,6 +3009,12 @@ async function exportarComparativaContratistaExcel() {
                     else if (col === 4) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 });
+                // Fórmulas: TOTAL RENOVA/CONTRATISTA quedan recalculables si se edita precio o cantidad
+                sheet.getCell(r, 6).value = { formula: `E${r}*D${r}`, result: totalRenova };
+                if (!moiNoSuma) {
+                    sheet.getCell(r, 8).value = { formula: `G${r}*D${r}`, result: totalContratista };
+                    filasIncluidas.push(r);
+                }
                 r++;
 
                 // Material Impovar vinculado
@@ -3017,6 +3037,9 @@ async function exportarComparativaContratistaExcel() {
                         else if (col === 7) cell.alignment = { horizontal: 'right', vertical: 'middle' };
                         else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                     });
+                    sheet.getCell(r, 6).value = { formula: `E${r}*D${r}`, result: totalMat };
+                    sheet.getCell(r, 8).value = { formula: `F${r}`, result: totalMat };
+                    filasIncluidas.push(r);
                     r++;
                 }
             }
@@ -3033,10 +3056,19 @@ async function exportarComparativaContratistaExcel() {
                 cell.fill = fillSolid(C.greenL);
                 cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.greenDark } };
                 cell.alignment = { horizontal: 'right', vertical: 'middle' };
-                if (col === 6) { cell.value = money(subtotalRenova); cell.numFmt = MONEY; }
-                else if (col === 8) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
-                else if (col === 9) { cell.value = money(diferenciaCat); cell.numFmt = MONEY; }
+                if (col === 6) {
+                    cell.value = filasIncluidas.length
+                        ? { formula: `SUM(${filasIncluidas.map(fr => 'F' + fr).join(',')})`, result: subtotalRenova }
+                        : money(subtotalRenova);
+                    cell.numFmt = MONEY;
+                } else if (col === 8) {
+                    cell.value = filasIncluidas.length
+                        ? { formula: `SUM(${filasIncluidas.map(fr => 'H' + fr).join(',')})`, result: subtotalContratista }
+                        : money(subtotalContratista);
+                    cell.numFmt = MONEY;
+                } else if (col === 9) { cell.value = money(diferenciaCat); cell.numFmt = MONEY; }
             });
+            filasSubtotal.push(r);
             r++;
 
             totalRenovaGeneral += subtotalRenova;
@@ -3056,9 +3088,17 @@ async function exportarComparativaContratistaExcel() {
             cell.fill = fillSolid(C.green);
             cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.white } };
             cell.alignment = { horizontal: 'right', vertical: 'middle' };
-            if (col === 6) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
-            else if (col === 8) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
-            else if (col === 9) { cell.value = money(diferenciaGeneral); cell.numFmt = MONEY; }
+            if (col === 6) {
+                cell.value = filasSubtotal.length
+                    ? { formula: `SUM(${filasSubtotal.map(fr => 'F' + fr).join(',')})`, result: totalRenovaGeneral }
+                    : money(totalRenovaGeneral);
+                cell.numFmt = MONEY;
+            } else if (col === 8) {
+                cell.value = filasSubtotal.length
+                    ? { formula: `SUM(${filasSubtotal.map(fr => 'H' + fr).join(',')})`, result: totalContratistaGeneral }
+                    : money(totalContratistaGeneral);
+                cell.numFmt = MONEY;
+            } else if (col === 9) { cell.value = money(diferenciaGeneral); cell.numFmt = MONEY; }
         });
         sheet.getRow(r).height = 20;
         r++;
@@ -3294,6 +3334,7 @@ async function exportarAExcel() {
         let totalContratistaGeneral = 0;
         let currentDataRow = 9;
         let alt = false;
+        const filasSubtotalCat = [];
 
         // Para cálculo de ancho automático cols A,B,C,E
         const autoMaxLen = { 1: 8, 2: 8, 3: 20, 5: 5 };
@@ -3312,6 +3353,7 @@ async function exportarAExcel() {
             // código 400 de Normalizaciones (precio de catálogo vs. monto realmente asignado).
             let moiPreAsignado = cat === 'SERVICIO COMPRA DIRECTA' ? saldoCertificadorSCD : 0;
             let extraCertAplicado = false;
+            const filasCat = [];
 
             for (const item of items) {
                 if (item.esMaterialImpovar) continue;
@@ -3351,6 +3393,7 @@ async function exportarAExcel() {
                 } else if (item.precioCTTA !== null && item.precioCTTA > 0) {
                     tieneCot = true; precioCTTA = item.precioCTTA; totalCTTA = precioCTTA * item.cantidad;
                 }
+                const tieneCotAntesDeForzar = tieneCot;
                 if (!tieneCot && extraCert > 0) { tieneCot = true; precioCTTA = item.precioBase; totalCTTA = 0; }
                 totalCTTA += extraCert;
                 if (!moiNoSuma) subtotalContratista += totalCTTA;
@@ -3415,6 +3458,27 @@ async function exportarAExcel() {
                     }
                 });
 
+                // Fórmulas Excel para TOTAL RENOVA / TOTAL CONTRATISTA — quedan recalculables
+                // si el precio o la cantidad se editan luego en Excel.
+                sheet.getCell(currentDataRow, 7).value = {
+                    formula: `D${currentDataRow}*E${currentDataRow}` + (extraCert > 0 ? `+${extraCert}` : ''),
+                    result: totalRenova
+                };
+                if (!moiNoSuma) {
+                    filasCat.push(currentDataRow);
+                    if (esSinCTTA) {
+                        sheet.getCell(currentDataRow, 8).value = { formula: `G${currentDataRow}`, result: totalCTTA };
+                    } else if (tieneCotAntesDeForzar) {
+                        sheet.getCell(currentDataRow, 8).value = {
+                            formula: `F${currentDataRow}*E${currentDataRow}` + (extraCert > 0 ? `+${extraCert}` : ''),
+                            result: totalCTTA
+                        };
+                    }
+                    // Si no hay cotización ("SIN COTIZAR") o el monto viene forzado solo por el
+                    // extraCert del certificador, no hay precio de fila que multiplicar: se deja
+                    // el valor estático ya escrito arriba.
+                }
+
                 // Columna J — guía de digitación del DC:
                 //   ✓ SÍ     = ítem con código Renova real → se digita código + cantidad
                 //   ✗ EN MOI = ítem libre (PPTO-) sin match → NO se digita: su valor ya
@@ -3474,6 +3538,9 @@ async function exportarAExcel() {
                             cell.alignment = { horizontal: 'left', vertical: 'middle' };
                         }
                     });
+                    sheet.getCell(currentDataRow, 7).value = { formula: `D${currentDataRow}*E${currentDataRow}`, result: totalMat };
+                    sheet.getCell(currentDataRow, 8).value = { formula: `G${currentDataRow}`, result: totalMat };
+                    filasCat.push(currentDataRow);
                     // Columna J: el sistema DC agrega el material al digitar la cañería;
                     // solo verificar que el metraje coincida.
                     const cellDCMat = sheet.getCell(currentDataRow, 10);
@@ -3509,24 +3576,35 @@ async function exportarAExcel() {
                     cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: 'FFC2410C' } };
                     cell.alignment = { horizontal: (col === 1 || col === 10) ? 'center' : 'right', vertical: 'middle' };
                 });
+                filasCat.push(currentDataRow);
                 currentDataRow++;
             }
 
-            // SUBTOTAL — G = Renova + MOI, H = Total Contratista
+            // SUBTOTAL — G = SUM de filas de la categoría (Renova + MOI); H = referencia a G,
+            // ya que por construcción MOI hace que Renova+MOI == Total Contratista.
             const totalCat = subtotalRenova + moi;
+            const subtotalRowNum = currentDataRow;
             const subRow = sheet.getRow(currentDataRow);
             subRow.height = 17;
             sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
             [1,2,3,4,5,6,7,8,9,10].forEach(col => {
                 const cell = sheet.getCell(currentDataRow, col);
                 if (col === 1) cell.value = 'SUBTOTAL ' + cat;
-                else if (col === 7) { cell.value = money(totalCat); cell.numFmt = MONEY; }
-                else if (col === 8) { cell.value = money(subtotalContratista); cell.numFmt = MONEY; }
+                else if (col === 7) {
+                    cell.value = filasCat.length
+                        ? { formula: `SUM(${filasCat.map(fr => 'G' + fr).join(',')})`, result: totalCat }
+                        : money(totalCat);
+                    cell.numFmt = MONEY;
+                } else if (col === 8) {
+                    cell.value = { formula: `G${subtotalRowNum}`, result: subtotalContratista };
+                    cell.numFmt = MONEY;
+                }
                 cell.fill = fillSolid(C.blueL);
                 cell.border = gridBorder();
                 cell.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
                 cell.alignment = { horizontal: col >= 7 ? 'right' : 'right', vertical: 'middle' };
             });
+            filasSubtotalCat.push(subtotalRowNum);
             currentDataRow++;
 
             totalRenovaGeneral += totalCat;
@@ -3534,14 +3612,22 @@ async function exportarAExcel() {
         }
 
         // ── TOTAL GENERAL ──────────────────────────────
+        const totalRowNum = currentDataRow;
         const totalRow = sheet.getRow(currentDataRow);
         totalRow.height = 18;
         sheet.mergeCells(currentDataRow, 1, currentDataRow, 6);
         [1,2,3,4,5,6,7,8,9,10].forEach(col => {
             const cell = sheet.getCell(currentDataRow, col);
             if (col === 1) cell.value = 'TOTAL DETALLE COMERCIAL';
-            else if (col === 7) { cell.value = money(totalRenovaGeneral); cell.numFmt = MONEY; }
-            else if (col === 8) { cell.value = money(totalContratistaGeneral); cell.numFmt = MONEY; }
+            else if (col === 7) {
+                cell.value = filasSubtotalCat.length
+                    ? { formula: `SUM(${filasSubtotalCat.map(fr => 'G' + fr).join(',')})`, result: totalRenovaGeneral }
+                    : money(totalRenovaGeneral);
+                cell.numFmt = MONEY;
+            } else if (col === 8) {
+                cell.value = { formula: `G${totalRowNum}`, result: totalContratistaGeneral };
+                cell.numFmt = MONEY;
+            }
             cell.fill = fillSolid(C.blueL);
             cell.border = gridBorder();
             cell.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
@@ -3802,6 +3888,10 @@ async function exportarDCFinalExcel() {
         const subTotalSOLPED = resumenCats.reduce((s, c) => s + c.total, 0);
 
         // ── VALORES TOTALES ──
+        // Los valores de esta sección se escriben ahora y se reemplazan por fórmulas (referencia
+        // a la fila de SUBTOTAL de cada categoría en la tabla de detalle) más abajo, una vez que
+        // esas filas existen — filaResumenCat guarda dónde ir a corregir cada una.
+        const filaResumenCat = {};
         sheet.getRow(r).height = 18;
         sheet.mergeCells(r, 1, r, 8);
         const vtT = sheet.getCell(r, 1);
@@ -3818,6 +3908,7 @@ async function exportarDCFinalExcel() {
             const val = sheet.getCell(r, 6); val.value = money(rc.total);
             val.numFmt = MONEY; val.alignment = { horizontal: 'right', vertical: 'middle' };
             val.font = { name: 'Arial', size: 9 }; val.border = gridBorder();
+            filaResumenCat[rc.cat] = r;
             r++;
         });
         sheet.mergeCells(r, 1, r, 5);
@@ -3825,7 +3916,10 @@ async function exportarDCFinalExcel() {
         stL.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
         stL.fill = fillSolid(C.blueL); stL.alignment = { horizontal: 'right', vertical: 'middle' }; stL.border = gridBorder();
         sheet.mergeCells(r, 6, r, 8);
-        const stV = sheet.getCell(r, 6); stV.value = money(subTotalSOLPED);
+        const stV = sheet.getCell(r, 6);
+        stV.value = resumenCats.length
+            ? { formula: `SUM(${resumenCats.map(rc => 'F' + filaResumenCat[rc.cat]).join(',')})`, result: subTotalSOLPED }
+            : money(subTotalSOLPED);
         stV.numFmt = MONEY; stV.font = { name: 'Arial', bold: true, size: 10, color: { argb: C.blue } };
         stV.fill = fillSolid(C.blueL); stV.alignment = { horizontal: 'right', vertical: 'middle' }; stV.border = gridBorder();
         r += 2;
@@ -3847,6 +3941,7 @@ async function exportarDCFinalExcel() {
                 c.alignment = { horizontal: 'center', vertical: 'middle' };
             });
             r++;
+            const filasCat = [];
             for (const ln of rc.lineas) {
                 const it = ln.it;
                 const descUp = String(it.descripcion || '').toUpperCase();
@@ -3878,6 +3973,15 @@ async function exportarDCFinalExcel() {
                     else if (col === 4 || col === 5 || col === 1) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                     else cell.alignment = { horizontal: 'left', vertical: 'middle' };
                 });
+                // Fórmula VALOR FINAL = VALOR UNIT. (F) × CANT. (E), + extraCert del certificador si aplica.
+                // Las líneas "NO SUMA" (moiNoSuma) no tienen precio de fila que multiplicar: quedan estáticas.
+                if (!ln.moiNoSuma) {
+                    sheet.getCell(r, 7).value = {
+                        formula: `F${r}*E${r}` + (ln.extraCert > 0 ? `+${ln.extraCert}` : ''),
+                        result: ln.vfRenova
+                    };
+                    filasCat.push(r);
+                }
                 r++;
             }
             if (rc.moi !== 0) {
@@ -3894,16 +3998,24 @@ async function exportarDCFinalExcel() {
                     if (col === 6 || col === 7) { cell.numFmt = MONEY; cell.alignment = { horizontal: 'right', vertical: 'middle' }; }
                     else if (col <= 1 || col === 4 || col === 5) cell.alignment = { horizontal: 'center', vertical: 'middle' };
                 });
+                sheet.getCell(r, 7).value = { formula: `F${r}*E${r}`, result: rc.moi };
+                filasCat.push(r);
                 r++;
             }
             sheet.mergeCells(r, 1, r, 6);
             const sc = sheet.getCell(r, 1); sc.value = 'SUBTOTAL ' + rc.cat;
             sc.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
             sc.fill = fillSolid(C.blueL); sc.alignment = { horizontal: 'right', vertical: 'middle' }; sc.border = gridBorder();
-            const sv = sheet.getCell(r, 7); sv.value = money(rc.total);
+            const sv = sheet.getCell(r, 7);
+            sv.value = filasCat.length
+                ? { formula: `SUM(${filasCat.map(fr => 'G' + fr).join(',')})`, result: rc.total }
+                : money(rc.total);
             sv.numFmt = MONEY; sv.font = { name: 'Arial', bold: true, size: 9, color: { argb: C.blue } };
             sv.fill = fillSolid(C.blueL); sv.alignment = { horizontal: 'right', vertical: 'middle' }; sv.border = gridBorder();
             const sx = sheet.getCell(r, 8); sx.fill = fillSolid(C.blueL); sx.border = gridBorder();
+            // Ahora que existe la fila de SUBTOTAL, la celda del resumen VALORES TOTALES
+            // (escrita más arriba) pasa a referenciarla en vez de quedar como valor estático.
+            sheet.getCell(filaResumenCat[rc.cat], 6).value = { formula: `G${r}`, result: rc.total };
             r += 2;
         }
 
