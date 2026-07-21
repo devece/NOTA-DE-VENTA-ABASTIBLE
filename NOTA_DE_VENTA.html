@@ -4354,6 +4354,28 @@ function cargarProyecto(event) {
 }
 
 // ============================================================
+// PRORRATEO DE % GASTOS GENERALES / UTILIDAD EN EXCELS IMPORTADOS
+// Si el Excel del contratista trae, después de los ítems, filas de resumen
+// tipo "GASTOS GENERALES 10%", "UTILIDAD 15%" o "SUBTOTAL/TOTAL", esas filas
+// no son ítems reales — su monto se reparte proporcionalmente sobre el precio
+// de cada ítem según su peso en el subtotal (mismo % de recargo para todos).
+// Si el Excel NO trae esas filas, se asume que el precio unitario ya las
+// incluye y no se toca nada (comportamiento histórico).
+// ============================================================
+function esFilaResumenGGUtilidad(descripcion) {
+    return /\b(SUB)?TOTAL\b|GASTOS\s*GENERALES|UTILIDAD/i.test(descripcion || '');
+}
+
+function aplicarFactorGGUtilidad(items, valoresResumen, campoPrecio, campoCantidad) {
+    const extra = valoresResumen.reduce((s, v) => s + v, 0);
+    if (!extra || items.length === 0) return;
+    const suma = items.reduce((s, it) => s + it[campoPrecio] * (campoCantidad ? (it[campoCantidad] || 1) : 1), 0);
+    if (suma <= 0) return;
+    const factor = (suma + extra) / suma;
+    items.forEach(it => { it[campoPrecio] = Math.round(it[campoPrecio] * factor); });
+}
+
+// ============================================================
 // IMPORTAR COTIZACIÓN CONTRATISTA (modo DC + Cotización)
 // Acepta: .json (exportado por guardarProyecto del Contratista) o .xlsx
 // (exportado por exportarCotizacionExcel). Hace match por descripción
@@ -4404,13 +4426,17 @@ function importarCotizacionContratista(event) {
             if (idxDesc === -1 || idxPrecio === -1) { mostrarToast("No se identificaron columnas de descripción/precio", "error"); return; }
 
             const itemsCotizados = [];
+            const filasResumen = [];
             for (let i = headerIdx + 1; i < filas.length; i++) {
                 const fila = filas[i];
                 if (!fila || !fila[idxDesc]) continue;
+                const descripcion = String(fila[idxDesc]).trim();
                 const precio = parsePrecio(fila[idxPrecio]);
                 if (precio === null || precio <= 0) continue;
-                itemsCotizados.push({ descripcion: String(fila[idxDesc]).trim(), precioCTTA: precio });
+                if (esFilaResumenGGUtilidad(descripcion)) { filasResumen.push(precio); continue; }
+                itemsCotizados.push({ descripcion, precioCTTA: precio });
             }
+            aplicarFactorGGUtilidad(itemsCotizados, filasResumen, 'precioCTTA');
             aplicarCotizacionAItems(itemsCotizados);
         } catch (err) {
             console.error(err);
@@ -4458,11 +4484,12 @@ function aplicarCotizacionAItems(itemsCotizados) {
     let matchesFuzzy = 0;
     const UMBRAL_SIMILITUD = 0.5;
     itemsNota.forEach(item => {
-        // Los materiales Impovar y los ítems de Compra Directa (Equipos/Servicios) ya
-        // traen su precio correcto asignado por Renova/Abastible — no son parte del
-        // alcance cotizado por el contratista, así que nunca deben sobrescribirse con
-        // un match (exacto o difuso) contra la cotización del contratista.
-        if (item.esMaterialImpovar || item.esCompraDirecta) return;
+        // Los materiales Impovar, los ítems de Compra Directa (Equipos/Servicios) y las
+        // categorías de precio fijo (Cañerías AP/MP/BP) ya traen su precio correcto
+        // asignado por Renova/Abastible — no son parte del alcance cotizado por el
+        // contratista, así que nunca deben sobrescribirse con un match (exacto o difuso)
+        // contra la cotización del contratista.
+        if (item.esMaterialImpovar || item.esCompraDirecta || CATS_SIN_CTTA.includes(item.categoria)) return;
         const descItem = String(item.descripcion || '').trim().toLowerCase();
         const exacto = itemsCotizados.find(ic =>
             String(ic.descripcion || '').trim().toLowerCase() === descItem
@@ -4558,17 +4585,24 @@ function cargarCotizacionDirecta(event) {
                 const idxCant  = header.findIndex(h => h.includes('CANT'));
                 if (idxDesc === -1 || idxPrecio === -1) { mostrarToast("No se identificaron columnas de descripción/precio", "error"); return; }
                 const itemsCotizados = [];
+                const filasResumen = [];
                 for (let i = headerIdx + 1; i < filas.length; i++) {
                     const fila = filas[i];
                     if (!fila || !fila[idxDesc]) continue;
+                    const descripcion = String(fila[idxDesc]).trim();
                     const precio = parsePrecio(fila[idxPrecio]);
                     if (!precio || precio <= 0) continue;
+                    // Solo se trata como fila de resumen (no ítem) si además no trae cantidad —
+                    // evita falsos positivos con ítems reales cuya descripción incluya "total".
+                    const cantidadFila = idxCant >= 0 ? parseFloat(fila[idxCant]) : NaN;
+                    if (!(cantidadFila > 0) && esFilaResumenGGUtilidad(descripcion)) { filasResumen.push(precio); continue; }
                     itemsCotizados.push({
-                        descripcion: String(fila[idxDesc]).trim(),
+                        descripcion,
                         precioCTTA:  precio,
-                        cantidad:    idxCant >= 0 ? (parseFloat(fila[idxCant]) || 1) : 1
+                        cantidad:    cantidadFila > 0 ? cantidadFila : 1
                     });
                 }
+                aplicarFactorGGUtilidad(itemsCotizados, filasResumen, 'precioCTTA', 'cantidad');
                 procesarItemsCotizacionDirecta(itemsCotizados, null);
             } catch(err) { console.error(err); mostrarToast("Error leyendo el Excel", "error"); }
         };
@@ -4746,6 +4780,7 @@ function importarPptoContratista(event) {
 
             // Extraer ítems del presupuesto
             const itemsPpto = [];
+            const filasResumen = [];
             let categoriaActual = '';
             for (let i = headerIdx + 1; i < filasTotal.length; i++) {
                 const fila = filasTotal[i];
@@ -4757,6 +4792,13 @@ function importarPptoContratista(event) {
                 const cantidad = idxCant >= 0 ? (parseFloat(fila[idxCant]) || 0) : 0;
                 const precioUnit = idxPUnit >= 0 ? parsePrecio(fila[idxPUnit]) : 0;
                 const precioTotal = idxPTotal >= 0 ? parsePrecio(fila[idxPTotal]) : 0;
+
+                // Fila de resumen (SUBTOTAL/GASTOS GENERALES/UTILIDAD/TOTAL): no es un ítem
+                // real, su monto se prorratea más abajo sobre el precio de los ítems.
+                if (!cantidad && (precioUnit > 0 || precioTotal > 0) && esFilaResumenGGUtilidad(descRaw)) {
+                    filasResumen.push(precioUnit > 0 ? precioUnit : precioTotal);
+                    continue;
+                }
 
                 // Detectar filas que son headers de categoría (sin cantidad ni precio)
                 if (!cantidad && !precioUnit && !precioTotal && descRaw.length > 2) {
@@ -4780,6 +4822,8 @@ function importarPptoContratista(event) {
                     categoriaOrigen: categoriaActual
                 });
             }
+
+            aplicarFactorGGUtilidad(itemsPpto, filasResumen, 'precio', 'cantidad');
 
             if (itemsPpto.length === 0) {
                 hideLoader();
