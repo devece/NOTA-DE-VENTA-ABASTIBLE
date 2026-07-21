@@ -284,7 +284,7 @@ function construirTablas() {
                     </tr></thead>
                     <tbody id="catTbody${catIdx}">`;
         items.forEach((it, itIdx) => {
-            html += `<tr class="row" data-cat="${catIdx}" data-it="${itIdx}" data-search="${(it.c + ' ' + it.d).toLowerCase()}">
+            html += `<tr class="row" data-cat="${catIdx}" data-it="${itIdx}" data-search="${escapeHtml((it.c + ' ' + it.d).toLowerCase())}">
                 <td class="text-xs" style="color:var(--aba-gray);">${it.c.replace(/^0+/, '') || '-'}</td>
                 <td>${it.d}</td>
                 <td class="text-center">${it.u}</td>
@@ -510,6 +510,11 @@ function filtrar(q) {
 function filtrarCategoria(catIdx, q) {
     q = (q || '').toLowerCase().trim();
     document.getElementById('buscador').value = '';
+    // El buscador global queda vacío (desactivado): hay que restaurar las filas de las demás
+    // categorías por si un filtro global previo las había dejado ocultas.
+    document.querySelectorAll(`tr.row:not([data-cat="${catIdx}"])`).forEach(row => {
+        row.style.display = '';
+    });
     document.querySelectorAll(`tr.row[data-cat="${catIdx}"]`).forEach(row => {
         const match = !q || row.dataset.search.includes(q);
         row.style.display = match ? '' : 'none';
