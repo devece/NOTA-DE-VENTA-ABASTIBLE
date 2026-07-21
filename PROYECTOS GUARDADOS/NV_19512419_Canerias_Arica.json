@@ -26,6 +26,24 @@
       "esCompraDirecta": false
     },
     {
+      "id": "MAT-dc-19512419-can-001",
+      "codigo": "24805",
+      "descripcion": "CAÑERÍA CU MEDIA/BAJA PRESIÓN 1 1/4\"",
+      "categoria": "CAÑERIAS BP",
+      "unidad": "ML",
+      "diametro": "1 1/4",
+      "cantidad": 31.5,
+      "precioBase": 17755.375,
+      "precioCTTA": 17755.375,
+      "centro": "Oficina Ventas Arica",
+      "tieneCotizacion": true,
+      "esCompraDirecta": false,
+      "esMaterialImpovar": true,
+      "idInstalacion": "dc-19512419-can-001",
+      "proveedor": "IMPOVAR",
+      "_nota": "Excepción solo este proyecto: +5% sin redondeo a tira de 6m, porque el DC no le aplicó ninguna pérdida a este diámetro"
+    },
+    {
       "id": "dc-19512419-can-002",
       "codigo": "1002481",
       "descripcion": "Instalación Cañería Cu Media/Baja Presión 2\"",
@@ -38,6 +56,24 @@
       "centro": "Oficina Ventas Arica",
       "tieneCotizacion": false,
       "esCompraDirecta": false
+    },
+    {
+      "id": "MAT-dc-19512419-can-002",
+      "codigo": "24809",
+      "descripcion": "CAÑERÍA CU MEDIA/BAJA PRESIÓN 2\"",
+      "categoria": "CAÑERIAS BP",
+      "unidad": "ML",
+      "diametro": "2",
+      "cantidad": 18.9,
+      "precioBase": 35700.270833333336,
+      "precioCTTA": 35700.270833333336,
+      "centro": "Oficina Ventas Arica",
+      "tieneCotizacion": true,
+      "esCompraDirecta": false,
+      "esMaterialImpovar": true,
+      "idInstalacion": "dc-19512419-can-002",
+      "proveedor": "IMPOVAR",
+      "_nota": "Excepción solo este proyecto: +5% sin redondeo a tira de 6m, porque el DC no le aplicó ninguna pérdida a este diámetro"
     },
     {
       "id": "dc-19512419-can-003",
