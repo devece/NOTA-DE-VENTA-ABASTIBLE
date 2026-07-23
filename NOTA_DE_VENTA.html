@@ -3885,6 +3885,15 @@ async function exportarDCFinalExcel() {
             const moi = esCañeria ? 0 : Math.round(contratistaCat - renovaLineas) - moiPreAsignado;
             resumenCats.push({ cat, lineas, moi, total: renovaLineas + moi, esSCD });
         }
+        // El DC de SAP siempre trae las secciones de compra directa: se incluyen aunque
+        // el análisis no tenga ítems en ellas (subtotal $0), para que el digitador vea la
+        // estructura completa y agregue ahí los equipos/servicios de compra directa.
+        if (!resumenCats.some(rc => rc.cat === 'EQUIPO COMPRA DIRECTA' || rc.cat === 'EQUIPOS COMPRA DIRECTA')) {
+            resumenCats.push({ cat: 'EQUIPO COMPRA DIRECTA', lineas: [], moi: 0, total: 0, esSCD: true, sinItems: true });
+        }
+        if (!resumenCats.some(rc => rc.cat === 'SERVICIO COMPRA DIRECTA')) {
+            resumenCats.push({ cat: 'SERVICIO COMPRA DIRECTA', lineas: [], moi: 0, total: 0, esSCD: true, sinItems: true });
+        }
         const subTotalSOLPED = resumenCats.reduce((s, c) => s + c.total, 0);
 
         // ── VALORES TOTALES ──
@@ -3941,6 +3950,15 @@ async function exportarDCFinalExcel() {
                 c.alignment = { horizontal: 'center', vertical: 'middle' };
             });
             r++;
+            if (rc.sinItems) {
+                sheet.mergeCells(r, 1, r, 8);
+                const ph = sheet.getCell(r, 1);
+                ph.value = 'Sin ítems en este análisis — completar en el sistema DC si corresponde (equipos / servicios de compra directa)';
+                ph.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
+                ph.alignment = { horizontal: 'center', vertical: 'middle' };
+                ph.border = gridBorder();
+                r++;
+            }
             const filasCat = [];
             for (const ln of rc.lineas) {
                 const it = ln.it;
@@ -5294,6 +5312,11 @@ function _coincidenciasClave(desc1, desc2) {
 
 function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
     const UMBRAL = 0.55;
+    // Un producto de ámbito habitacional (depto/casa/edificio/condominio) solo puede
+    // matchear si el contratista también menciona ese ámbito. Evita que trámites
+    // industriales como "Declaración SEC TC2" caigan en "DECLARACION SEC DEPTO - CASA"
+    // ($5.000 habitacional) solo por compartir "declaración SEC".
+    const AMBITO_HABITACIONAL = /\b(DEPTOS?|DEPARTAMENTOS?|CASAS?|HABITACIONAL(?:ES)?|EDIFICIOS?|CONDOMINIOS?)\b/i;
     const descNorm = _normalizarDescripcion(descripcion);
     const diamItem = extraerDiametro(descripcion);
     let mejor = null;
@@ -5311,6 +5334,7 @@ function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
             if (_normalizarDescripcion(p.desc) === descNorm) {
                 return { prod: p, cat, score: 1, exacto: true };
             }
+            if (AMBITO_HABITACIONAL.test(p.desc) && !AMBITO_HABITACIONAL.test(descripcion)) continue;
             // Si ambos lados declaran diámetro, deben coincidir: evita que una
             // "Válvula de corte 1''" matchee la válvula de 3/4" o 1/2".
             const diamProd = p.diametro || extraerDiametro(p.desc);
