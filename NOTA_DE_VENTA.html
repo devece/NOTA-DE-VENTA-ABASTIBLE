@@ -3885,6 +3885,15 @@ async function exportarDCFinalExcel() {
             const moi = esCañeria ? 0 : Math.round(contratistaCat - renovaLineas) - moiPreAsignado;
             resumenCats.push({ cat, lineas, moi, total: renovaLineas + moi, esSCD });
         }
+        // El DC de SAP siempre trae las secciones de compra directa: se incluyen aunque
+        // el análisis no tenga ítems en ellas (subtotal $0), para que el digitador vea la
+        // estructura completa y agregue ahí los equipos/servicios de compra directa.
+        if (!resumenCats.some(rc => rc.cat === 'EQUIPO COMPRA DIRECTA' || rc.cat === 'EQUIPOS COMPRA DIRECTA')) {
+            resumenCats.push({ cat: 'EQUIPO COMPRA DIRECTA', lineas: [], moi: 0, total: 0, esSCD: true, sinItems: true });
+        }
+        if (!resumenCats.some(rc => rc.cat === 'SERVICIO COMPRA DIRECTA')) {
+            resumenCats.push({ cat: 'SERVICIO COMPRA DIRECTA', lineas: [], moi: 0, total: 0, esSCD: true, sinItems: true });
+        }
         const subTotalSOLPED = resumenCats.reduce((s, c) => s + c.total, 0);
 
         // ── VALORES TOTALES ──
@@ -3941,6 +3950,15 @@ async function exportarDCFinalExcel() {
                 c.alignment = { horizontal: 'center', vertical: 'middle' };
             });
             r++;
+            if (rc.sinItems) {
+                sheet.mergeCells(r, 1, r, 8);
+                const ph = sheet.getCell(r, 1);
+                ph.value = 'Sin ítems en este análisis — completar en el sistema DC si corresponde (equipos / servicios de compra directa)';
+                ph.font = { name: 'Arial', italic: true, size: 8, color: { argb: C.gray } };
+                ph.alignment = { horizontal: 'center', vertical: 'middle' };
+                ph.border = gridBorder();
+                r++;
+            }
             const filasCat = [];
             for (const ln of rc.lineas) {
                 const it = ln.it;
