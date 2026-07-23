@@ -5294,6 +5294,11 @@ function _coincidenciasClave(desc1, desc2) {
 
 function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
     const UMBRAL = 0.55;
+    // Un producto de ámbito habitacional (depto/casa/edificio/condominio) solo puede
+    // matchear si el contratista también menciona ese ámbito. Evita que trámites
+    // industriales como "Declaración SEC TC2" caigan en "DECLARACION SEC DEPTO - CASA"
+    // ($5.000 habitacional) solo por compartir "declaración SEC".
+    const AMBITO_HABITACIONAL = /\b(DEPTOS?|DEPARTAMENTOS?|CASAS?|HABITACIONAL(?:ES)?|EDIFICIOS?|CONDOMINIOS?)\b/i;
     const descNorm = _normalizarDescripcion(descripcion);
     const diamItem = extraerDiametro(descripcion);
     let mejor = null;
@@ -5311,6 +5316,7 @@ function buscarProductoRenovaFuzzy(descripcion, catPreferida) {
             if (_normalizarDescripcion(p.desc) === descNorm) {
                 return { prod: p, cat, score: 1, exacto: true };
             }
+            if (AMBITO_HABITACIONAL.test(p.desc) && !AMBITO_HABITACIONAL.test(descripcion)) continue;
             // Si ambos lados declaran diámetro, deben coincidir: evita que una
             // "Válvula de corte 1''" matchee la válvula de 3/4" o 1/2".
             const diamProd = p.diametro || extraerDiametro(p.desc);
