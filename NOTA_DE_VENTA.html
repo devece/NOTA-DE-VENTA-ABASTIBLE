@@ -558,10 +558,10 @@
         <div class="selector-card" onclick="document.getElementById('importarPptoContratistaInput').click()">
             <span class="sc-icon">📊</span>
             <div class="sc-title">Convertir Ppto. a Cotización</div>
-            <div class="sc-desc">Sube tu presupuesto Excel (.xls/.xlsx). Se importan los ítems vinculando automáticamente material Impovar y precios Renova de tu zona.</div>
+            <div class="sc-desc">Sube tu presupuesto en Excel (.xls/.xlsx) o PDF. Se importan los ítems vinculando automáticamente material Impovar y precios Renova de tu zona.</div>
         </div>
     </div>
-    <input type="file" id="importarPptoContratistaInput" accept=".xlsx,.xls" style="display:none;" onchange="iniciarPptoContratista(event)">
+    <input type="file" id="importarPptoContratistaInput" accept=".xlsx,.xls,.pdf" style="display:none;" onchange="iniciarPptoContratista(event)">
 </div>
 
 <div id="pasoModoAbastible" class="max-w-screen-2xl mx-auto px-5 py-10 hidden">
@@ -657,7 +657,7 @@
                 <div class="selector-card" onclick="document.getElementById('importarPptoInput').click()">
                     <span class="sc-icon">📊</span>
                     <div class="sc-title">Convertir Ppto. Contratista</div>
-                    <div class="sc-desc">Sube el presupuesto Excel (.xls/.xlsx) del contratista. Se importan los ítems al sistema, vinculando automáticamente material Impovar y precios Renova.</div>
+                    <div class="sc-desc">Sube el presupuesto del contratista en Excel (.xls/.xlsx) o PDF. Se importan los ítems al sistema, vinculando automáticamente material Impovar y precios Renova.</div>
                 </div>
                 <!-- Opción 4: importar cotización del contratista sobre un DC ya cargado en esta sesión -->
                 <div class="selector-card" onclick="document.getElementById('cargarCotizacionInput').click()">
@@ -667,7 +667,7 @@
                 </div>
             </div>
             <input type="file" id="cargarCotizacionDirectaInput" accept=".json,.xlsx,.xls" style="display:none;" onchange="cargarCotizacionDirecta(event)">
-            <input type="file" id="importarPptoInput" accept=".xlsx,.xls" style="display:none;" onchange="importarPptoContratista(event)">
+            <input type="file" id="importarPptoInput" accept=".xlsx,.xls,.pdf" style="display:none;" onchange="importarPptoContratista(event)">
             <input type="file" id="cargarDCContratistaInput" accept=".pdf" style="display:none;" onchange="procesarDCContratista(event)">
             <input type="file" id="cargarCotizacionInput" accept=".xlsx,.xls,.json" style="display:none;" onchange="importarCotizacionContratista(event)">
         </div>
@@ -4837,20 +4837,27 @@ function procesarItemsCotizacionDirecta(itemsCotizados, datosProyecto) {
 
 
 // ============================================================
-// IMPORTAR PRESUPUESTO CONTRATISTA (Excel .xls/.xlsx)
+// IMPORTAR PRESUPUESTO CONTRATISTA (Excel .xls/.xlsx o PDF)
 // Lee el presupuesto del contratista, matchea ítems con la base
 // de datos, vincula material Impovar y genera la Nota de Venta.
+// El PDF va por extracción con IA (misma vía que la carga de DC)
+// y desemboca en el mismo matching que el Excel.
 // ============================================================
 function importarPptoContratista(event) {
     const file = event.target.files[0];
     event.target.value = '';
     if (!file) return;
-    if (typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
     if (Object.keys(dbProductos).length === 0) {
         mostrarToast("Primero debe cargarse la base de datos", "error");
         return;
     }
 
+    if (/\.pdf$/i.test(file.name)) {
+        importarPptoContratistaPdf(file);
+        return;
+    }
+
+    if (typeof XLSX === 'undefined') { mostrarToast("Librería SheetJS no cargada", "error"); return; }
     showLoader("Procesando presupuesto contratista...");
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -4940,124 +4947,7 @@ function importarPptoContratista(event) {
                 });
             }
 
-            aplicarFactorGGUtilidad(itemsPpto, filasResumen, 'precio', 'cantidad');
-
-            if (itemsPpto.length === 0) {
-                hideLoader();
-                mostrarToast("No se encontraron ítems en el presupuesto", "warn");
-                return;
-            }
-
-            // Matchear con base de datos
-            itemsNota = [];
-            let matchedCañeria = 0, matchedExacto = 0, matchedFuzzy = 0, libre = 0;
-
-            itemsPpto.forEach(pItem => {
-                const descUp = pItem.descripcion.toUpperCase();
-                const id = generarUUID();
-
-                // ── ETAPA 1: ¿Es una instalación de cañería? Solo entra a las categorías
-                // CAÑERIAS AP/MP/BP si la descripción habla de cañería/instalación Y trae
-                // diámetro. El match es por diámetro + presión, no por texto literal, porque
-                // cada contratista escribe la descripción a su manera.
-                const diametro = extraerDiametro(pItem.descripcion);
-                // "Red GLP BP", "M.O red de gas", etc. también son instalación de cañería
-                const hablaDeCañeria = /CA[ÑN]ER[IÍ]A|INSTALACI[OÓ]N|RED\s+(DE\s+)?(GAS|GLP?\b|BP|MP|AP)/.test(descUp);
-                if (hablaDeCañeria && diametro) {
-                    const matchCañeria = buscarInstalacionCañeriaPorDiametro(descUp, pItem.categoriaOrigen, diametro);
-                    if (matchCañeria) {
-                        matchedCañeria++;
-                        const precioRenova = obtenerPrecioBase(matchCañeria.prod, centroActivo);
-                        const nuevoItem = {
-                            id,
-                            codigo: matchCañeria.prod.cod,
-                            descripcion: matchCañeria.prod.desc,
-                            categoria: matchCañeria.cat,
-                            unidad: matchCañeria.prod.um,
-                            diametro: matchCañeria.prod.diametro || diametro,
-                            cantidad: pItem.cantidad,
-                            precioBase: precioRenova,
-                            precioCTTA: precioRenova, // cañerías siempre a precio Renova (precio fijo)
-                            centro: centroActivo,
-                            tieneCotizacion: true,
-                            descripcionOriginalPpto: pItem.descripcion
-                        };
-                        itemsNota.push(nuevoItem);
-                        const material = obtenerMaterialCañeria(nuevoItem);
-                        if (material) itemsNota.push(material);
-                        return;
-                    }
-                    // Habla de cañería pero no hay match por diámetro: ítem libre en
-                    // SERVICIO CAÑERIAS (nunca en CAÑERIAS AP/MP/BP, que son de precio fijo
-                    // y anularían el precio del contratista).
-                    libre++;
-                    itemsNota.push(crearItemLibrePpto(id, pItem, 'SERVICIO CAÑERIAS'));
-                    return;
-                }
-
-                // ── ETAPA 2: match exacto (descripción normalizada idéntica) o difuso
-                // (similitud de palabras clave) contra productos Renova NO-cañería.
-                const catObjetivo = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
-                const match = buscarProductoRenovaFuzzy(pItem.descripcion, catObjetivo);
-                if (match) {
-                    if (match.exacto) matchedExacto++; else matchedFuzzy++;
-                    const precioRenova = obtenerPrecioBase(match.prod, centroActivo);
-                    itemsNota.push({
-                        id,
-                        codigo: match.prod.cod,
-                        descripcion: match.prod.desc,
-                        categoria: match.cat,
-                        unidad: match.prod.um,
-                        diametro: match.prod.diametro || null,
-                        cantidad: pItem.cantidad,
-                        precioBase: precioRenova,
-                        precioCTTA: pItem.precio || precioRenova,
-                        centro: centroActivo,
-                        tieneCotizacion: pItem.precio > 0,
-                        matchFuzzy: !match.exacto,
-                        matchScore: Math.round(match.score * 100),
-                        descripcionOriginalPpto: pItem.descripcion
-                    });
-                    return;
-                }
-
-                // ── ETAPA 3: sin match → ítem libre con precioBase 0. Su valor completo
-                // queda como diferencia de la categoría (la absorbe el MOI al cuadrar).
-                libre++;
-                const catLibre = CATS_SIN_CTTA.includes(catObjetivo) ? 'SERVICIO CAÑERIAS' : catObjetivo;
-                itemsNota.push(crearItemLibrePpto(id, pItem, catLibre));
-            });
-
-            hideLoader();
-
-            const matched = matchedCañeria + matchedExacto + matchedFuzzy;
-            const detalleMatch = [];
-            if (matchedCañeria) detalleMatch.push(`${matchedCañeria} cañerías por diámetro`);
-            if (matchedExacto) detalleMatch.push(`${matchedExacto} exactos`);
-            if (matchedFuzzy) detalleMatch.push(`${matchedFuzzy} por similitud`);
-            const mensajeResultado = `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} con Renova` +
-                (detalleMatch.length ? ` (${detalleMatch.join(' + ')})` : '') +
-                `, ${libre} sin match (quedan en $0 Renova y cuadran vía MOI)`;
-
-            if (requiereCompletarDatosProyecto()) {
-                // El Excel de presupuesto no trae nombre de proyecto: se propone el nombre
-                // del archivo como punto de partida, editable por el usuario en el Paso 1.
-                if (!$("nombreProyecto").value.trim()) {
-                    $("nombreProyecto").value = file.name.replace(/\.(xlsx|xls)$/i, '');
-                }
-                mostrarFormularioCompletarProyecto(`${mensajeResultado}. Complete los datos del proyecto para continuar.`);
-            } else {
-                // Abastible ve su vista interna con MOI/cuadre; el Contratista (importando
-                // su propio presupuesto) ve la vista limpia de Cotización, sin ese bloque.
-                if (perfilActivo === 'contratista') {
-                    contratistaSobreProyectoCargado = false;
-                    renderizarCotizacionContratista();
-                } else {
-                    renderizarNotaFinal();
-                }
-                mostrarSolo("paso3");
-                mostrarToast(mensajeResultado, libre > matched ? 'warn' : 'ok');
-            }
+            matchearPptoImportado(itemsPpto, filasResumen, file.name);
         } catch(err) {
             hideLoader();
             console.error('Error importando ppto:', err);
@@ -5065,6 +4955,235 @@ function importarPptoContratista(event) {
         }
     };
     reader.readAsArrayBuffer(file);
+}
+
+// Presupuesto contratista en PDF: la IA extrae los ítems (misma extracción
+// que la carga de DC en PDF) y luego pasan por el mismo matching que el Excel.
+async function importarPptoContratistaPdf(file) {
+    showLoader("Analizando PDF del presupuesto...");
+    try {
+        const base64 = await new Promise((res, rej) => {
+            const r = new FileReader();
+            r.onload = () => res(r.result.split(',')[1]);
+            r.onerror = () => rej(new Error('Error leyendo PDF'));
+            r.readAsDataURL(file);
+        });
+
+        const prompt = `Eres un experto en presupuestos de contratistas de instalaciones de gas.
+
+Analiza este PDF de presupuesto y extrae TODOS los ítems en formato JSON.
+
+REGLAS IMPORTANTES:
+1. Extrae cada ítem con su descripción exacta, cantidad, unidad y precio unitario neto (sin IVA)
+2. Si una fila solo trae precio total, el unitario es total / cantidad
+3. Los títulos de sección o partida (filas sin cantidad ni precio) NO son ítems: úsalos como "categoria" de los ítems que les siguen
+4. Las filas de GASTOS GENERALES y UTILIDAD no son ítems: repórtalas en "resumen" con su monto en pesos. NO incluyas SUBTOTAL, TOTAL ni IVA en "resumen"
+5. Cantidades y precios deben ser números, sin separadores de miles
+
+Responde ÚNICAMENTE con JSON válido, sin markdown, sin explicaciones:
+{
+  "proyecto": "nombre del proyecto u obra, sino omitir",
+  "cliente": "nombre del cliente, sino omitir",
+  "direccion": "dirección de la obra, sino omitir",
+  "ciudad": "ciudad de la obra, sino omitir",
+  "items": [
+    {
+      "descripcion": "descripción exacta del ítem",
+      "categoria": "partida o sección a la que pertenece, sino omitir",
+      "unidad": "unidad de medida",
+      "cantidad": número,
+      "precioUnitario": número
+    }
+  ],
+  "resumen": [ { "concepto": "GASTOS GENERALES 10%", "monto": número } ]
+}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 120000);
+        let response;
+        try {
+            response = await fetch('https://nota-venta-proxy.devece.workers.dev/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    model: 'claude-sonnet-4-6',
+                    max_tokens: 4000,
+                    messages: [{
+                        role: 'user',
+                        content: [
+                            {
+                                type: 'document',
+                                source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+                            },
+                            { type: 'text', text: prompt }
+                        ]
+                    }]
+                })
+            });
+        } catch (fetchErr) {
+            clearTimeout(timeoutId);
+            if (fetchErr.name === 'AbortError') throw new Error('Timeout: la extracción tardó más de 2 minutos. Intente con un PDF más pequeño.');
+            throw new Error(`Error de conexión: ${fetchErr.message}. Verifique su conexión a internet.`);
+        }
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+            const errBody = await response.text().catch(() => '');
+            throw new Error(`API error ${response.status}: ${errBody.substring(0, 200) || 'sin detalle'}`);
+        }
+        const data = await response.json();
+        const texto = data.content.map(c => c.text || '').join('');
+        const parsed = JSON.parse(texto.replace(/```json|```/g, '').trim());
+
+        const itemsPpto = (parsed.items || [])
+            .filter(i => i && i.descripcion && parseFloat(i.cantidad) > 0)
+            .map(i => ({
+                descripcion: String(i.descripcion).trim(),
+                cantidad: parseFloat(i.cantidad) || 0,
+                precio: Math.round(parseFloat(i.precioUnitario) || 0),
+                unidad: String(i.unidad || '').trim(),
+                categoriaOrigen: String(i.categoria || '').trim()
+            }));
+        const filasResumen = (parsed.resumen || [])
+            .map(r => Math.round(parseFloat(r && r.monto) || 0))
+            .filter(m => m > 0);
+
+        // Datos del proyecto extraídos del PDF: prellenan el Paso 1 si están vacíos
+        if (parsed.proyecto && !$("nombreProyecto").value.trim()) $("nombreProyecto").value = parsed.proyecto;
+        if (parsed.cliente && !$("nombreCliente").value.trim()) $("nombreCliente").value = parsed.cliente;
+        if (parsed.direccion && !$("direccion").value.trim()) $("direccion").value = parsed.direccion;
+        if (parsed.ciudad && !$("ciudad").value.trim()) $("ciudad").value = parsed.ciudad;
+
+        matchearPptoImportado(itemsPpto, filasResumen, file.name);
+    } catch (err) {
+        hideLoader();
+        console.error('Error importando ppto PDF:', err);
+        mostrarToast("Error procesando el PDF del presupuesto: " + err.message, "error");
+    }
+}
+
+// Matching compartido de "Convertir Ppto. Contratista": recibe los ítems ya
+// extraídos (del Excel o del PDF vía IA) y los vincula con la base Renova.
+function matchearPptoImportado(itemsPpto, filasResumen, nombreArchivo) {
+    aplicarFactorGGUtilidad(itemsPpto, filasResumen, 'precio', 'cantidad');
+
+    if (itemsPpto.length === 0) {
+        hideLoader();
+        mostrarToast("No se encontraron ítems en el presupuesto", "warn");
+        return;
+    }
+
+    // Matchear con base de datos
+    itemsNota = [];
+    let matchedCañeria = 0, matchedExacto = 0, matchedFuzzy = 0, libre = 0;
+
+    itemsPpto.forEach(pItem => {
+        const descUp = pItem.descripcion.toUpperCase();
+        const id = generarUUID();
+
+        // ── ETAPA 1: ¿Es una instalación de cañería? Solo entra a las categorías
+        // CAÑERIAS AP/MP/BP si la descripción habla de cañería/instalación Y trae
+        // diámetro. El match es por diámetro + presión, no por texto literal, porque
+        // cada contratista escribe la descripción a su manera.
+        const diametro = extraerDiametro(pItem.descripcion);
+        // "Red GLP BP", "M.O red de gas", etc. también son instalación de cañería
+        const hablaDeCañeria = /CA[ÑN]ER[IÍ]A|INSTALACI[OÓ]N|RED\s+(DE\s+)?(GAS|GLP?\b|BP|MP|AP)/.test(descUp);
+        if (hablaDeCañeria && diametro) {
+            const matchCañeria = buscarInstalacionCañeriaPorDiametro(descUp, pItem.categoriaOrigen, diametro);
+            if (matchCañeria) {
+                matchedCañeria++;
+                const precioRenova = obtenerPrecioBase(matchCañeria.prod, centroActivo);
+                const nuevoItem = {
+                    id,
+                    codigo: matchCañeria.prod.cod,
+                    descripcion: matchCañeria.prod.desc,
+                    categoria: matchCañeria.cat,
+                    unidad: matchCañeria.prod.um,
+                    diametro: matchCañeria.prod.diametro || diametro,
+                    cantidad: pItem.cantidad,
+                    precioBase: precioRenova,
+                    precioCTTA: precioRenova, // cañerías siempre a precio Renova (precio fijo)
+                    centro: centroActivo,
+                    tieneCotizacion: true,
+                    descripcionOriginalPpto: pItem.descripcion
+                };
+                itemsNota.push(nuevoItem);
+                const material = obtenerMaterialCañeria(nuevoItem);
+                if (material) itemsNota.push(material);
+                return;
+            }
+            // Habla de cañería pero no hay match por diámetro: ítem libre en
+            // SERVICIO CAÑERIAS (nunca en CAÑERIAS AP/MP/BP, que son de precio fijo
+            // y anularían el precio del contratista).
+            libre++;
+            itemsNota.push(crearItemLibrePpto(id, pItem, 'SERVICIO CAÑERIAS'));
+            return;
+        }
+
+        // ── ETAPA 2: match exacto (descripción normalizada idéntica) o difuso
+        // (similitud de palabras clave) contra productos Renova NO-cañería.
+        const catObjetivo = detectarCategoriaPpto(descUp, pItem.categoriaOrigen);
+        const match = buscarProductoRenovaFuzzy(pItem.descripcion, catObjetivo);
+        if (match) {
+            if (match.exacto) matchedExacto++; else matchedFuzzy++;
+            const precioRenova = obtenerPrecioBase(match.prod, centroActivo);
+            itemsNota.push({
+                id,
+                codigo: match.prod.cod,
+                descripcion: match.prod.desc,
+                categoria: match.cat,
+                unidad: match.prod.um,
+                diametro: match.prod.diametro || null,
+                cantidad: pItem.cantidad,
+                precioBase: precioRenova,
+                precioCTTA: pItem.precio || precioRenova,
+                centro: centroActivo,
+                tieneCotizacion: pItem.precio > 0,
+                matchFuzzy: !match.exacto,
+                matchScore: Math.round(match.score * 100),
+                descripcionOriginalPpto: pItem.descripcion
+            });
+            return;
+        }
+
+        // ── ETAPA 3: sin match → ítem libre con precioBase 0. Su valor completo
+        // queda como diferencia de la categoría (la absorbe el MOI al cuadrar).
+        libre++;
+        const catLibre = CATS_SIN_CTTA.includes(catObjetivo) ? 'SERVICIO CAÑERIAS' : catObjetivo;
+        itemsNota.push(crearItemLibrePpto(id, pItem, catLibre));
+    });
+
+    hideLoader();
+
+    const matched = matchedCañeria + matchedExacto + matchedFuzzy;
+    const detalleMatch = [];
+    if (matchedCañeria) detalleMatch.push(`${matchedCañeria} cañerías por diámetro`);
+    if (matchedExacto) detalleMatch.push(`${matchedExacto} exactos`);
+    if (matchedFuzzy) detalleMatch.push(`${matchedFuzzy} por similitud`);
+    const mensajeResultado = `Presupuesto importado: ${itemsPpto.length} ítems → ${matched} con Renova` +
+        (detalleMatch.length ? ` (${detalleMatch.join(' + ')})` : '') +
+        `, ${libre} sin match (quedan en $0 Renova y cuadran vía MOI)`;
+
+    if (requiereCompletarDatosProyecto()) {
+        // El presupuesto puede no traer nombre de proyecto: se propone el nombre
+        // del archivo como punto de partida, editable por el usuario en el Paso 1.
+        if (!$("nombreProyecto").value.trim()) {
+            $("nombreProyecto").value = nombreArchivo.replace(/\.(xlsx|xls|pdf)$/i, '');
+        }
+        mostrarFormularioCompletarProyecto(`${mensajeResultado}. Complete los datos del proyecto para continuar.`);
+    } else {
+        // Abastible ve su vista interna con MOI/cuadre; el Contratista (importando
+        // su propio presupuesto) ve la vista limpia de Cotización, sin ese bloque.
+        if (perfilActivo === 'contratista') {
+            contratistaSobreProyectoCargado = false;
+            renderizarCotizacionContratista();
+        } else {
+            renderizarNotaFinal();
+        }
+        mostrarSolo("paso3");
+        mostrarToast(mensajeResultado, libre > matched ? 'warn' : 'ok');
+    }
 }
 
 // Intenta detectar la categoría del ítem según su descripción o categoría de origen
